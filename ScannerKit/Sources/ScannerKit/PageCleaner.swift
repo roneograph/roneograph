@@ -19,6 +19,16 @@ public enum PageOrientation: String, Codable, Sendable, CaseIterable {
         case .left: .left
         }
     }
+
+    /// The orientation a quarter turn further.
+    public func turned(clockwise: Bool) -> PageOrientation {
+        switch self {
+        case .up: clockwise ? .right : .left
+        case .right: clockwise ? .down : .up
+        case .down: clockwise ? .left : .right
+        case .left: clockwise ? .up : .down
+        }
+    }
 }
 
 public struct CleanupSettings: Equatable, Codable, Sendable {

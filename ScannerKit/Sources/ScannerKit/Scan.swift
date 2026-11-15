@@ -24,9 +24,7 @@ public struct ScanPage: Identifiable, Equatable, Sendable, Codable {
 
     /// Turns the page a quarter turn.
     public mutating func rotate(clockwise: Bool) {
-        let order: [PageOrientation] = [.up, .right, .down, .left]
-        let index = order.firstIndex(of: analysis.orientation)!
-        analysis.orientation = order[(index + (clockwise ? 1 : 3)) % 4]
+        analysis.orientation = analysis.orientation.turned(clockwise: clockwise)
         revision += 1
     }
 }
