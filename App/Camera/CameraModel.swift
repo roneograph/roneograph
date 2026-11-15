@@ -1,107 +1,156 @@
 import AVFoundation
-import CoreImage
 import Foundation
 import Observation
 import ScannerKit
+import SwiftUI
 
 @MainActor @Observable
 final class CameraModel {
-    private(set) var detection: PageDetection?
-    private(set) var imageSize = CGSize(width: 3, height: 4)
-    private(set) var state: CaptureTrigger.State = .searching
-    private(set) var processing = 0
-    private(set) var captureCount = 0
-    private(set) var lastError: String?
-    var autoCapture = true
+    enum Hint: Equatable {
+        case pointAtPage, moveFarther, moveCloser, moreLight, cleanLens, holdStill, tapToCapture, added(Int)
 
-    let session: SpikeSession
-    let exporter: PDFExporter
-    private let camera: CameraService
-    private let processor: PageProcessor
-    private var trigger = CaptureTrigger()
-    private var lastSignature: PageSignature?
+        var text: String {
+            switch self {
+            case .pointAtPage: "Point at a page"
+            case .moveFarther: "Move farther away"
+            case .moveCloser: "Move closer"
+            case .moreLight: "More light"
+            case .cleanLens: "Clean the lens"
+            case .holdStill: "Hold still"
+            case .tapToCapture: "Tap to capture"
+            case .added(let page): "Page \(page) added · next page"
+            }
+        }
 
-    init(session: SpikeSession, camera: CameraService, processor: PageProcessor, exporter: PDFExporter) {
-        self.session = session
-        self.exporter = exporter
-        self.camera = camera
-        self.processor = processor
-        camera.onFrame = { [weak self] frame in
-            Task { @MainActor in self?.handle(frame) }
+        var systemImage: String? {
+            switch self {
+            case .moveFarther: "arrow.up.left.and.arrow.down.right"
+            case .moveCloser: "arrow.down.right.and.arrow.up.left"
+            case .moreLight: "sun.max"
+            case .cleanLens: "hand.wave"
+            case .added: "checkmark.circle.fill"
+            default: nil
+            }
         }
     }
 
-    var captureSession: AVCaptureSessionBox { AVCaptureSessionBox(session: camera.session) }
+    enum Access {
+        case unknown, granted, denied
+    }
 
-    var hint: String {
-        switch state {
-        case .searching: "Point at a page"
-        case .pageCutOff: "Move farther away"
-        case .steadying: autoCapture ? "Hold still" : "Tap to capture"
-        case .capture: "Capturing"
-        case .waitingForNextPage: "Page \(captureCount) added · next page"
+    private(set) var detection: PageDetection?
+    private(set) var imageSize = CGSize(width: 3, height: 4)
+    private(set) var state: CaptureTrigger.State = .searching
+    private(set) var lowLight = false
+    private(set) var smudged = false
+    /// Bumped on each capture, for the flash and the haptic.
+    private(set) var captures = 0
+    /// Bumped when a page gets locked, for the haptic.
+    private(set) var locks = 0
+    private(set) var access = Access.unknown
+    private var pendingPhotos = 0
+    var flash = FlashMode.off
+
+    private let service: CameraService
+    private let settings: SettingsStore
+    private var trigger = CaptureTrigger()
+    private var signature: PageSignature?
+    private weak var scan: ScanModel?
+
+    init(service: CameraService, settings: SettingsStore) {
+        self.service = service
+        self.settings = settings
+        service.onFrame = { [weak self] frame in
+            Task { @MainActor in self?.handle(frame) }
         }
+        service.onSmudge = { [weak self] confidence in
+            Task { @MainActor in self?.smudged = confidence >= 0.9 }
+        }
+    }
+
+    var session: AVCaptureSession { service.session }
+
+    var autoCapture: Bool {
+        get { settings.value.autoCapture }
+        set { settings.value.autoCapture = newValue }
+    }
+
+    var hint: Hint {
+        switch state {
+        case .pageCutOff: return .moveFarther
+        case .pageTooSmall: return .moveCloser
+        case .waitingForNextPage: return .added(pageCount)
+        case .searching, .steadying, .capture:
+            if smudged { return .cleanLens }
+            if lowLight, detection == nil { return .moreLight }
+            if detection == nil { return .pointAtPage }
+            return autoCapture ? .holdStill : .tapToCapture
+        }
+    }
+
+    /// Pages of the scan, including those still being taken or processed.
+    var pageCount: Int {
+        (scan?.scan.pages.count ?? 0) + (scan?.processing ?? 0) + pendingPhotos
     }
 
     var progress: Double {
         if case .steadying(let progress) = state, autoCapture { progress } else { 0 }
     }
 
-    func start() { camera.start() }
-    func stop() { camera.stop() }
-
-    func shutter() {
-        trigger.didCapture(quad: detection?.quad, signature: lastSignature)
-        capture(automatic: false)
+    func start(scan: ScanModel) async {
+        self.scan = scan
+        trigger.reset()
+        state = .searching
+        if !CameraService.isAuthorized {
+            access = await CameraService.requestAccess() ? .granted : .denied
+        } else {
+            access = .granted
+        }
+        if access == .granted { service.start() }
     }
 
-    func newSession() {
-        session.reset()
+    func stop() {
+        service.stop()
+    }
+
+    func shutter() {
+        trigger.didCapture(quad: detection?.quad, signature: signature)
+        capture()
+    }
+
+    /// The last page was wrong: forget it and capture the page in view again.
+    func retake() {
         trigger.reset()
-        captureCount = 0
     }
 
     private func handle(_ frame: LiveFrame) {
+        let wasLocked = detection != nil
         detection = frame.detection
         imageSize = frame.imageSize
-        lastSignature = frame.signature
-        session.liveStats.frames += 1
-        session.liveStats.framesWithPage += frame.detection == nil ? 0 : 1
-        session.liveStats.totalDetectionDuration += frame.detectionDuration
+        signature = frame.signature
+        lowLight = frame.lowLight
+        if !wasLocked, frame.detection != nil { locks += 1 }
 
-        guard autoCapture else {
-            state = frame.detection == nil ? .searching : .steadying(progress: 0)
-            return
-        }
+        trigger.configuration.stableDuration = autoCapture ? CaptureTrigger.Configuration().stableDuration : .infinity
         state = trigger.update(quad: frame.detection?.quad, signature: frame.signature, at: frame.time)
         if case .capture = state {
-            capture(automatic: true)
+            capture()
         }
     }
 
-    private func capture(automatic: Bool) {
-        let live = detection
-        let number = session.nextNumber + processing
-        let directory = session.directory
-        let camera = camera, processor = processor
-        captureCount += 1
-        processing += 1
+    private func capture() {
+        guard let scan else { return }
+        let quad = detection?.quad
+        let flash = flash
+        captures += 1
+        pendingPhotos += 1
         Task {
-            defer { processing -= 1 }
+            defer { pendingPhotos -= 1 }
             do {
-                let photo = try await camera.capturePhoto()
-                let page = try await Task.detached(priority: .userInitiated) {
-                    try processor.process(photo, number: number, automatic: automatic, liveDetection: live, directory: directory)
-                }.value
-                if directory == session.directory { session.add(page) }
+                scan.addPhoto(try await service.capturePhoto(flash: flash), liveQuad: quad)
             } catch {
-                lastError = "\(error)"
+                trigger.reset()
             }
         }
     }
-}
-
-/// Lets the non-Sendable session cross into the preview view.
-struct AVCaptureSessionBox: @unchecked Sendable {
-    let session: AVCaptureSession
 }

@@ -37,18 +37,32 @@ final class ScanStoreTests {
         }
         store.deleteScans(olderThan: Date(timeIntervalSinceNow: -7 * 86400))
         #expect(store.all().map(\.name) == ["Recent"])
-        #expect(!FileManager.default.fileExists(atPath: store.pdfURL(of: old).path()))
-        #expect(FileManager.default.fileExists(atPath: store.pdfURL(of: recent).path()))
+        #expect(!FileManager.default.fileExists(atPath: store.pdfURL(of: old).path(percentEncoded: false)))
+        #expect(FileManager.default.fileExists(atPath: store.pdfURL(of: recent).path(percentEncoded: false)))
     }
 
     @Test func picksAnAvailableName() throws {
         try store.save(Scan(name: "Invoice"))
         try Data().write(to: root.appending(path: "Documents/Receipt.pdf"))
+        try Data().write(to: root.appending(path: "Documents/Lumen invoice.pdf"))
         let scan = Scan(name: "Scan")
+        #expect(store.availableName("Lumen invoice", for: scan) == "Lumen invoice 2")
         #expect(store.availableName("Invoice", for: scan) == "Invoice 2")
         #expect(store.availableName("invoice", for: scan) == "invoice 2")
         #expect(store.availableName("Receipt", for: scan) == "Receipt 2")
         #expect(store.availableName("Letter", for: scan) == "Letter")
+    }
+
+    @Test func handlesNamesAndFoldersWithSpaces() throws {
+        let store = ScanStore(scansDirectory: root.appending(path: "Application Support/Scans"), documentsDirectory: root.appending(path: "Documents"))
+        var scan = Scan(name: "Lumen invoice")
+        try store.save(scan)
+        try Data("%PDF".utf8).write(to: store.pdfURL(of: scan))
+        #expect(store.availableName("Lumen invoice", for: Scan(name: "Other")) == "Lumen invoice 2")
+        scan.name = "Lumen invoice November"
+        store.movePDF(from: "Lumen invoice", to: scan)
+        #expect(FileManager.default.fileExists(atPath: store.pdfURL(of: scan).path(percentEncoded: false)))
+        #expect(store.all().count == 1)
     }
 
     @Test func keepsItsOwnName() throws {
@@ -63,8 +77,8 @@ final class ScanStoreTests {
         try Data("%PDF".utf8).write(to: store.pdfURL(of: scan))
         scan.name = "Invoice"
         store.movePDF(from: "Scan", to: scan)
-        #expect(FileManager.default.fileExists(atPath: store.pdfURL(of: scan).path()))
-        #expect(!FileManager.default.fileExists(atPath: root.appending(path: "Documents/Scan.pdf").path()))
+        #expect(FileManager.default.fileExists(atPath: store.pdfURL(of: scan).path(percentEncoded: false)))
+        #expect(!FileManager.default.fileExists(atPath: root.appending(path: "Documents/Scan.pdf").path(percentEncoded: false)))
     }
 
     @Test func processesAPhotoIntoAPageAndAPDF() throws {
@@ -77,7 +91,7 @@ final class ScanStoreTests {
         let page = try processor.addPage(photo: photo, liveQuad: nil, scanID: scan.id, look: nil)
         #expect(try #require(page.quad).maxCornerDistance(to: quad) < 0.02)
         for url in [store.photoURL(scanID: scan.id, pageID: page.id), store.flatURL(scanID: scan.id, pageID: page.id), store.previewURL(scanID: scan.id, pageID: page.id)] {
-            #expect(FileManager.default.fileExists(atPath: url.path()))
+            #expect(FileManager.default.fileExists(atPath: url.path(percentEncoded: false)))
         }
 
         scan.pages = [page, page]

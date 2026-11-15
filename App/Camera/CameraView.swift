@@ -1,103 +1,197 @@
 import AVFoundation
+import AVKit
 import ScannerKit
 import SwiftUI
 
 struct CameraView: View {
-    @Bindable var model: CameraModel
-    @State private var showingResults = false
-    @State private var flash = false
+    let camera: CameraModel
+    let app: AppModel
+    @State private var flashOverlay = false
+    @State private var showingSettings = false
+    @State private var showingLastPage = false
+
+    private var scan: ScanModel { app.scan }
 
     var body: some View {
         ZStack {
-            PreviewView(session: model.captureSession).ignoresSafeArea()
-            QuadOverlay(detection: model.detection, imageSize: model.imageSize, state: model.state).ignoresSafeArea()
-            Color.white.opacity(flash ? 0.7 : 0).ignoresSafeArea().allowsHitTesting(false)
-
-            VStack(spacing: 12) {
-                topBar
-                Text(model.hint)
-                    .font(.subheadline.weight(.semibold))
-                    .padding(.horizontal, 14).padding(.vertical, 7)
-                    .background(isWaiting ? AnyShapeStyle(.green.opacity(0.85)) : AnyShapeStyle(.black.opacity(0.55)), in: Capsule())
-                    .foregroundStyle(.white)
-                Spacer()
-                bottomBar
+            Color.black.ignoresSafeArea()
+            if camera.access == .denied {
+                deniedView
+            } else {
+                PreviewView(session: camera.session).ignoresSafeArea()
+                QuadOverlay(detection: camera.detection, imageSize: camera.imageSize, state: camera.state).ignoresSafeArea()
+                Color.white.opacity(flashOverlay ? 0.7 : 0).ignoresSafeArea().allowsHitTesting(false)
+                VStack(spacing: 12) {
+                    topBar
+                    hint
+                    Spacer()
+                    bottomBar
+                }
+                .padding()
             }
-            .padding()
         }
-        .background(.black)
-        .onAppear { model.start() }
-        .onChange(of: model.captureCount) {
-            withAnimation(.easeOut(duration: 0.08)) { flash = true }
-            withAnimation(.easeIn(duration: 0.3).delay(0.08)) { flash = false }
+        .preferredColorScheme(.dark)
+        .statusBarHidden()
+        .task(id: scan.scan.id) { await camera.start(scan: scan) }
+        .onDisappear { camera.stop() }
+        .onChange(of: camera.captures) {
+            withAnimation(.easeOut(duration: 0.08)) { flashOverlay = true }
+            withAnimation(.easeIn(duration: 0.3).delay(0.08)) { flashOverlay = false }
         }
-        .sensoryFeedback(.impact, trigger: model.captureCount)
-        .sheet(isPresented: $showingResults, onDismiss: { model.start() }) {
-            ResultsView(model: model)
+        .onChange(of: camera.hint) { _, hint in
+            AccessibilityNotification.Announcement(hint.text).post()
+        }
+        .sensoryFeedback(.impact, trigger: camera.captures)
+        .sensoryFeedback(.selection, trigger: camera.locks)
+        .onCameraCaptureEvent { event in
+            if event.phase == .ended { camera.shutter() }
+        }
+        .sheet(isPresented: $showingSettings) {
+            SettingsView(settings: app.settings)
+        }
+        .sheet(isPresented: $showingLastPage) {
+            LastPageView(scan: scan) { retake in
+                if retake { camera.retake() }
+            }
+            .presentationDetents([.large])
         }
     }
-
-    private var isWaiting: Bool { model.state == .waitingForNextPage }
 
     private var topBar: some View {
         HStack {
-            Text(stats)
-                .font(.caption2.monospaced())
-                .foregroundStyle(.white.opacity(0.85))
-                .padding(6)
-                .background(.black.opacity(0.4), in: RoundedRectangle(cornerRadius: 8))
-            Spacer()
-            Button(model.autoCapture ? "Auto" : "Manual") { model.autoCapture.toggle() }
+            Button("Settings", systemImage: "gearshape") { showingSettings = true }
+                .labelStyle(.iconOnly)
                 .buttonStyle(.glass)
+                .buttonBorderShape(.circle)
+            Spacer()
+            Button("Flash", systemImage: camera.flash.systemImage) { camera.flash = camera.flash.next }
+                .labelStyle(.iconOnly)
+                .buttonStyle(.glass)
+                .buttonBorderShape(.circle)
+                .accessibilityValue(String(describing: camera.flash))
+            Button(camera.autoCapture ? "Auto" : "Manual") { camera.autoCapture.toggle() }
+                .buttonStyle(.glass)
+                .fontWeight(.semibold)
         }
+        .controlSize(.large)
     }
 
-    private var stats: String {
-        let live = model.session.liveStats
-        let detector = model.detection.map { "\($0.detector == .documentSegmentation ? "seg" : "rect") \(String(format: "%.2f", $0.confidence))" } ?? "none"
-        return String(format: "%.0f ms · %@", live.averageDetectionMilliseconds, detector)
+    private var hint: some View {
+        Label {
+            Text(camera.hint.text)
+        } icon: {
+            if let image = camera.hint.systemImage { Image(systemName: image) }
+        }
+        .font(.subheadline.weight(.semibold))
+        .padding(.horizontal, 14).padding(.vertical, 7)
+        .background(camera.hint == .holdStill ? AnyShapeStyle(.blue.opacity(0.9)) : AnyShapeStyle(.black.opacity(0.6)), in: Capsule())
+        .foregroundStyle(.white)
+        .animation(.default, value: camera.hint)
     }
 
     private var bottomBar: some View {
         HStack {
             Button {
-                model.stop()
-                showingResults = true
+                showingLastPage = true
             } label: {
-                ZStack(alignment: .topTrailing) {
-                    if let page = model.session.pages.last, let image = UIImage(contentsOfFile: page.cleanURL.path()) {
-                        Image(uiImage: image).resizable().scaledToFill().frame(width: 48, height: 60).clipShape(RoundedRectangle(cornerRadius: 6))
-                    } else {
-                        RoundedRectangle(cornerRadius: 6).fill(.white.opacity(0.15)).frame(width: 48, height: 60)
-                    }
-                    if model.processing > 0 {
-                        ProgressView().tint(.white).frame(width: 48, height: 60)
-                    }
-                    Text("\(model.session.pages.count)")
-                        .font(.caption.bold()).foregroundStyle(.white)
-                        .frame(minWidth: 22, minHeight: 22).background(.blue, in: Circle())
-                        .offset(x: 8, y: -8)
-                }
+                PageStack(scan: scan, count: camera.pageCount)
             }
+            .disabled(scan.scan.pages.isEmpty)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityLabel("\(camera.pageCount) pages")
 
-            Button(action: model.shutter) {
+            Button(action: camera.shutter) {
                 ZStack {
                     Circle().stroke(.white.opacity(0.4), lineWidth: 4)
-                    Circle().trim(from: 0, to: model.progress).stroke(.blue, style: StrokeStyle(lineWidth: 4, lineCap: .round)).rotationEffect(.degrees(-90))
+                    Circle().trim(from: 0, to: camera.progress).stroke(.blue, style: StrokeStyle(lineWidth: 4, lineCap: .round)).rotationEffect(.degrees(-90))
                     Circle().fill(.white).padding(8)
                 }
                 .frame(width: 72, height: 72)
             }
+            .accessibilityLabel("Capture")
 
-            Button("Done") {
-                model.stop()
-                showingResults = true
+            Button("Done") { app.finishCapture() }
+                .buttonStyle(.glassProminent)
+                .controlSize(.large)
+                .fontWeight(.semibold)
+                .disabled(camera.pageCount == 0)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+        }
+    }
+
+    private var deniedView: some View {
+        ContentUnavailableView {
+            Label("Camera access is off", systemImage: "camera")
+        } description: {
+            Text("PDF Scanner needs the camera to scan pages.")
+        } actions: {
+            Button("Open Settings") {
+                if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
             }
             .buttonStyle(.glassProminent)
-            .disabled(model.session.pages.isEmpty)
-            .frame(maxWidth: .infinity, alignment: .trailing)
         }
+    }
+}
+
+private struct PageStack: View {
+    let scan: ScanModel
+    let count: Int
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            if let page = scan.scan.pages.last {
+                PageImage(url: scan.previewURL(of: page), revision: page.revision)
+                    .frame(width: 48, height: 60)
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+            } else {
+                RoundedRectangle(cornerRadius: 4).fill(.white.opacity(count > 0 ? 0.3 : 0.12)).frame(width: 48, height: 60)
+            }
+            if scan.processing > 0 {
+                ProgressView().tint(.white).frame(width: 48, height: 60)
+            }
+            if count > 0 {
+                Text("\(count)")
+                    .font(.caption.bold()).foregroundStyle(.white)
+                    .frame(minWidth: 22, minHeight: 22).background(.blue, in: Circle())
+                    .offset(x: 8, y: -8)
+            }
+        }
+    }
+}
+
+/// The last page captured, to keep it, take it again or delete it.
+private struct LastPageView: View {
+    let scan: ScanModel
+    let done: (_ retake: Bool) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if let page = scan.scan.pages.last {
+                    PageImage(url: scan.previewURL(of: page), revision: page.revision)
+                        .padding()
+                }
+            }
+            .navigationTitle("Page \(scan.scan.pages.count)")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Keep") { dismiss() }
+                }
+                ToolbarItemGroup(placement: .bottomBar) {
+                    Button("Delete", systemImage: "trash", role: .destructive) { remove(retake: false) }
+                    Spacer()
+                    Button("Retake", systemImage: "camera") { remove(retake: true) }
+                }
+            }
+        }
+    }
+
+    private func remove(retake: Bool) {
+        if let page = scan.scan.pages.last { scan.deletePage(page.id) }
+        done(retake)
+        dismiss()
     }
 }
 
@@ -116,7 +210,7 @@ struct QuadOverlay: View {
             switch state {
             case .waitingForNextPage:
                 context.stroke(path, with: .color(.white.opacity(0.85)), style: StrokeStyle(lineWidth: 2.5, dash: [8, 7]))
-            case .pageCutOff:
+            case .pageCutOff, .pageTooSmall:
                 context.stroke(path, with: .color(.orange), style: StrokeStyle(lineWidth: 3, lineJoin: .round))
             default:
                 context.fill(path, with: .color(.blue.opacity(0.2)))
@@ -129,11 +223,11 @@ struct QuadOverlay: View {
 }
 
 struct PreviewView: UIViewRepresentable {
-    let session: AVCaptureSessionBox
+    let session: AVCaptureSession
 
     func makeUIView(context: Context) -> PreviewUIView {
         let view = PreviewUIView()
-        view.previewLayer.session = session.session
+        view.previewLayer.session = session
         view.previewLayer.videoGravity = .resizeAspect
         return view
     }

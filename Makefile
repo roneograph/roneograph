@@ -7,9 +7,9 @@ IPHONE ?=
 PROJECT := PDFScanner.xcodeproj
 DEVICE_BUILD := build/device
 APP_BUILD := build/app
-SPIKE_DIR ?= build/spike
+SCANS_DIR ?= build/scans
 
-.PHONY: test test-kit test-app project install spike-pull
+.PHONY: test test-kit test-app project install scans-pull
 
 test: test-kit test-app
 
@@ -26,5 +26,5 @@ test-app: project
 install: project
 	sh tools/ios-install.sh $(PROJECT) $(DEVICE_BUILD) "$(IPHONE)"
 
-spike-pull:
-	sh tools/spike-pull.sh "$(PDFSCANNER_BUNDLE_ID)" "$(SPIKE_DIR)" "$(IPHONE)"
+scans-pull:
+	sh tools/scans-pull.sh "$(PDFSCANNER_BUNDLE_ID)" "$(SCANS_DIR)" "$(IPHONE)"

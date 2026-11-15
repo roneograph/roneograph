@@ -36,7 +36,7 @@ public struct CaptureTrigger: Sendable {
         case waitingForNextPage
     }
 
-    public let configuration: Configuration
+    public var configuration: Configuration
     private var anchor: (quad: Quad, since: TimeInterval)?
     private var lastSeen: TimeInterval?
     private var captured: (quad: Quad?, signature: PageSignature?)?

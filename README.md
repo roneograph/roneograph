@@ -2,8 +2,6 @@
 
 A free, open source document scanner for iPhone: point the camera at a page, it is captured and cleaned up, and a small PDF is ready to send. No ads, no account, no tracking.
 
-Work in progress: the app is currently a camera spike, comparing our own page detection and auto capture with Apple's scanner.
-
 ## Requirements
 
 - Xcode 26 and [XcodeGen](https://github.com/yonaskolb/XcodeGen)
@@ -21,7 +19,11 @@ Then:
 
 - `make test`: runs the ScannerKit tests on the Mac and builds the app
 - `make install`: builds and installs the app on the first paired iPhone (`IPHONE=<name>` to pick one)
-- `make spike-pull`: copies the spike sessions from the iPhone to `build/spike`
+- `make scans-pull`: copies the scans from the iPhone to `build/scans`, to tune the page cleanup on real pages
+
+The simulator has no camera: in Debug builds, set `PDFSCANNER_SAMPLE_PHOTOS` to a folder of photos to scan them on launch. Page detection is less reliable in the simulator than on a device.
+
+`ScannerKit/` holds the scanning logic and its tests; `page-cleanup` (`swift run -c release page-cleanup <output> <images...>` in `ScannerKit/`) runs the cleanup and the PDF writer on any images.
 
 ## License
 

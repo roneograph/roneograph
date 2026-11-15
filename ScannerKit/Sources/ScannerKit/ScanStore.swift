@@ -63,7 +63,7 @@ public struct ScanStore: Sendable {
         let taken = Set(all().filter { $0.id != scan.id }.map { $0.name.lowercased() })
         var candidate = name
         var counter = 2
-        while taken.contains(candidate.lowercased()) || (candidate != scan.name && FileManager.default.fileExists(atPath: documentsDirectory.appending(path: "\(candidate).pdf").path())) {
+        while taken.contains(candidate.lowercased()) || (candidate != scan.name && FileManager.default.fileExists(atPath: documentsDirectory.appending(path: "\(candidate).pdf").path(percentEncoded: false))) {
             candidate = "\(name) \(counter)"
             counter += 1
         }
@@ -73,7 +73,7 @@ public struct ScanStore: Sendable {
     /// Moves the PDF along with a renamed scan.
     public func movePDF(from oldName: String, to scan: Scan) {
         let old = documentsDirectory.appending(path: "\(oldName).pdf")
-        guard oldName != scan.name, FileManager.default.fileExists(atPath: old.path()) else { return }
+        guard oldName != scan.name, FileManager.default.fileExists(atPath: old.path(percentEncoded: false)) else { return }
         try? FileManager.default.removeItem(at: pdfURL(of: scan))
         try? FileManager.default.moveItem(at: old, to: pdfURL(of: scan))
     }

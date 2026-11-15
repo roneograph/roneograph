@@ -1,6 +1,7 @@
 @preconcurrency import AVFoundation
 import CoreImage
 import ScannerKit
+import Vision
 
 /// What the live detection saw in one camera frame.
 struct LiveFrame: Sendable {
@@ -9,20 +10,43 @@ struct LiveFrame: Sendable {
     /// Size of the frame once upright.
     let imageSize: CGSize
     let time: TimeInterval
-    let detectionDuration: TimeInterval
-}
-
-struct CapturedPhoto: Sendable {
-    let data: Data
-    let latency: TimeInterval
+    /// The camera is near its highest sensitivity: the scene is dark.
+    let lowLight: Bool
 }
 
 enum CameraError: Error {
-    case unavailable
     case noPhotoData
 }
 
-/// Owns the capture session: runs page detection on the video frames and takes full resolution photos.
+enum FlashMode: CaseIterable {
+    case off, auto, on
+
+    var next: FlashMode {
+        switch self {
+        case .off: .auto
+        case .auto: .on
+        case .on: .off
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .off: "bolt.slash"
+        case .auto: "bolt.badge.automatic"
+        case .on: "bolt.fill"
+        }
+    }
+
+    var avFlashMode: AVCaptureDevice.FlashMode {
+        switch self {
+        case .off: .off
+        case .auto: .auto
+        case .on: .on
+        }
+    }
+}
+
+/// Owns the capture session: runs page detection on the video frames, checks the lens now and then, and takes full resolution photos.
 final class CameraService: NSObject, @unchecked Sendable {
     let session = AVCaptureSession()
     private let sessionQueue = DispatchQueue(label: "camera.session")
@@ -31,15 +55,26 @@ final class CameraService: NSObject, @unchecked Sendable {
     private let photoOutput = AVCapturePhotoOutput()
     private let extractor: PageExtractor
     private let minimumFrameInterval: TimeInterval
+    private let smudgeInterval: TimeInterval = 3
     private var lastFrameTime: TimeInterval = 0
+    private var lastSmudgeCheck: TimeInterval = 0
+    private var device: AVCaptureDevice?
     private var inFlight: [Int64: PhotoDelegate] = [:]
     private var configured = false
 
     var onFrame: (@Sendable (LiveFrame) -> Void)?
+    /// Called with the probability that the lens is smudged.
+    var onSmudge: (@Sendable (Float) -> Void)?
 
     init(extractor: PageExtractor, framesPerSecond: Double = 12) {
         self.extractor = extractor
         self.minimumFrameInterval = 1 / framesPerSecond
+    }
+
+    static var isAuthorized: Bool { AVCaptureDevice.authorizationStatus(for: .video) == .authorized }
+
+    static func requestAccess() async -> Bool {
+        await AVCaptureDevice.requestAccess(for: .video)
     }
 
     func start() {
@@ -58,14 +93,17 @@ final class CameraService: NSObject, @unchecked Sendable {
         }
     }
 
-    func capturePhoto() async throws -> CapturedPhoto {
+    func capturePhoto(flash: FlashMode) async throws -> Data {
         try await withCheckedThrowingContinuation { continuation in
             sessionQueue.async { [self] in
                 let settings = AVCapturePhotoSettings(format: [AVVideoCodecKey: AVVideoCodecType.jpeg])
                 settings.maxPhotoDimensions = photoOutput.maxPhotoDimensions
                 settings.photoQualityPrioritization = .balanced
+                if photoOutput.supportedFlashModes.contains(flash.avFlashMode) {
+                    settings.flashMode = flash.avFlashMode
+                }
                 let id = settings.uniqueID
-                let delegate = PhotoDelegate(started: CACurrentMediaTime()) { [self] result in
+                let delegate = PhotoDelegate { [self] result in
                     sessionQueue.async { self.inFlight[id] = nil }
                     continuation.resume(with: result)
                 }
@@ -83,6 +121,7 @@ final class CameraService: NSObject, @unchecked Sendable {
         guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
               let input = try? AVCaptureDeviceInput(device: device), session.canAddInput(input) else { return }
         session.addInput(input)
+        self.device = device
 
         if (try? device.lockForConfiguration()) != nil {
             if device.isFocusModeSupported(.continuousAutoFocus) { device.focusMode = .continuousAutoFocus }
@@ -114,22 +153,33 @@ extension CameraService: AVCaptureVideoDataOutputSampleBufferDelegate {
         guard time - lastFrameTime >= minimumFrameInterval, let buffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         lastFrameTime = time
 
-        let started = CACurrentMediaTime()
         // Frames come in the sensor's landscape orientation; .right makes them portrait.
         let detection = extractor.detect(in: buffer, orientation: .right)
         let image = CIImage(cvPixelBuffer: buffer).oriented(.right)
         let signature = detection.flatMap { extractor.signature(of: image, quad: $0.quad) }
-        let frame = LiveFrame(detection: detection, signature: signature, imageSize: image.extent.size, time: time, detectionDuration: CACurrentMediaTime() - started)
-        onFrame?(frame)
+        let lowLight = device.map { $0.iso >= $0.activeFormat.maxISO * 0.7 } ?? false
+        onFrame?(LiveFrame(detection: detection, signature: signature, imageSize: image.extent.size, time: time, lowLight: lowLight))
+
+        if time - lastSmudgeCheck >= smudgeInterval, let onSmudge {
+            lastSmudgeCheck = time
+            let frame = FrameBox(buffer: buffer)
+            Task.detached(priority: .utility) {
+                if let observation = try? await DetectLensSmudgeRequest().perform(on: frame.buffer, orientation: .right) {
+                    onSmudge(observation.confidence)
+                }
+            }
+        }
     }
 }
 
-private final class PhotoDelegate: NSObject, AVCapturePhotoCaptureDelegate, @unchecked Sendable {
-    private let started: TimeInterval
-    private let completion: (Result<CapturedPhoto, Error>) -> Void
+private struct FrameBox: @unchecked Sendable {
+    let buffer: CVPixelBuffer
+}
 
-    init(started: TimeInterval, completion: @escaping (Result<CapturedPhoto, Error>) -> Void) {
-        self.started = started
+private final class PhotoDelegate: NSObject, AVCapturePhotoCaptureDelegate, @unchecked Sendable {
+    private let completion: (Result<Data, Error>) -> Void
+
+    init(completion: @escaping (Result<Data, Error>) -> Void) {
         self.completion = completion
     }
 
@@ -137,7 +187,7 @@ private final class PhotoDelegate: NSObject, AVCapturePhotoCaptureDelegate, @unc
         if let error {
             completion(.failure(error))
         } else if let data = photo.fileDataRepresentation() {
-            completion(.success(CapturedPhoto(data: data, latency: CACurrentMediaTime() - started)))
+            completion(.success(data))
         } else {
             completion(.failure(CameraError.noPhotoData))
         }
