@@ -1,5 +1,6 @@
 import CoreImage
 import ScannerKit
+import ScannerModels
 import SwiftUI
 
 @main

@@ -3,6 +3,7 @@ import CoreImage
 import CoreText
 import ImageIO
 import ScannerKit
+import ScannerKitTesting
 import Testing
 
 @Suite(.serialized)
@@ -94,73 +95,5 @@ struct PageCleanerTests {
         var pixel = [UInt8](repeating: 0, count: 4)
         context.render(image, toBitmap: &pixel, rowBytes: 4, bounds: CGRect(x: x.rounded(.down), y: y.rounded(.down) - 1, width: 1, height: 1), format: .RGBA8, colorSpace: CGColorSpace(name: CGColorSpace.sRGB))
         return (Double(pixel[0]) / 255, Double(pixel[1]) / 255, Double(pixel[2]) / 255)
-    }
-}
-
-/// An A4 page at about 100 dpi with real text, optionally with a stamp, a shaded header, a picture, a shadow or a rotation.
-struct SyntheticPage {
-    static let size = CGSize(width: 840, height: 1188)
-    static let blockCenter = CGPoint(x: 0.5, y: 0.93)
-
-    var paper: (CGFloat, CGFloat, CGFloat) = (0.95, 0.95, 0.93)
-    var stamp = false
-    var shadedHeader = false
-    var picture = false
-    var shadow = false
-    /// A shadow with sharp edges across the blank top margin, like a hand or a phone.
-    var handShadow = false
-    var rotation: Double = 0
-
-    func render() -> CIImage {
-        let size = Self.size
-        let context = CGContext(data: nil, width: Int(size.width), height: Int(size.height), bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)!
-        context.setFillColor(red: paper.0, green: paper.1, blue: paper.2, alpha: 1)
-        context.fill(CGRect(origin: .zero, size: size))
-
-        context.saveGState()
-        context.translateBy(x: size.width / 2, y: size.height / 2)
-        context.rotate(by: rotation * .pi / 180)
-        context.translateBy(x: -size.width / 2, y: -size.height / 2)
-
-        let words = "The quick brown fox jumps over the lazy dog while the invoice waits for payment".split(separator: " ")
-        let font = CTFontCreateWithName("Helvetica" as CFString, 17, nil)
-        for line in 0..<30 {
-            let start = line * 3 % words.count
-            let text = (0..<9).map { String(words[(start + $0) % words.count]) }.joined(separator: " ")
-            let attributed = NSAttributedString(string: text, attributes: [NSAttributedString.Key(kCTFontAttributeName as String): font, NSAttributedString.Key(kCTForegroundColorAttributeName as String): CGColor(gray: 0.08, alpha: 1)])
-            context.textPosition = CGPoint(x: 70, y: size.height - 140 - CGFloat(line) * 30)
-            CTLineDraw(CTLineCreateWithAttributedString(attributed), context)
-        }
-        context.setFillColor(gray: 0.05, alpha: 1)
-        context.fill(CGRect(x: 380, y: 60, width: 80, height: 40))
-        if shadedHeader {
-            context.setFillColor(gray: 0.7, alpha: 1)
-            context.fill(CGRect(x: 70, y: size.height - 110, width: 700, height: 28))
-        }
-        if stamp {
-            context.setStrokeColor(red: 0.85, green: 0.15, blue: 0.2, alpha: 1)
-            context.setLineWidth(5)
-            context.stroke(CGRect(x: 520, y: 120, width: 220, height: 90))
-        }
-        if picture {
-            context.setFillColor(red: 0.2, green: 0.3, blue: 0.25, alpha: 1)
-            context.fill(CGRect(x: 120, y: 320, width: 600, height: 420))
-        }
-        context.restoreGState()
-
-        var image = CIImage(cgImage: context.makeImage()!)
-        if shadow {
-            let gradient = CIFilter(name: "CILinearGradient", parameters: [
-                "inputPoint0": CIVector(x: 0, y: 0), "inputPoint1": CIVector(x: size.width, y: size.height * 0.4),
-                "inputColor0": CIColor(red: 0.45, green: 0.45, blue: 0.45), "inputColor1": CIColor(red: 1, green: 1, blue: 1),
-            ])!.outputImage!.cropped(to: image.extent)
-            image = image.applyingFilter("CIMultiplyCompositing", parameters: [kCIInputBackgroundImageKey: gradient])
-        }
-        if handShadow {
-            let band = CIImage(color: CIColor(red: 0.62, green: 0.6, blue: 0.58)).cropped(to: CGRect(x: size.width * 0.42, y: 0, width: size.width * 0.16, height: size.height))
-            let mask = band.composited(over: CIImage(color: .white).cropped(to: image.extent))
-            image = image.applyingFilter("CIMultiplyCompositing", parameters: [kCIInputBackgroundImageKey: mask])
-        }
-        return image
     }
 }

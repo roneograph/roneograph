@@ -3,30 +3,32 @@ import Observation
 import ScannerKit
 
 @MainActor @Observable
-final class AppModel {
+public final class AppModel {
     /// Scans pushed on Home; only ever one, the scan under review.
-    var path: [UUID] = []
+    public var path: [UUID] = []
     /// The scan the camera adds pages to, nil when the camera is closed.
-    var camera: ScanModel?
-    var showingSettings = false
-    private(set) var scans: [Scan] = []
-    private(set) var toast: String?
-    let settings: SettingsStore
+    public var camera: ScanModel?
+    public var showingSettings = false
+    public private(set) var scans: [Scan] = []
+    public private(set) var toast: String?
+    public let settings: SettingsStore
     private let processor: ScanProcessor
+    private let now: @Sendable () -> Date
     private var models: [UUID: ScanModel] = [:]
     private var toastTask: Task<Void, Never>?
 
-    init(processor: ScanProcessor, settings: SettingsStore) {
+    public init(processor: ScanProcessor, settings: SettingsStore, now: @escaping @Sendable () -> Date = Date.init) {
         self.processor = processor
         self.settings = settings
+        self.now = now
         refresh()
     }
 
-    var store: ScanStore { processor.store }
+    public var store: ScanStore { processor.store }
 
     /// Deletes expired scans and reloads the list.
-    func refresh() {
-        store.deleteScans(olderThan: Date(timeIntervalSinceNow: -Double(settings.value.keepDays) * 86400))
+    public func refresh() {
+        store.deleteScans(olderThan: now().addingTimeInterval(-Double(settings.value.keepDays) * 86400))
         reload()
     }
 
@@ -34,25 +36,26 @@ final class AppModel {
         scans = store.all()
     }
 
-    func model(for id: UUID) -> ScanModel? {
+    public func model(for id: UUID) -> ScanModel? {
         if let model = models[id] { return model }
         return (scans.first { $0.id == id } ?? store.all().first { $0.id == id }).map(makeModel)
     }
 
     @discardableResult
-    func startScan() -> ScanModel {
-        let model = makeModel(Scan(name: "", title: FileNamer().fallback(for: .now)))
+    public func startScan() -> ScanModel {
+        let created = now()
+        let model = makeModel(Scan(created: created, name: "", title: FileNamer().fallback(for: created)))
         model.applyFileName()
         camera = model
         return model
     }
 
-    func continueScan(_ id: UUID) {
+    public func continueScan(_ id: UUID) {
         camera = model(for: id)
     }
 
     /// The pages stay: an unfinished scan shows as in progress on Home.
-    func closeCamera() {
+    public func closeCamera() {
         if let camera, camera.scan.pages.isEmpty, camera.processing == 0 {
             models[camera.id] = nil
         }
@@ -60,26 +63,27 @@ final class AppModel {
         reload()
     }
 
-    func finishCapture(_ model: ScanModel) {
+    public func finishCapture(_ model: ScanModel) {
         model.finishCapture()
         camera = nil
         if path.last != model.id { path = [model.id] }
     }
 
-    func didSend(_ model: ScanModel, by method: SendMethod) {
+    public func didSend(_ model: ScanModel, by method: SendMethod) {
         model.markSent(method)
         path = []
-        let email = settings.value
-        showToast(method == .email ? (email.hasValidEmail ? "Emailed to \(email.email)" : "Emailed") : "Shared")
+        let settings = settings.value
+        showToast(method == .email ? (settings.hasValidEmail ? "Emailed to \(settings.email)" : "Emailed") : "Shared")
     }
 
-    func delete(_ id: UUID) {
+    public func delete(_ id: UUID) {
         if let model = models.removeValue(forKey: id) {
             model.delete()
         } else if let scan = scans.first(where: { $0.id == id }) {
             store.delete(scan)
         }
         path.removeAll { $0 == id }
+        if camera?.id == id { camera = nil }
         reload()
     }
 

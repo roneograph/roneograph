@@ -20,7 +20,29 @@ public struct Quad: Equatable, Sendable, Codable {
         self.init(topLeft: flip(topLeft), topRight: flip(topRight), bottomRight: flip(bottomRight), bottomLeft: flip(bottomLeft))
     }
 
+    /// The whole image.
+    public static let full = Quad(topLeft: CGPoint(x: 0, y: 0), topRight: CGPoint(x: 1, y: 0), bottomRight: CGPoint(x: 1, y: 1), bottomLeft: CGPoint(x: 0, y: 1))
+
+    /// Top left, top right, bottom right, bottom left.
     public var corners: [CGPoint] { [topLeft, topRight, bottomRight, bottomLeft] }
+
+    public init(corners: [CGPoint]) {
+        precondition(corners.count == 4)
+        self.init(topLeft: corners[0], topRight: corners[1], bottomRight: corners[2], bottomLeft: corners[3])
+    }
+
+    /// True when the corners turn the same way all around, so the quad does not fold over itself.
+    public var isConvex: Bool {
+        let c = corners
+        var sign: CGFloat = 0
+        for i in 0..<4 {
+            let a = c[i], b = c[(i + 1) % 4], d = c[(i + 2) % 4]
+            let cross = (b.x - a.x) * (d.y - b.y) - (b.y - a.y) * (d.x - b.x)
+            guard abs(cross) > 1e-9 else { return false }
+            if sign == 0 { sign = cross } else if (cross > 0) != (sign > 0) { return false }
+        }
+        return true
+    }
 
     /// Area as a fraction of the image.
     public var area: CGFloat {

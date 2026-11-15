@@ -3,6 +3,7 @@ import CoreImage
 import Foundation
 import PDFKit
 import ScannerKit
+import ScannerKitTesting
 import Testing
 
 struct PageSizingTests {

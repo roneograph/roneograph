@@ -6,11 +6,15 @@ let package = Package(
     platforms: [.iOS(.v26), .macOS(.v26)],
     products: [
         .library(name: "ScannerKit", targets: ["ScannerKit"]),
+        .library(name: "ScannerModels", targets: ["ScannerModels"]),
         .executable(name: "page-cleanup", targets: ["PageCleanupTool"]),
     ],
     targets: [
         .target(name: "ScannerKit"),
+        .target(name: "ScannerModels", dependencies: ["ScannerKit"]),
+        .target(name: "ScannerKitTesting", dependencies: ["ScannerKit"]),
         .executableTarget(name: "PageCleanupTool", dependencies: ["ScannerKit"]),
-        .testTarget(name: "ScannerKitTests", dependencies: ["ScannerKit"]),
+        .testTarget(name: "ScannerKitTests", dependencies: ["ScannerKit", "ScannerKitTesting"]),
+        .testTarget(name: "ScannerModelsTests", dependencies: ["ScannerModels", "ScannerKit", "ScannerKitTesting"]),
     ]
 )

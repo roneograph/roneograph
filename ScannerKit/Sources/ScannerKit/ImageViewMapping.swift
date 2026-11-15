@@ -19,12 +19,24 @@ public struct ImageViewMapping: Equatable, Sendable {
         self.scaling = scaling
     }
 
-    public func viewPoint(for normalized: CGPoint) -> CGPoint {
+    /// Where and how big the image is shown in the view.
+    public var imageFrame: CGRect {
         guard imageSize.width > 0, imageSize.height > 0 else { return .zero }
         let ratios = (viewSize.width / imageSize.width, viewSize.height / imageSize.height)
         let scale = scaling == .fill ? max(ratios.0, ratios.1) : min(ratios.0, ratios.1)
-        let offsetX = (viewSize.width - imageSize.width * scale) / 2
-        let offsetY = (viewSize.height - imageSize.height * scale) / 2
-        return CGPoint(x: normalized.x * imageSize.width * scale + offsetX, y: normalized.y * imageSize.height * scale + offsetY)
+        let size = CGSize(width: imageSize.width * scale, height: imageSize.height * scale)
+        return CGRect(origin: CGPoint(x: (viewSize.width - size.width) / 2, y: (viewSize.height - size.height) / 2), size: size)
+    }
+
+    public func viewPoint(for normalized: CGPoint) -> CGPoint {
+        let frame = imageFrame
+        return CGPoint(x: frame.minX + normalized.x * frame.width, y: frame.minY + normalized.y * frame.height)
+    }
+
+    /// The normalized image point under a view point; outside the image when the view point is.
+    public func normalizedPoint(for viewPoint: CGPoint) -> CGPoint {
+        let frame = imageFrame
+        guard frame.width > 0, frame.height > 0 else { return .zero }
+        return CGPoint(x: (viewPoint.x - frame.minX) / frame.width, y: (viewPoint.y - frame.minY) / frame.height)
     }
 }

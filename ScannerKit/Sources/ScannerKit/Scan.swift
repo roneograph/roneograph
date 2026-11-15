@@ -4,6 +4,8 @@ public struct ScanPage: Identifiable, Equatable, Sendable, Codable {
     public let id: UUID
     /// Where the page is in the original photo, nil when the whole photo is the page.
     public var quad: Quad?
+    /// Where the page was found when it was captured, to go back to it after a manual crop.
+    public var detectedQuad: Quad?
     public var analysis: PageAnalysis
     public var cleanup: CleanupSettings
     /// Bumped on every change, so cached images are reloaded.
@@ -12,6 +14,7 @@ public struct ScanPage: Identifiable, Equatable, Sendable, Codable {
     public init(id: UUID = UUID(), quad: Quad?, analysis: PageAnalysis, cleanup: CleanupSettings = .init(), revision: Int = 0) {
         self.id = id
         self.quad = quad
+        self.detectedQuad = quad
         self.analysis = analysis
         self.cleanup = cleanup
         self.revision = revision

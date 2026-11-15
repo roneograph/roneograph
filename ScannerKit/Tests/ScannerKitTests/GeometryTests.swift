@@ -43,13 +43,3 @@ struct GeometryTests {
         #expect(mapping.viewPoint(for: CGPoint(x: 1, y: 1)) == CGPoint(x: 600, y: 600))
     }
 }
-
-extension Quad {
-    static func rect(x: CGFloat, y: CGFloat, width: CGFloat, height: CGFloat) -> Quad {
-        Quad(topLeft: CGPoint(x: x, y: y), topRight: CGPoint(x: x + width, y: y), bottomRight: CGPoint(x: x + width, y: y + height), bottomLeft: CGPoint(x: x, y: y + height))
-    }
-
-    func offset(by d: CGFloat) -> Quad {
-        Quad(topLeft: CGPoint(x: topLeft.x + d, y: topLeft.y), topRight: CGPoint(x: topRight.x + d, y: topRight.y), bottomRight: CGPoint(x: bottomRight.x + d, y: bottomRight.y), bottomLeft: CGPoint(x: bottomLeft.x + d, y: bottomLeft.y))
-    }
-}

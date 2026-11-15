@@ -1,6 +1,7 @@
 import AVFoundation
 import AVKit
 import ScannerKit
+import ScannerModels
 import SwiftUI
 
 struct CameraView: View {

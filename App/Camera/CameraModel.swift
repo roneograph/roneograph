@@ -2,6 +2,7 @@ import AVFoundation
 import Foundation
 import Observation
 import ScannerKit
+import ScannerModels
 import SwiftUI
 
 @MainActor @Observable

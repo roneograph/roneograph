@@ -1,4 +1,5 @@
 import ScannerKit
+import ScannerModels
 import SwiftUI
 
 struct SettingsView: View {

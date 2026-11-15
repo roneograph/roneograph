@@ -1,10 +1,12 @@
 import ScannerKit
+import ScannerModels
 import SwiftUI
 
 /// One page at a time, swiping between pages: change its look, rotate it, delete it.
 struct PageViewer: View {
     let scan: ScanModel
     @State var selection: UUID
+    @State private var cropping: ScanPage?
     @Environment(\.dismiss) private var dismiss
 
     private var page: ScanPage? { scan.scan.pages.first { $0.id == selection } }
@@ -30,6 +32,9 @@ struct PageViewer: View {
             }
         }
         .preferredColorScheme(.dark)
+        .fullScreenCover(item: $cropping) { page in
+            CropView(scan: scan, page: page)
+        }
         .onChange(of: scan.scan.pages.isEmpty) { _, empty in
             if empty { dismiss() }
         }
@@ -38,29 +43,32 @@ struct PageViewer: View {
     @ViewBuilder
     private var tools: some View {
         if let page {
-            VStack(spacing: 14) {
+            VStack(spacing: 12) {
                 Picker("Filter", selection: Binding(get: { page.cleanup.look }, set: { scan.setLook($0, of: [page.id]) })) {
                     Text("Auto").tag(PageLook?.none)
                     ForEach(PageLook.allCases, id: \.self) { Text($0.title).tag(PageLook?.some($0)) }
                 }
                 .pickerStyle(.segmented)
                 HStack {
+                    Text(page.cleanup.look == nil ? "Auto picked \(page.analysis.suggestedLook.title)" : " ")
+                    Spacer()
+                    if scan.scan.pages.count > 1 {
+                        Button("Apply to All Pages") { scan.setLook(page.cleanup.look, of: scan.scan.pages.map(\.id)) }
+                    }
+                }
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                HStack {
                     Button("Rotate Left", systemImage: "rotate.left") { scan.rotatePage(page.id, clockwise: false) }
-                    Spacer()
-                    Button("Apply to All Pages") { scan.setLook(page.cleanup.look, of: scan.scan.pages.map(\.id)) }
-                        .disabled(scan.scan.pages.count < 2)
-                    Spacer()
                     Button("Rotate Right", systemImage: "rotate.right") { scan.rotatePage(page.id, clockwise: true) }
+                    Button("Crop", systemImage: "crop") { cropping = page }
+                    Spacer()
+                    Button("Delete Page", systemImage: "trash", role: .destructive) { delete(page) }
                 }
                 .labelStyle(.iconOnly)
                 .buttonStyle(.glass)
-                HStack {
-                    Text(page.cleanup.look == nil ? "Auto picked \(page.analysis.suggestedLook.title)" : " ")
-                        .font(.footnote).foregroundStyle(.secondary)
-                    Spacer()
-                    Button("Delete Page", systemImage: "trash", role: .destructive) { delete(page) }
-                        .labelStyle(.titleAndIcon)
-                }
+                .buttonBorderShape(.circle)
+                .controlSize(.large)
             }
             .padding()
             .background(.black.opacity(0.6))

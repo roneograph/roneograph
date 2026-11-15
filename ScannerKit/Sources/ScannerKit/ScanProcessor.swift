@@ -39,6 +39,21 @@ public struct ScanProcessor: @unchecked Sendable {
         return page
     }
 
+    /// Flattens the page again from the original photo with another outline, nil for the whole photo, and analyzes it again.
+    public func recrop(_ page: ScanPage, scanID: UUID, quad: Quad?) throws -> ScanPage {
+        guard let photo = CIImage(contentsOf: store.photoURL(scanID: scanID, pageID: page.id), options: [.applyOrientationProperty: true]) else {
+            throw ProcessingError.unreadablePhoto
+        }
+        let flat = quad.map { extractor.correct(photo, quad: $0) } ?? photo
+        var updated = page
+        updated.quad = quad
+        updated.analysis = cleaner.analyze(flat)
+        guard let flatData = extractor.jpegData(of: flat, quality: 0.9) else { throw ProcessingError.cannotEncode }
+        try flatData.write(to: store.flatURL(scanID: scanID, pageID: page.id), options: .atomic)
+        try writePreview(of: updated, scanID: scanID, flat: flat)
+        return updated
+    }
+
     /// Writes the small cleaned image shown in the app, after any change to the page.
     public func writePreview(of page: ScanPage, scanID: UUID, flat: CIImage? = nil) throws {
         guard let flat = flat ?? CIImage(contentsOf: store.flatURL(scanID: scanID, pageID: page.id)) else { throw ProcessingError.unreadablePage }

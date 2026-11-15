@@ -1,5 +1,6 @@
 import MessageUI
 import ScannerKit
+import ScannerModels
 import SwiftUI
 
 struct ReviewView: View {
@@ -145,14 +146,14 @@ struct ReviewView: View {
     }
 
     private var isReady: Bool {
-        if case .ready = scan.pdf { scan.processing == 0 } else { false }
+        if case .ready = scan.pdf { !scan.isBusy } else { false }
     }
 
     private var summary: String {
         let pages = scan.scan.pages.count + scan.processing
         let count = pages == 1 ? "1 page" : "\(pages) pages"
         switch scan.pdf {
-        case .ready(_, let size) where scan.processing == 0:
+        case .ready(_, let size) where !scan.isBusy:
             return "\(count) · \(ByteCountFormatter.string(fromByteCount: Int64(size), countStyle: .file))"
         case .failed:
             return "\(count) · the PDF could not be made"
