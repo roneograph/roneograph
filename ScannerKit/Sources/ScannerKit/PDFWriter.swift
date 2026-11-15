@@ -52,16 +52,18 @@ public enum PDFWriterError: Error {
 public struct PDFWriter: @unchecked Sendable {
     private let context: CIContext
     private let sizing: PageSizing
+    private let creator: String
 
-    public init(context: CIContext, sizing: PageSizing = .init()) {
+    public init(context: CIContext, sizing: PageSizing = .init(), creator: String = "Roneograph") {
         self.context = context
         self.sizing = sizing
+        self.creator = creator
     }
 
     public func data(pages: [PDFPageContent], title: String, quality: PDFQuality, defaultPaper: Paper) throws -> Data {
         let data = NSMutableData()
         guard let consumer = CGDataConsumer(data: data as CFMutableData),
-              let pdf = CGContext(consumer: consumer, mediaBox: nil, [kCGPDFContextTitle: title] as CFDictionary) else {
+              let pdf = CGContext(consumer: consumer, mediaBox: nil, [kCGPDFContextTitle: title, kCGPDFContextCreator: creator] as CFDictionary) else {
             throw PDFWriterError.cannotCreateDocument
         }
         for page in pages {

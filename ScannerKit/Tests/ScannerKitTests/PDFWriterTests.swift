@@ -69,6 +69,7 @@ struct PDFWriterTests {
         let box = try #require(document.page(at: 0)).bounds(for: .mediaBox)
         #expect(abs(box.width - Paper.a4.size.width) < 1 && abs(box.height - Paper.a4.size.height) < 1)
         #expect(document.documentAttributes?[PDFDocumentAttribute.titleAttribute] as? String == "Invoice")
+        #expect(document.documentAttributes?[PDFDocumentAttribute.creatorAttribute] as? String == "Roneograph")
     }
 
     @Test func embedsJPEGForGrayAnd1BitForBlackAndWhite() throws {
