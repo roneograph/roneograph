@@ -1,0 +1,40 @@
+name: PDFScanner
+options:
+  bundleIdPrefix: org.fabpot
+  developmentLanguage: en
+  deploymentTarget:
+    iOS: "26.0"
+packages:
+  ScannerKit:
+    path: ScannerKit
+targets:
+  PDFScanner:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+    dependencies:
+      - package: ScannerKit
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: PDF Scanner
+        CFBundleDevelopmentRegion: en
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        ITSAppUsesNonExemptEncryption: false
+        NSCameraUsageDescription: The camera finds and captures the pages you scan.
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ${PDFSCANNER_BUNDLE_ID}
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "6.0"
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: ${PDFSCANNER_DEVELOPMENT_TEAM}

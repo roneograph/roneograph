@@ -1,0 +1,6 @@
+build/
+.build/
+.swiftpm/
+*.xcodeproj/
+App/Info.plist
+local.mk
