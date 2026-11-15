@@ -54,12 +54,4 @@ struct QuadEditorTests {
         let bowtie = Quad(topLeft: CGPoint(x: 0, y: 0), topRight: CGPoint(x: 1, y: 1), bottomRight: CGPoint(x: 1, y: 0), bottomLeft: CGPoint(x: 0, y: 1))
         #expect(!bowtie.isConvex)
     }
-
-    @Test func mapsViewPointsBackToTheImage() {
-        let mapping = ImageViewMapping(imageSize: CGSize(width: 300, height: 400), viewSize: CGSize(width: 300, height: 600), scaling: .fit)
-        let point = CGPoint(x: 0.25, y: 0.75)
-        let back = mapping.normalizedPoint(for: mapping.viewPoint(for: point))
-        #expect(abs(back.x - point.x) < 1e-9 && abs(back.y - point.y) < 1e-9)
-        #expect(mapping.imageFrame == CGRect(x: 0, y: 100, width: 300, height: 400))
-    }
 }

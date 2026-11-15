@@ -39,7 +39,7 @@ final class CameraModel {
         case unknown, granted, denied, unavailable
     }
 
-    private(set) var detection: PageDetection?
+    private(set) var quad: Quad?
     private(set) var imageSize = CGSize(width: 3, height: 4)
     private(set) var state: CaptureTrigger.State = .searching
     private(set) var lowLight = false
@@ -83,8 +83,8 @@ final class CameraModel {
         case .waitingForNextPage: return .added(pageCount)
         case .searching, .steadying, .capture:
             if smudged { return .cleanLens }
-            if lowLight, detection == nil { return .moreLight }
-            if detection == nil { return .pointAtPage }
+            if lowLight, quad == nil { return .moreLight }
+            if quad == nil { return .pointAtPage }
             return autoCapture ? .holdStill : .tapToCapture
         }
     }
@@ -117,7 +117,7 @@ final class CameraModel {
     }
 
     func shutter() {
-        trigger.didCapture(quad: detection?.quad, signature: signature)
+        trigger.didCapture(quad: quad, signature: signature)
         capture()
     }
 
@@ -127,15 +127,15 @@ final class CameraModel {
     }
 
     private func handle(_ frame: LiveFrame) {
-        let wasLocked = detection != nil
-        detection = frame.detection
+        let wasLocked = quad != nil
+        quad = frame.quad
         imageSize = frame.imageSize
         signature = frame.signature
         lowLight = frame.lowLight
-        if !wasLocked, frame.detection != nil { locks += 1 }
+        if !wasLocked, frame.quad != nil { locks += 1 }
 
         trigger.configuration.stableDuration = autoCapture ? CaptureTrigger.Configuration().stableDuration : .infinity
-        state = trigger.update(quad: frame.detection?.quad, signature: frame.signature, at: frame.time)
+        state = trigger.update(quad: frame.quad, signature: frame.signature, at: frame.time)
         if case .capture = state {
             capture()
         }
@@ -143,7 +143,7 @@ final class CameraModel {
 
     private func capture() {
         guard let scan else { return }
-        let quad = detection?.quad
+        let quad = quad
         let flash = flash
         captures += 1
         pendingPhotos += 1

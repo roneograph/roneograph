@@ -5,7 +5,7 @@ import Vision
 
 /// What the live detection saw in one camera frame.
 struct LiveFrame: Sendable {
-    let detection: PageDetection?
+    let quad: Quad?
     let signature: PageSignature?
     /// Size of the frame once upright.
     let imageSize: CGSize
@@ -157,11 +157,11 @@ extension CameraService: AVCaptureVideoDataOutputSampleBufferDelegate {
         lastFrameTime = time
 
         // Frames come in the sensor's landscape orientation; .right makes them portrait.
-        let detection = extractor.detect(in: buffer, orientation: .right)
+        let quad = extractor.detect(in: buffer, orientation: .right)
         let image = CIImage(cvPixelBuffer: buffer).oriented(.right)
-        let signature = detection.flatMap { extractor.signature(of: image, quad: $0.quad) }
+        let signature = quad.flatMap { extractor.signature(of: image, quad: $0) }
         let lowLight = device.map { $0.iso >= $0.activeFormat.maxISO * 0.7 } ?? false
-        onFrame?(LiveFrame(detection: detection, signature: signature, imageSize: image.extent.size, time: time, lowLight: lowLight))
+        onFrame?(LiveFrame(quad: quad, signature: signature, imageSize: image.extent.size, time: time, lowLight: lowLight))
 
         if time - lastSmudgeCheck >= smudgeInterval, let onSmudge {
             lastSmudgeCheck = time

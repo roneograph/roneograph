@@ -32,11 +32,4 @@ public struct ImageViewMapping: Equatable, Sendable {
         let frame = imageFrame
         return CGPoint(x: frame.minX + normalized.x * frame.width, y: frame.minY + normalized.y * frame.height)
     }
-
-    /// The normalized image point under a view point; outside the image when the view point is.
-    public func normalizedPoint(for viewPoint: CGPoint) -> CGPoint {
-        let frame = imageFrame
-        guard frame.width > 0, frame.height > 0 else { return .zero }
-        return CGPoint(x: (viewPoint.x - frame.minX) / frame.width, y: (viewPoint.y - frame.minY) / frame.height)
-    }
 }

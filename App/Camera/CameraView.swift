@@ -21,7 +21,7 @@ struct CameraView: View {
                 deniedView
             } else {
                 PreviewView(session: camera.session).ignoresSafeArea()
-                QuadOverlay(detection: camera.detection, imageSize: camera.imageSize, state: camera.state).ignoresSafeArea()
+                QuadOverlay(quad: camera.quad, imageSize: camera.imageSize, state: camera.state).ignoresSafeArea()
                 Color.white.opacity(flashOverlay ? 0.7 : 0).ignoresSafeArea().allowsHitTesting(false)
                 VStack(spacing: 12) {
                     topBar
@@ -228,13 +228,13 @@ private struct LastPageView: View {
 }
 
 struct QuadOverlay: View {
-    let detection: PageDetection?
+    let quad: Quad?
     let imageSize: CGSize
     let state: CaptureTrigger.State
 
     var body: some View {
         Canvas { context, size in
-            guard let quad = detection?.quad else { return }
+            guard let quad else { return }
             let mapping = ImageViewMapping(imageSize: imageSize, viewSize: size, scaling: .fit)
             var path = Path()
             path.addLines(quad.corners.map(mapping.viewPoint(for:)))
@@ -250,7 +250,7 @@ struct QuadOverlay: View {
             }
         }
         .allowsHitTesting(false)
-        .animation(.linear(duration: 0.08), value: detection)
+        .animation(.linear(duration: 0.08), value: quad)
     }
 }
 

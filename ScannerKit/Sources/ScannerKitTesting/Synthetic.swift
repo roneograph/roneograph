@@ -16,7 +16,7 @@ public enum SyntheticPhoto {
         context.fill(CGRect(origin: .zero, size: size))
 
         if let page {
-            let corners = page.scaled(to: size)
+            let corners = page.corners.map { CGPoint(x: $0.x * size.width, y: $0.y * size.height) }
             context.setFillColor(red: paper, green: paper, blue: paper * 0.97, alpha: 1)
             context.addLines(between: corners)
             context.closePath()

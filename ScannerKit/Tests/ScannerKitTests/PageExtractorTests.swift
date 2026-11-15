@@ -10,8 +10,8 @@ struct PageExtractorTests {
 
     @Test func findsATiltedPage() throws {
         let photo = SyntheticPhoto.render(page: tilted)
-        let detection = try #require(extractor.detect(in: photo))
-        #expect(detection.quad.maxCornerDistance(to: tilted) < 0.02)
+        let quad = try #require(extractor.detect(in: photo))
+        #expect(quad.maxCornerDistance(to: tilted) < 0.02)
     }
 
     @Test func findsNothingWithoutAPage() {

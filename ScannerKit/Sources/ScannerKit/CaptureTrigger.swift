@@ -46,8 +46,6 @@ public struct CaptureTrigger: Sendable {
         self.configuration = configuration
     }
 
-    public var isWaitingForNextPage: Bool { captured != nil }
-
     public mutating func update(quad: Quad?, signature: PageSignature? = nil, at time: TimeInterval) -> State {
         let tooSmall = quad.map { Double($0.area) < configuration.minimumArea } ?? false
         let quad = tooSmall ? nil : quad

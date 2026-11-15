@@ -59,9 +59,4 @@ public struct Quad: Equatable, Sendable, Codable {
     public func maxCornerDistance(to other: Quad) -> CGFloat {
         zip(corners, other.corners).map { hypot($0.x - $1.x, $0.y - $1.y) }.max() ?? 0
     }
-
-    /// Corners in pixels of an image of the given size, still with the origin at the top left.
-    public func scaled(to size: CGSize) -> [CGPoint] {
-        corners.map { CGPoint(x: $0.x * size.width, y: $0.y * size.height) }
-    }
 }

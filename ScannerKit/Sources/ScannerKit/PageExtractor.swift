@@ -4,17 +4,6 @@ import CoreVideo
 import ImageIO
 import Vision
 
-public struct PageDetection: Equatable, Sendable, Codable {
-    public enum Detector: String, Sendable, Codable {
-        case documentSegmentation
-        case rectangles
-    }
-
-    public let quad: Quad
-    public let detector: Detector
-    public let confidence: Float
-}
-
 /// Finds a page in an image and flattens it, with Vision and Core Image.
 public struct PageExtractor: @unchecked Sendable {
     public struct Configuration: Sendable {
@@ -34,12 +23,12 @@ public struct PageExtractor: @unchecked Sendable {
     }
 
     /// Detects a page in an upright image.
-    public func detect(in image: CIImage) -> PageDetection? {
+    public func detect(in image: CIImage) -> Quad? {
         detect(with: VNImageRequestHandler(ciImage: image))
     }
 
     /// Detects a page in a camera frame; the quad is relative to the frame once rotated by `orientation`.
-    public func detect(in pixelBuffer: CVPixelBuffer, orientation: CGImagePropertyOrientation) -> PageDetection? {
+    public func detect(in pixelBuffer: CVPixelBuffer, orientation: CGImagePropertyOrientation) -> Quad? {
         detect(with: VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: orientation))
     }
 
@@ -84,7 +73,7 @@ public struct PageExtractor: @unchecked Sendable {
         context.jpegRepresentation(of: image, colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!, options: [kCGImageDestinationLossyCompressionQuality as CIImageRepresentationOption: quality])
     }
 
-    private func detect(with handler: VNImageRequestHandler) -> PageDetection? {
+    private func detect(with handler: VNImageRequestHandler) -> Quad? {
         let segmentation = VNDetectDocumentSegmentationRequest()
         let rectangles = VNDetectRectanglesRequest()
         rectangles.maximumObservations = 1
@@ -96,10 +85,10 @@ public struct PageExtractor: @unchecked Sendable {
 
         if (try? handler.perform([segmentation])) != nil,
            let page = segmentation.results?.first, page.confidence >= configuration.minimumSegmentationConfidence {
-            return PageDetection(quad: Quad(page), detector: .documentSegmentation, confidence: page.confidence)
+            return Quad(page)
         }
         if (try? handler.perform([rectangles])) != nil, let page = rectangles.results?.first {
-            return PageDetection(quad: Quad(page), detector: .rectangles, confidence: page.confidence)
+            return Quad(page)
         }
         return nil
     }

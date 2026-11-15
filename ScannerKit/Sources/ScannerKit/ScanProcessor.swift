@@ -27,7 +27,7 @@ public struct ScanProcessor: @unchecked Sendable {
     public func addPage(photo data: Data, liveQuad: Quad?, scanID: UUID, look: PageLook?) throws -> ScanPage {
         guard let photo = CIImage(data: data, options: [.applyOrientationProperty: true]) else { throw ProcessingError.unreadablePhoto }
         let scale = min(1, detectionSize / max(photo.extent.width, photo.extent.height))
-        let quad = extractor.detect(in: photo.transformed(by: CGAffineTransform(scaleX: scale, y: scale)))?.quad ?? liveQuad
+        let quad = extractor.detect(in: photo.transformed(by: CGAffineTransform(scaleX: scale, y: scale))) ?? liveQuad
         let flat = quad.map { extractor.correct(photo, quad: $0) } ?? photo
         let page = ScanPage(quad: quad, analysis: cleaner.analyze(flat), cleanup: CleanupSettings(look: look))
 
