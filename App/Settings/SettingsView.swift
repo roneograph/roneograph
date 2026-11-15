@@ -78,7 +78,7 @@ struct SettingsView: View {
                 } footer: {
                     VStack(spacing: 4) {
                         Text("No ads, no account, no tracking.")
-                        Text("Open source, MIT license · [Source code](https://github.com/fabpot/ios-scanner)")
+                        Text("Open source, MIT license · [Source code](https://github.com/roneograph/roneograph)")
                         Text("Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")")
                     }
                     .frame(maxWidth: .infinity)
