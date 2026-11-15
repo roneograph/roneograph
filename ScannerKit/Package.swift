@@ -6,9 +6,11 @@ let package = Package(
     platforms: [.iOS(.v26), .macOS(.v26)],
     products: [
         .library(name: "ScannerKit", targets: ["ScannerKit"]),
+        .executable(name: "page-cleanup", targets: ["PageCleanupTool"]),
     ],
     targets: [
         .target(name: "ScannerKit"),
+        .executableTarget(name: "PageCleanupTool", dependencies: ["ScannerKit"]),
         .testTarget(name: "ScannerKitTests", dependencies: ["ScannerKit"]),
     ]
 )

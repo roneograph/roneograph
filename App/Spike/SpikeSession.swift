@@ -16,12 +16,15 @@ struct PageMetadata: Codable, Sendable {
     var pageHeight: Int
     var captureLatency: TimeInterval
     var processingDuration: TimeInterval
+    var analysis: PageAnalysis
+    var cleanupDuration: TimeInterval
 }
 
 struct SpikePage: Identifiable, Sendable {
     let metadata: PageMetadata
     let photoURL: URL
     let pageURL: URL
+    let cleanURL: URL
     var id: Int { metadata.number }
 
     var usedQuad: Quad? { metadata.stillDetection?.quad ?? metadata.liveDetection?.quad }
@@ -108,6 +111,7 @@ final class SpikeSession {
 /// Turns a captured photo into a flat page: detects the page again on the full photo, removes the perspective, saves both.
 struct PageProcessor: Sendable {
     let extractor: PageExtractor
+    let cleaner: PageCleaner
 
     func process(_ photo: CapturedPhoto, number: Int, automatic: Bool, liveDetection: PageDetection?, directory: URL) throws -> SpikePage {
         let started = CFAbsoluteTimeGetCurrent()
@@ -119,22 +123,30 @@ struct PageProcessor: Sendable {
         let quad = stillDetection?.quad ?? liveDetection?.quad
         let page = quad.map { extractor.correct(image, quad: $0) } ?? image
         guard let pageData = extractor.jpegData(of: page, quality: 0.85) else { throw CameraError.noPhotoData }
+        let processed = CFAbsoluteTimeGetCurrent()
+        let analysis = cleaner.analyze(page)
+        let clean = cleaner.render(page, analysis: analysis)
+        guard let cleanData = extractor.jpegData(of: clean, quality: 0.85) else { throw CameraError.noPhotoData }
+        let cleaned = CFAbsoluteTimeGetCurrent()
 
         let name = String(format: "ours-%02d", number)
         let photoURL = directory.appending(path: "\(name)-photo.jpg")
         let pageURL = directory.appending(path: "\(name)-page.jpg")
         try photo.data.write(to: photoURL)
+        let cleanURL = directory.appending(path: "\(name)-clean.jpg")
         try pageData.write(to: pageURL)
+        try cleanData.write(to: cleanURL)
 
         let metadata = PageMetadata(
             number: number, automatic: automatic, liveDetection: liveDetection, stillDetection: stillDetection,
             photoWidth: Int(image.extent.width), photoHeight: Int(image.extent.height),
             pageWidth: Int(page.extent.width), pageHeight: Int(page.extent.height),
-            captureLatency: photo.latency, processingDuration: CFAbsoluteTimeGetCurrent() - started
+            captureLatency: photo.latency, processingDuration: processed - started,
+            analysis: analysis, cleanupDuration: cleaned - processed
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         try encoder.encode(metadata).write(to: directory.appending(path: "\(name).json"))
-        return SpikePage(metadata: metadata, photoURL: photoURL, pageURL: pageURL)
+        return SpikePage(metadata: metadata, photoURL: photoURL, pageURL: pageURL, cleanURL: cleanURL)
     }
 }

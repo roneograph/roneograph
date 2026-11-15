@@ -60,7 +60,7 @@ private struct PageRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Thumbnail(url: page.pageURL)
+            Thumbnail(url: page.cleanURL)
             Thumbnail(url: apple)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Page \(page.metadata.number)").font(.headline)
@@ -93,19 +93,21 @@ extension SpikePage {
         case .rectangles: "rectangles"
         case nil: m.liveDetection == nil ? "no page" : "live outline"
         }
+        let a = m.analysis
         return "\(m.automatic ? "Auto" : "Manual") · \(detector) · \(m.pageWidth)×\(m.pageHeight)\n"
-            + String(format: "capture %.0f ms · processing %.0f ms", m.captureLatency * 1000, m.processingDuration * 1000)
+            + String(format: "%@ · turned %@ · skew %.1f°\n", a.suggestedLook.rawValue, a.orientation.rawValue, a.skewDegrees)
+            + String(format: "capture %.0f ms · flatten %.0f ms · clean %.0f ms", m.captureLatency * 1000, m.processingDuration * 1000, m.cleanupDuration * 1000)
     }
 }
 
 struct PageDetailView: View {
     enum Version: String, CaseIterable {
-        case ours = "Ours", apple = "Apple", photo = "Photo"
+        case clean = "Clean", flat = "Flat", apple = "Apple", photo = "Photo"
     }
 
     let page: SpikePage
     let apple: URL?
-    @State private var version = Version.ours
+    @State private var version = Version.clean
 
     var body: some View {
         VStack {
@@ -121,13 +123,14 @@ struct PageDetailView: View {
         .navigationTitle("Page \(page.metadata.number)")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ShareLink(item: url ?? page.pageURL)
+            ShareLink(item: url ?? page.cleanURL)
         }
     }
 
     private var url: URL? {
         switch version {
-        case .ours: page.pageURL
+        case .clean: page.cleanURL
+        case .flat: page.pageURL
         case .apple: apple
         case .photo: page.photoURL
         }

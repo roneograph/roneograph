@@ -65,7 +65,7 @@ struct CameraView: View {
                 showingResults = true
             } label: {
                 ZStack(alignment: .topTrailing) {
-                    if let page = model.session.pages.last, let image = UIImage(contentsOfFile: page.pageURL.path()) {
+                    if let page = model.session.pages.last, let image = UIImage(contentsOfFile: page.cleanURL.path()) {
                         Image(uiImage: image).resizable().scaledToFill().frame(width: 48, height: 60).clipShape(RoundedRectangle(cornerRadius: 6))
                     } else {
                         RoundedRectangle(cornerRadius: 6).fill(.white.opacity(0.15)).frame(width: 48, height: 60)
