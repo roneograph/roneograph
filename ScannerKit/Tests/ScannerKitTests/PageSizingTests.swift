@@ -5,6 +5,10 @@ import Testing
 struct PageSizingTests {
     let sizing = PageSizing()
 
+    @Test func a4IsTheRatioOfItsMillimeters() {
+        #expect(abs(Paper.a4.aspectRatio - 210 / 297) < 0.001)
+    }
+
     @Test func snapsToA4() {
         #expect(sizing.pageSize(forImage: CGSize(width: 1704, height: 2471), defaultPaper: .letter) == Paper.a4.size)
     }

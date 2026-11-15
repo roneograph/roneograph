@@ -206,7 +206,7 @@ private struct PageGrid: View {
                 Button { open(page.id) } label: {
                     VStack(spacing: 5) {
                         Color.clear
-                            .aspectRatio(210 / 297, contentMode: .fit)
+                            .aspectRatio(Paper.a4.aspectRatio, contentMode: .fit)
                             .overlay {
                                 PageImage(url: scan.previewURL(of: page), revision: page.revision, maximumSize: 600)
                                     .shadow(color: .black.opacity(0.18), radius: 3, y: 1)
@@ -231,7 +231,7 @@ private struct PageGrid: View {
                 }
             }
             ForEach(0..<scan.processing, id: \.self) { _ in
-                Rectangle().fill(.quaternary).aspectRatio(210 / 297, contentMode: .fit).overlay { ProgressView() }
+                Rectangle().fill(.quaternary).aspectRatio(Paper.a4.aspectRatio, contentMode: .fit).overlay { ProgressView() }
             }
             Button(action: addPages) {
                 VStack(spacing: 6) {
@@ -241,7 +241,7 @@ private struct PageGrid: View {
                     Spacer()
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .aspectRatio(210 / 297, contentMode: .fit)
+                .aspectRatio(Paper.a4.aspectRatio, contentMode: .fit)
                 .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(.tertiary, style: StrokeStyle(lineWidth: 2, dash: [6, 5])))
             }
             .buttonStyle(.plain)

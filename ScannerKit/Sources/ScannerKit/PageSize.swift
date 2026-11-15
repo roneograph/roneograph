@@ -12,6 +12,9 @@ public enum Paper: String, Codable, Sendable, CaseIterable {
     }
 
     var ratio: CGFloat { size.height / size.width }
+
+    /// Width over height in portrait, for placeholders the shape of a page.
+    public var aspectRatio: CGFloat { size.width / size.height }
 }
 
 /// Picks the PDF page size of a scanned page. A photo gives the proportions of a page, not its physical size,

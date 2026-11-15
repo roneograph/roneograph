@@ -1,3 +1,4 @@
+import ScannerKit
 import SwiftUI
 import UIKit
 
@@ -13,7 +14,7 @@ struct PageImage: View {
             if let image {
                 Image(uiImage: image).resizable().scaledToFit()
             } else {
-                Rectangle().fill(.quaternary).aspectRatio(210 / 297, contentMode: .fit)
+                Rectangle().fill(.quaternary).aspectRatio(Paper.a4.aspectRatio, contentMode: .fit)
             }
         }
         .task(id: Key(url: url, revision: revision)) {
