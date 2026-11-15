@@ -2,6 +2,8 @@
 
 A free, open source document scanner for iPhone: point the camera at a page, it is captured and cleaned up, and a small PDF is ready to send. No ads, no account, no tracking.
 
+[Download Roneograph on the App Store](https://apps.apple.com/app/id6835211020).
+
 ## Requirements
 
 - Xcode 26 and [XcodeGen](https://github.com/yonaskolb/XcodeGen)
