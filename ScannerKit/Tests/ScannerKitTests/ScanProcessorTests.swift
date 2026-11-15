@@ -42,4 +42,13 @@ final class ScanProcessorTests {
         let cropped = try #require(CIImage(contentsOf: store.flatURL(scanID: scanID, pageID: page.id)))
         #expect(abs(cropped.extent.height / cropped.extent.width - 800.0 / 1200) < 0.02)
     }
+
+    @Test func suggestsNamesFromTheTextOfThePreview() throws {
+        let scanID = UUID()
+        let page = ScanPage(quad: nil, analysis: .sample)
+        try FileManager.default.createDirectory(at: store.directory(of: scanID), withIntermediateDirectories: true)
+        try processor.writePreview(of: page, scanID: scanID, flat: SyntheticPage().render())
+        let suggestions = try #require(processor.nameSuggestions(for: page, scanID: scanID, date: .now))
+        #expect(suggestions.names.first?.hasPrefix("Invoice") == true)
+    }
 }
