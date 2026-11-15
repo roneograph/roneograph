@@ -26,8 +26,7 @@ public struct ScanProcessor: @unchecked Sendable {
     /// Finds the page again on the full photo (the live outline as a fallback), flattens and analyzes it, and saves the photo, the flat page and a preview.
     public func addPage(photo data: Data, liveQuad: Quad?, scanID: UUID, look: PageLook?) throws -> ScanPage {
         guard let photo = CIImage(data: data, options: [.applyOrientationProperty: true]) else { throw ProcessingError.unreadablePhoto }
-        let scale = min(1, detectionSize / max(photo.extent.width, photo.extent.height))
-        let quad = extractor.detect(in: photo.transformed(by: CGAffineTransform(scaleX: scale, y: scale))) ?? liveQuad
+        let quad = extractor.detect(in: photo.scaled(by: photo.scale(toLongSide: detectionSize))) ?? liveQuad
         let flat = quad.map { extractor.correct(photo, quad: $0) } ?? photo
         let page = ScanPage(quad: quad, analysis: cleaner.analyze(flat), cleanup: CleanupSettings(look: look))
 
@@ -57,8 +56,7 @@ public struct ScanProcessor: @unchecked Sendable {
     /// Writes the small cleaned image shown in the app, after any change to the page.
     public func writePreview(of page: ScanPage, scanID: UUID, flat: CIImage? = nil) throws {
         guard let flat = flat ?? CIImage(contentsOf: store.flatURL(scanID: scanID, pageID: page.id)) else { throw ProcessingError.unreadablePage }
-        let scale = min(1, previewSize / max(flat.extent.width, flat.extent.height))
-        let clean = cleaner.render(flat.transformed(by: CGAffineTransform(scaleX: scale, y: scale)), analysis: page.analysis, settings: page.cleanup)
+        let clean = cleaner.render(flat.scaled(by: flat.scale(toLongSide: previewSize)), analysis: page.analysis, settings: page.cleanup)
         guard let data = extractor.jpegData(of: clean, quality: 0.8) else { throw ProcessingError.cannotEncode }
         try data.write(to: store.previewURL(scanID: scanID, pageID: page.id), options: .atomic)
     }

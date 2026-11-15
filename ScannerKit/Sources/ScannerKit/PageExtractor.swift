@@ -44,8 +44,7 @@ public struct PageExtractor: @unchecked Sendable {
         filter.topRight = point(quad.topRight)
         filter.bottomRight = point(quad.bottomRight)
         filter.bottomLeft = point(quad.bottomLeft)
-        guard let output = filter.outputImage else { return image }
-        return output.transformed(by: CGAffineTransform(translationX: -output.extent.minX, y: -output.extent.minY))
+        return filter.outputImage?.atOrigin ?? image
     }
 
     /// A tiny fingerprint of the page content inside `quad`.

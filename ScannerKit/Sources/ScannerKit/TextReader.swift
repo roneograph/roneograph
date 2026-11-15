@@ -8,9 +8,7 @@ public struct TextReader: Sendable {
     public init() {}
 
     public func lines(in page: CIImage) -> [TextLine] {
-        let extent = page.extent
-        let scale = min(1, longSide / max(extent.width, extent.height))
-        let image = page.transformed(by: CGAffineTransform(translationX: -extent.minX, y: -extent.minY).scaledBy(x: scale, y: scale))
+        let image = page.atOrigin.scaled(by: page.scale(toLongSide: longSide))
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = .accurate
         request.automaticallyDetectsLanguage = true

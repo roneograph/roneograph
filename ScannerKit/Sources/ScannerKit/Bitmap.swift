@@ -9,8 +9,8 @@ struct Bitmap {
 
     init(_ image: CIImage, longSide: CGFloat, context: CIContext) {
         let extent = image.extent
-        let scale = min(1, longSide / max(extent.width, extent.height))
-        let small = image.transformed(by: CGAffineTransform(translationX: -extent.minX, y: -extent.minY))
+        let scale = image.scale(toLongSide: longSide)
+        let small = image.atOrigin
             .applyingFilter("CILanczosScaleTransform", parameters: [kCIInputScaleKey: scale, kCIInputAspectRatioKey: 1])
         width = max(1, Int(extent.width * scale))
         height = max(1, Int(extent.height * scale))

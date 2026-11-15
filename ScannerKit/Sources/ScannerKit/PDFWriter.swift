@@ -67,7 +67,7 @@ public struct PDFWriter: @unchecked Sendable {
             throw PDFWriterError.cannotCreateDocument
         }
         for page in pages {
-            let image = page.image.transformed(by: CGAffineTransform(translationX: -page.image.extent.minX, y: -page.image.extent.minY))
+            let image = page.image.atOrigin
             var box = CGRect(origin: .zero, size: sizing.pageSize(forImage: image.extent.size, textLineHeight: page.look == .photo ? nil : page.textLineHeight, defaultPaper: defaultPaper))
             let encoded = try encode(image, look: page.look, pageSize: box.size, quality: quality)
             pdf.beginPDFPage([kCGPDFContextMediaBox: Data(bytes: &box, count: MemoryLayout<CGRect>.size)] as CFDictionary)

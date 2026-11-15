@@ -102,7 +102,7 @@ public struct PageCleaner: @unchecked Sendable {
     }
 
     public func analyze(_ page: CIImage) -> PageAnalysis {
-        let page = origin(page)
+        let page = page.atOrigin
         let (orientation, textLineHeight) = detectOrientation(page)
         let upright = page.oriented(orientation.imageOrientation)
         let paper = background(of: upright)
@@ -124,8 +124,7 @@ public struct PageCleaner: @unchecked Sendable {
     }
 
     public func render(_ page: CIImage, analysis: PageAnalysis, settings: CleanupSettings = .init()) -> CIImage {
-        var image = origin(page).oriented(analysis.orientation.imageOrientation)
-        image = image.transformed(by: CGAffineTransform(translationX: -image.extent.minX, y: -image.extent.minY))
+        var image = page.atOrigin.oriented(analysis.orientation.imageOrientation).atOrigin
         if settings.straighten, abs(analysis.skewDegrees) >= configuration.minimumSkew {
             image = rotated(image, degrees: -analysis.skewDegrees)
         }
@@ -161,8 +160,8 @@ public struct PageCleaner: @unchecked Sendable {
     /// The paper without the ink: a closing removes dark details smaller than the radius while keeping the edges of shadows where they are.
     func background(of image: CIImage) -> CIImage {
         let extent = image.extent
-        let scale = min(1, configuration.backgroundSize / max(extent.width, extent.height))
-        let small = image.transformed(by: CGAffineTransform(translationX: -extent.minX, y: -extent.minY).scaledBy(x: scale, y: scale))
+        let scale = image.scale(toLongSide: configuration.backgroundSize)
+        let small = image.atOrigin.scaled(by: scale)
         let smallExtent = small.extent
         let paper = small.clampedToExtent()
             .applyingFilter("CIMorphologyMaximum", parameters: [kCIInputRadiusKey: configuration.backgroundRadius])
@@ -177,20 +176,20 @@ public struct PageCleaner: @unchecked Sendable {
         return paper.applyingFilter("CIMaximumCompositing", parameters: [kCIInputBackgroundImageKey: floor])
             .cropped(to: smallExtent)
             .clampedToExtent()
-            .transformed(by: CGAffineTransform(scaleX: 1 / scale, y: 1 / scale).concatenating(CGAffineTransform(translationX: extent.minX, y: extent.minY)))
+            .scaled(by: 1 / scale)
+            .transformed(by: CGAffineTransform(translationX: extent.minX, y: extent.minY))
             .cropped(to: extent)
     }
 
     /// The paper brightness at the scale of the whole page, ignoring shadows, blocks and pictures.
     private func lighting(of image: CIImage) -> CIImage {
-        let extent = image.extent
-        let scale = min(1, configuration.lightingSize / max(extent.width, extent.height))
-        return image.transformed(by: CGAffineTransform(scaleX: scale, y: scale)).clampedToExtent()
+        let scale = image.scale(toLongSide: configuration.lightingSize)
+        return image.scaled(by: scale).clampedToExtent()
             .applyingFilter("CIMorphologyMaximum", parameters: [kCIInputRadiusKey: configuration.lightingRadius])
             .applyingFilter("CIMorphologyMinimum", parameters: [kCIInputRadiusKey: configuration.lightingRadius / 2])
             .applyingGaussianBlur(sigma: configuration.lightingRadius)
-            .transformed(by: CGAffineTransform(scaleX: 1 / scale, y: 1 / scale))
-            .cropped(to: extent)
+            .scaled(by: 1 / scale)
+            .cropped(to: image.extent)
     }
 
     func divide(_ image: CIImage, by background: CIImage) -> CIImage {
@@ -246,11 +245,10 @@ public struct PageCleaner: @unchecked Sendable {
     /// The accurate recognizer reads text in any orientation; the direction of its lines says how the page is turned.
     private func detectOrientation(_ page: CIImage) -> (PageOrientation, Double?) {
         let extent = page.extent
-        let scale = min(1, configuration.textSize / max(extent.width, extent.height))
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = .accurate
         request.usesLanguageCorrection = false
-        try? VNImageRequestHandler(ciImage: page.transformed(by: CGAffineTransform(scaleX: scale, y: scale))).perform([request])
+        try? VNImageRequestHandler(ciImage: page.scaled(by: page.scale(toLongSide: configuration.textSize))).perform([request])
 
         var votes: [PageOrientation: Double] = [:]
         var heights: [Double] = []
@@ -275,10 +273,6 @@ public struct PageCleaner: @unchecked Sendable {
     }
 
     // MARK: Geometry
-
-    private func origin(_ image: CIImage) -> CIImage {
-        image.transformed(by: CGAffineTransform(translationX: -image.extent.minX, y: -image.extent.minY))
-    }
 
     /// Rotates around the center, keeping the size; the corners are filled with the nearest edge.
     private func rotated(_ image: CIImage, degrees: Double) -> CIImage {
