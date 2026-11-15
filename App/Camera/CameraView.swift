@@ -6,6 +6,7 @@ import SwiftUI
 
 struct CameraView: View {
     let camera: CameraModel
+    let session: AVCaptureSession
     let scan: ScanModel
     let close: () -> Void
     let done: () -> Void
@@ -20,7 +21,7 @@ struct CameraView: View {
             if camera.access == .denied || camera.access == .unavailable {
                 deniedView
             } else {
-                PreviewView(session: camera.session).ignoresSafeArea()
+                PreviewView(session: session).ignoresSafeArea()
                 QuadOverlay(quad: camera.quad, imageSize: camera.imageSize, state: camera.state).ignoresSafeArea()
                 Color.white.opacity(flashOverlay ? 0.7 : 0).ignoresSafeArea().allowsHitTesting(false)
                 VStack(spacing: 12) {

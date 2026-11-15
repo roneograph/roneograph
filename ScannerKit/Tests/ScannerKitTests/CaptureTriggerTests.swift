@@ -116,6 +116,15 @@ struct CaptureTriggerTests {
         #expect(trigger.update(quad: page, signature: second, at: 1.25) == .capture(page))
     }
 
+    @Test func neverCapturesOnItsOwnInManualMode() {
+        var trigger = CaptureTrigger()
+        trigger.isAutomatic = false
+        _ = trigger.update(quad: page, at: 0)
+        #expect(trigger.update(quad: page, at: 5) == .steadying(progress: 0))
+        trigger.didCapture(quad: page, signature: nil)
+        #expect(trigger.update(quad: page, at: 6) == .waitingForNextPage)
+    }
+
     @Test func aManualCaptureWithoutAPageRearmsWhenAPageAppears() {
         var trigger = CaptureTrigger()
         trigger.didCapture(quad: nil, signature: nil)

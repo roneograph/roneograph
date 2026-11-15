@@ -1,3 +1,4 @@
+import AVFoundation
 import CoreImage
 import ScannerKit
 import ScannerModels
@@ -7,6 +8,7 @@ import SwiftUI
 struct RoneographApp: App {
     @State private var app: AppModel
     @State private var camera: CameraModel
+    private let session: AVCaptureSession
 
     init() {
         let context = CIContext()
@@ -14,7 +16,9 @@ struct RoneographApp: App {
         let store = ScanStore(scansDirectory: support, documentsDirectory: .documentsDirectory)
         let app = AppModel(processor: ScanProcessor(store: store, context: context), settings: SettingsStore())
         _app = State(initialValue: app)
-        _camera = State(initialValue: CameraModel(service: CameraService(extractor: PageExtractor(context: context)), settings: app.settings))
+        let service = CameraService(extractor: PageExtractor(context: context))
+        session = service.session
+        _camera = State(initialValue: CameraModel(device: service, settings: app.settings))
         #if DEBUG
         Self.loadSamplePhotos(into: app)
         Self.openScreen(in: app)
@@ -23,7 +27,7 @@ struct RoneographApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView(app: app, camera: camera)
+            RootView(app: app, camera: camera, session: session)
         }
     }
 
@@ -59,6 +63,7 @@ struct RoneographApp: App {
 struct RootView: View {
     @Bindable var app: AppModel
     let camera: CameraModel
+    let session: AVCaptureSession
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -73,7 +78,7 @@ struct RootView: View {
                 }
         }
         .fullScreenCover(item: $app.camera) { scan in
-            CameraView(camera: camera, scan: scan, close: app.closeCamera) { app.finishCapture(scan) }
+            CameraView(camera: camera, session: session, scan: scan, close: app.closeCamera) { app.finishCapture(scan) }
         }
         .sheet(isPresented: $app.showingSettings) {
             SettingsView(settings: app.settings)

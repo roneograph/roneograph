@@ -13,6 +13,8 @@ final class Fixture {
     let processor: ScanProcessor
     let defaults: UserDefaults
     private let suite = "ScannerModelsTests-\(UUID().uuidString)"
+    /// Keeps the models alive, as the app model does.
+    private var models: [ScanModel] = []
 
     init() throws {
         store = ScanStore(scansDirectory: root.appending(path: "Application Support/Scans"), documentsDirectory: root.appending(path: "Documents"))
@@ -30,6 +32,7 @@ final class Fixture {
     func scanModel(title: String = "Scan 2026-11-15") -> ScanModel {
         let model = ScanModel(scan: Scan(name: "", title: title), processor: processor, settings: settings)
         model.applyFileName()
+        models.append(model)
         return model
     }
 

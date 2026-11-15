@@ -37,6 +37,8 @@ public struct CaptureTrigger: Sendable {
     }
 
     public var configuration: Configuration
+    /// False in manual mode: pages are still tracked, but only the shutter captures them.
+    public var isAutomatic = true
     private var anchor: (quad: Quad, since: TimeInterval)?
     private var lastSeen: TimeInterval?
     private var captured: (quad: Quad?, signature: PageSignature?)?
@@ -78,6 +80,7 @@ public struct CaptureTrigger: Sendable {
             return .steadying(progress: 0)
         }
 
+        guard isAutomatic else { return .steadying(progress: 0) }
         let progress = progress(since: current.since, at: time)
         guard progress >= 1 else { return .steadying(progress: progress) }
 

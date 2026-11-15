@@ -1,34 +1,14 @@
 @preconcurrency import AVFoundation
 import CoreImage
 import ScannerKit
+import ScannerModels
 import Vision
-
-/// What the live detection saw in one camera frame.
-struct LiveFrame: Sendable {
-    let quad: Quad?
-    let signature: PageSignature?
-    /// Size of the frame once upright.
-    let imageSize: CGSize
-    let time: TimeInterval
-    /// The camera is near its highest sensitivity: the scene is dark.
-    let lowLight: Bool
-}
 
 enum CameraError: Error {
     case noPhotoData
 }
 
-enum FlashMode: CaseIterable {
-    case off, auto, on
-
-    var next: FlashMode {
-        switch self {
-        case .off: .auto
-        case .auto: .on
-        case .on: .off
-        }
-    }
-
+extension FlashMode {
     var systemImage: String {
         switch self {
         case .off: "bolt.slash"
@@ -47,7 +27,7 @@ enum FlashMode: CaseIterable {
 }
 
 /// Owns the capture session: runs page detection on the video frames, checks the lens now and then, and takes full resolution photos.
-final class CameraService: NSObject, @unchecked Sendable {
+final class CameraService: NSObject, CameraDevice, @unchecked Sendable {
     let session = AVCaptureSession()
     private let sessionQueue = DispatchQueue(label: "org.roneograph.camera.session")
     private let videoQueue = DispatchQueue(label: "org.roneograph.camera.video")
@@ -63,7 +43,6 @@ final class CameraService: NSObject, @unchecked Sendable {
     private var configured = false
 
     var onFrame: (@Sendable (LiveFrame) -> Void)?
-    /// Called with the probability that the lens is smudged.
     var onSmudge: (@Sendable (Float) -> Void)?
 
     init(extractor: PageExtractor, framesPerSecond: Double = 12) {
@@ -71,12 +50,11 @@ final class CameraService: NSObject, @unchecked Sendable {
         self.minimumFrameInterval = 1 / framesPerSecond
     }
 
-    /// False on devices without a back camera apps can use, such as Apple Vision Pro.
-    static var isAvailable: Bool { AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) != nil }
+    var isAvailable: Bool { AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) != nil }
 
-    static var isAuthorized: Bool { AVCaptureDevice.authorizationStatus(for: .video) == .authorized }
+    var isAuthorized: Bool { AVCaptureDevice.authorizationStatus(for: .video) == .authorized }
 
-    static func requestAccess() async -> Bool {
+    func requestAccess() async -> Bool {
         await AVCaptureDevice.requestAccess(for: .video)
     }
 
