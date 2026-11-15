@@ -49,8 +49,8 @@ enum FlashMode: CaseIterable {
 /// Owns the capture session: runs page detection on the video frames, checks the lens now and then, and takes full resolution photos.
 final class CameraService: NSObject, @unchecked Sendable {
     let session = AVCaptureSession()
-    private let sessionQueue = DispatchQueue(label: "camera.session")
-    private let videoQueue = DispatchQueue(label: "camera.video")
+    private let sessionQueue = DispatchQueue(label: "org.roneograph.camera.session")
+    private let videoQueue = DispatchQueue(label: "org.roneograph.camera.video")
     private let videoOutput = AVCaptureVideoDataOutput()
     private let photoOutput = AVCapturePhotoOutput()
     private let extractor: PageExtractor
