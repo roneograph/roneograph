@@ -4,7 +4,7 @@ import ScannerModels
 import SwiftUI
 
 @main
-struct PDFScannerApp: App {
+struct RoneographApp: App {
     @State private var app: AppModel
     @State private var camera: CameraModel
 
@@ -29,7 +29,7 @@ struct PDFScannerApp: App {
     #if DEBUG
     /// Scans the photos of a folder, to try the app in the simulator, which has no camera.
     private static func loadSamplePhotos(into app: AppModel) {
-        guard let folder = ProcessInfo.processInfo.environment["PDFSCANNER_SAMPLE_PHOTOS"] else { return }
+        guard let folder = ProcessInfo.processInfo.environment["RONEOGRAPH_SAMPLE_PHOTOS"] else { return }
         let photos = ((try? FileManager.default.contentsOfDirectory(atPath: folder)) ?? []).filter { $0.hasSuffix(".jpg") }.sorted()
         let scan = app.startScan()
         for photo in photos {

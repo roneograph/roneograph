@@ -1,6 +1,6 @@
-name: PDFScanner
+name: Roneograph
 options:
-  bundleIdPrefix: org.fabpot
+  bundleIdPrefix: org.roneograph
   developmentLanguage: en
   deploymentTarget:
     iOS: "26.0"
@@ -8,7 +8,7 @@ packages:
   ScannerKit:
     path: ScannerKit
 targets:
-  PDFScanner:
+  Roneograph:
     type: application
     platform: iOS
     sources:
@@ -21,7 +21,7 @@ targets:
     info:
       path: App/Info.plist
       properties:
-        CFBundleDisplayName: PDF Scanner
+        CFBundleDisplayName: Roneograph
         CFBundleDevelopmentRegion: en
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
@@ -34,10 +34,10 @@ targets:
         LSSupportsOpeningDocumentsInPlace: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: ${PDFSCANNER_BUNDLE_ID}
+        PRODUCT_BUNDLE_IDENTIFIER: ${RONEOGRAPH_BUNDLE_ID}
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
         SWIFT_VERSION: "6.0"
         TARGETED_DEVICE_FAMILY: "1"
         CODE_SIGN_STYLE: Automatic
-        DEVELOPMENT_TEAM: ${PDFSCANNER_DEVELOPMENT_TEAM}
+        DEVELOPMENT_TEAM: ${RONEOGRAPH_DEVELOPMENT_TEAM}

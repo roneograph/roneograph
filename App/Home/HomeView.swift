@@ -13,7 +13,7 @@ struct HomeView: View {
                 recent
             }
         }
-        .navigationTitle("PDF Scanner")
+        .navigationTitle("Roneograph")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) { SettingsButton(app: app) }
         }

@@ -146,7 +146,7 @@ struct CameraView: View {
         ContentUnavailableView {
             Label("Camera access is off", systemImage: "camera")
         } description: {
-            Text("PDF Scanner needs the camera to scan pages.")
+            Text("Roneograph needs the camera to scan pages.")
         } actions: {
             Button("Open Settings") {
                 if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
