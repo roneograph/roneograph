@@ -33,12 +33,14 @@ public final class ScanModel: Identifiable {
     private var queue: Task<Void, Never>?
     private var isDeleted = false
     private let namer = FileNamer()
+    private let now: @Sendable () -> Date
 
-    public init(scan: Scan, processor: ScanProcessor, settings: SettingsStore) {
+    public init(scan: Scan, processor: ScanProcessor, settings: SettingsStore, now: @escaping @Sendable () -> Date = Date.init) {
         self.id = scan.id
         self.scan = scan
         self.processor = processor
         self.settings = settings
+        self.now = now
     }
 
     public var store: ScanStore { processor.store }
@@ -195,7 +197,7 @@ public final class ScanModel: Identifiable {
     }
 
     public func markSent(_ method: SendMethod) {
-        scan.sent = .now
+        scan.sent = now()
         scan.sentBy = method
         save()
     }

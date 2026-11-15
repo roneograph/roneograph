@@ -87,7 +87,8 @@ struct AppModelTests {
     @Test func sendingReturnsHomeWithAConfirmation() async throws {
         let fixture = try Fixture()
         fixture.settings.value.email = "me@example.com"
-        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+        let now = Date(timeIntervalSince1970: 1_794_700_000)
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings, now: { now })
         let scan = app.startScan()
         scan.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
         await scan.waitUntilIdle()
@@ -97,7 +98,7 @@ struct AppModelTests {
         #expect(app.path.isEmpty)
         #expect(app.toast == "Emailed to me@example.com")
         #expect(app.scans.first?.sentBy == .email)
-        #expect(app.scans.first?.sent != nil)
+        #expect(app.scans.first?.sent == now)
     }
 
     @Test func deletingAScanRemovesItEverywhere() async throws {

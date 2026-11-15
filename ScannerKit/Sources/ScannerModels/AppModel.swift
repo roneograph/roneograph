@@ -88,7 +88,7 @@ public final class AppModel {
     }
 
     private func makeModel(_ scan: Scan) -> ScanModel {
-        let model = ScanModel(scan: scan, processor: processor, settings: settings)
+        let model = ScanModel(scan: scan, processor: processor, settings: settings, now: now)
         model.didSave = { [weak self] in self?.reload() }
         models[scan.id] = model
         return model
