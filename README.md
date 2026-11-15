@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="App/Assets.xcassets/Logo.imageset/logo@2x.png" width="120" height="120" alt="Roneograph app icon">
+</p>
+
 # Roneograph
 
 A free, open source document scanner for iPhone: point the camera at a page, it is captured and cleaned up, and a small PDF is ready to send. No ads, no account, no tracking.
