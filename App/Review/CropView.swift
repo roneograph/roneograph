@@ -71,7 +71,7 @@ struct CropView: View {
                 var outside = Path(frame)
                 outside.addPath(outline)
                 context.fill(outside, with: .color(.black.opacity(0.45)), style: FillStyle(eoFill: true))
-                context.stroke(outline, with: .color(.blue), style: StrokeStyle(lineWidth: 2, lineJoin: .round))
+                context.stroke(outline, with: .color(.accentColor), style: StrokeStyle(lineWidth: 2, lineJoin: .round))
             }
             .allowsHitTesting(false)
             ForEach(QuadEditor.handles, id: \.self) { handle in
@@ -92,8 +92,8 @@ struct CropView: View {
         let position = mapping.viewPoint(for: editor.position(of: handle, in: quad))
         let isCorner = if case .corner = handle { true } else { false }
         return Circle()
-            .fill(dragging == handle ? .blue : .white)
-            .stroke(.blue, lineWidth: 2.5)
+            .fill(dragging == handle ? Color.accentColor : .white)
+            .stroke(.tint, lineWidth: 2.5)
             .frame(width: isCorner ? 22 : 14, height: isCorner ? 22 : 14)
             .frame(width: 44, height: 44)
             .contentShape(Rectangle())
@@ -188,11 +188,11 @@ private struct Loupe: View {
                         var outline = Path()
                         outline.addLines(quad.corners.map { CGPoint(x: $0.x * canvas.width, y: $0.y * canvas.height) })
                         outline.closeSubpath()
-                        context.stroke(outline, with: .color(.blue), lineWidth: 1.5)
+                        context.stroke(outline, with: .color(.accentColor), lineWidth: 1.5)
                     }
                 }
                 .offset(x: size.width / 2 - point.x * size.width, y: size.height / 2 - point.y * size.height)
-            Circle().stroke(.blue, lineWidth: 2).frame(width: 14, height: 14)
+            Circle().stroke(.tint, lineWidth: 2).frame(width: 14, height: 14)
         }
         .frame(width: diameter, height: diameter)
         .clipShape(Circle())

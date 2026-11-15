@@ -17,7 +17,7 @@ struct CameraView: View {
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-            if camera.access == .denied {
+            if camera.access == .denied || camera.access == .unavailable {
                 deniedView
             } else {
                 PreviewView(session: camera.session).ignoresSafeArea()
@@ -39,7 +39,7 @@ struct CameraView: View {
                 }
                 .padding()
             }
-            if camera.access == .denied {
+            if camera.access == .denied || camera.access == .unavailable {
                 VStack {
                     HStack { closeButton; Spacer() }
                     Spacer()
@@ -106,7 +106,7 @@ struct CameraView: View {
         }
         .font(.subheadline.weight(.semibold))
         .padding(.horizontal, 14).padding(.vertical, 7)
-        .background(camera.hint == .holdStill ? AnyShapeStyle(.blue.opacity(0.9)) : AnyShapeStyle(.black.opacity(0.6)), in: Capsule())
+        .background(camera.hint == .holdStill ? AnyShapeStyle(.tint.opacity(0.9)) : AnyShapeStyle(.black.opacity(0.6)), in: Capsule())
         .foregroundStyle(.white)
         .animation(.default, value: camera.hint)
     }
@@ -125,7 +125,7 @@ struct CameraView: View {
             Button(action: camera.shutter) {
                 ZStack {
                     Circle().stroke(.white.opacity(0.4), lineWidth: 4)
-                    Circle().trim(from: 0, to: camera.progress).stroke(.blue, style: StrokeStyle(lineWidth: 4, lineCap: .round)).rotationEffect(.degrees(-90))
+                    Circle().trim(from: 0, to: camera.progress).stroke(.tint, style: StrokeStyle(lineWidth: 4, lineCap: .round)).rotationEffect(.degrees(-90))
                     Circle().fill(.white).padding(8)
                 }
                 .frame(width: 72, height: 72)
@@ -142,7 +142,16 @@ struct CameraView: View {
         }
     }
 
+    @ViewBuilder
     private var deniedView: some View {
+        if camera.access == .unavailable {
+            ContentUnavailableView("No camera", systemImage: "camera", description: Text("Roneograph needs an iPhone camera to scan pages."))
+        } else {
+            accessOffView
+        }
+    }
+
+    private var accessOffView: some View {
         ContentUnavailableView {
             Label("Camera access is off", systemImage: "camera")
         } description: {
@@ -175,7 +184,7 @@ private struct PageStack: View {
             if count > 0 {
                 Text("\(count)")
                     .font(.caption.bold()).foregroundStyle(.white)
-                    .frame(minWidth: 22, minHeight: 22).background(.blue, in: Circle())
+                    .frame(minWidth: 22, minHeight: 22).background(.tint, in: Circle())
                     .offset(x: 8, y: -8)
             }
         }
@@ -236,8 +245,8 @@ struct QuadOverlay: View {
             case .pageCutOff, .pageTooSmall:
                 context.stroke(path, with: .color(.orange), style: StrokeStyle(lineWidth: 3, lineJoin: .round))
             default:
-                context.fill(path, with: .color(.blue.opacity(0.2)))
-                context.stroke(path, with: .color(.blue), style: StrokeStyle(lineWidth: 3, lineJoin: .round))
+                context.fill(path, with: .color(.accentColor.opacity(0.2)))
+                context.stroke(path, with: .color(.accentColor), style: StrokeStyle(lineWidth: 3, lineJoin: .round))
             }
         }
         .allowsHitTesting(false)

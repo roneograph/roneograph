@@ -28,8 +28,6 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         NSCameraUsageDescription: The camera finds and captures the pages you scan.
         UILaunchScreen: {}
-        UIRequiredDeviceCapabilities:
-          - still-camera
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         UIFileSharingEnabled: true
@@ -38,6 +36,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: ${RONEOGRAPH_BUNDLE_ID}
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         MARKETING_VERSION: "1.0.0"
         CURRENT_PROJECT_VERSION: "1"
         SWIFT_VERSION: "6.0"

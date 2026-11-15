@@ -115,7 +115,7 @@ private struct ScanRow: View {
     private var status: some View {
         let pages = scan.pages.count == 1 ? "1 page" : "\(scan.pages.count) pages"
         if !scan.isFinished {
-            Text("In progress · \(pages)").foregroundStyle(.blue)
+            Text("In progress · \(pages)").foregroundStyle(.tint)
         } else if let sent = scan.sent {
             HStack(spacing: 4) {
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
@@ -151,8 +151,8 @@ private struct WelcomeView: View {
                         .foregroundStyle(.secondary)
                 }
                 VStack(alignment: .leading, spacing: 14) {
-                    promise("No ads, no account", "Free and open source.", image: "hand.raised.slash", color: .green)
-                    promise("Stays on your iPhone", "Nothing is uploaded.", image: "wifi.slash", color: .blue)
+                    promise("No ads, no account", "Free and open source.", image: "hand.raised.slash")
+                    promise("Stays on your iPhone", "Nothing is uploaded.", image: "wifi.slash")
                 }
                 .padding()
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -174,9 +174,9 @@ private struct WelcomeView: View {
         .scrollDismissesKeyboard(.interactively)
     }
 
-    private func promise(_ title: String, _ detail: String, image: String, color: Color) -> some View {
+    private func promise(_ title: String, _ detail: String, image: String) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: image).font(.title2).foregroundStyle(color).frame(width: 30)
+            Image(systemName: image).font(.title2).foregroundStyle(.tint).frame(width: 30)
             VStack(alignment: .leading) {
                 Text(title).fontWeight(.semibold)
                 Text(detail).font(.subheadline).foregroundStyle(.secondary)
