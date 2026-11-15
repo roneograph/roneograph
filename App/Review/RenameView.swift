@@ -17,8 +17,11 @@ struct RenameView: View {
                         .focused($focused)
                         .submitLabel(.done)
                         .onSubmit(save)
+                    Label("\(scan.fileName(for: name.isEmpty ? scan.scan.suggestions.first ?? scan.fallbackTitle : name)).pdf", systemImage: "doc")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 } footer: {
-                    Text("File: \(scan.fileName(for: name.isEmpty ? scan.scan.suggestions.first ?? scan.fallbackTitle : name)).pdf\nThe name is the email subject; the file name follows the format in Settings.")
+                    Text("The name is the email subject; the file name follows the format in Settings.")
                 }
                 if !suggestions.isEmpty {
                     Section("Suggestions") {

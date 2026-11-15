@@ -9,13 +9,13 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("Email to", text: $settings.value.email, prompt: Text("you@example.com"))
+                    TextField("Send to", text: $settings.value.email, prompt: Text("you@example.com"))
                         .keyboardType(.emailAddress)
                         .textContentType(.emailAddress)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                 } header: {
-                    Text("Sending")
+                    Text("Email")
                 } footer: {
                     if !settings.value.email.isEmpty, !settings.value.hasValidEmail {
                         Text("This is not a valid email address.").foregroundStyle(.red)
@@ -24,14 +24,23 @@ struct SettingsView: View {
                     }
                 }
 
-                Section("Scanning") {
-                    Toggle("Auto capture", isOn: $settings.value.autoCapture)
-                    Picker("Filter", selection: $settings.value.look) {
-                        Text("Auto").tag(PageLook?.none)
-                        ForEach(PageLook.allCases, id: \.self) { look in
-                            Text(look.title).tag(PageLook?.some(look))
-                        }
+                Section {
+                    Label("\(settings.value.fileNameFormat.fileName(name: "Lumen Energy invoice", date: .now)).pdf", systemImage: "doc")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Toggle("Date first", isOn: $settings.value.fileNameFormat.datePrefix)
+                    Picker("Separator", selection: $settings.value.fileNameFormat.separator) {
+                        Text("a b").tag(FileNameFormat.Separator.space)
+                        Text("a-b").tag(FileNameFormat.Separator.dash)
+                        Text("a_b").tag(FileNameFormat.Separator.underscore)
                     }
+                    .pickerStyle(.segmented)
+                    Toggle("Lowercase", isOn: $settings.value.fileNameFormat.lowercase)
+                    Toggle("Ask for a name", isOn: $settings.value.askForName)
+                } header: {
+                    Text("File name")
+                } footer: {
+                    Text("The name is found in the text; the date is the one printed on the document, or the day of the scan.")
                 }
 
                 Section {
@@ -42,29 +51,22 @@ struct SettingsView: View {
                         Text("A4").tag(Paper.a4)
                         Text("Letter").tag(Paper.letter)
                     }
+                    .pickerStyle(.segmented)
                 } header: {
                     Text("PDF")
                 } footer: {
                     Text("Pages get the size of what was scanned: A4, Letter, a card. The default paper is used when it is not clear.")
                 }
 
-                Section {
-                    Toggle("Date first", isOn: $settings.value.fileNameFormat.datePrefix)
-                    Picker("Words separated by", selection: $settings.value.fileNameFormat.separator) {
-                        Text("Spaces").tag(FileNameFormat.Separator.space)
-                        Text("Dashes").tag(FileNameFormat.Separator.dash)
-                        Text("Underscores").tag(FileNameFormat.Separator.underscore)
+                Section("Scanning") {
+                    Toggle("Auto capture", isOn: $settings.value.autoCapture)
+                    Picker("Filter", selection: $settings.value.look) {
+                        Text("Auto").tag(PageLook?.none)
+                        ForEach(PageLook.allCases, id: \.self) { look in
+                            Text(look.title).tag(PageLook?.some(look))
+                        }
                     }
-                    Toggle("Lowercase", isOn: $settings.value.fileNameFormat.lowercase)
-                    Toggle("Ask for a name", isOn: $settings.value.askForName)
-                } header: {
-                    Text("File name")
-                } footer: {
-                    Text("\(settings.value.fileNameFormat.fileName(name: "Lumen Energy invoice", date: .now)).pdf\nThe name is found in the text; the date is the one printed on the document, or the day of the scan.")
-                }
-
-                Section("Scans") {
-                    Picker("Keep for", selection: $settings.value.keepDays) {
+                    Picker("Keep scans for", selection: $settings.value.keepDays) {
                         Text("1 day").tag(1)
                         Text("7 days").tag(7)
                         Text("30 days").tag(30)

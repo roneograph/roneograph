@@ -12,35 +12,34 @@ struct ReviewView: View {
     @State private var confirmingDelete = false
     @State private var viewedPage: UUID?
     @State private var askedForName = false
+    /// Set when the PDF went out, acted on once the mail or share sheet is gone.
+    @State private var sentBy: SendMethod?
 
     private var settings: ScannerSettings { app.settings.value }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    nameHeader
-                    PageGrid(scan: scan, open: { viewedPage = $0 }, addPages: app.addPages)
-                }
-                .padding(.horizontal)
-                .padding(.bottom, 24)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                nameHeader
+                PageGrid(scan: scan, open: { viewedPage = $0 }, addPages: { app.camera = scan })
             }
-            .safeAreaInset(edge: .bottom) { sendBar }
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("New scan", systemImage: "doc.viewfinder") { app.newScan() }
-                        .labelStyle(.titleAndIcon)
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Menu("More", systemImage: "ellipsis") {
-                        Button("Rename", systemImage: "pencil") { showingRename = true }
-                        Button("Delete Scan", systemImage: "trash", role: .destructive) { confirmingDelete = true }
-                    }
+            .padding(.horizontal)
+            .padding(.bottom, 24)
+        }
+        .safeAreaInset(edge: .bottom) { sendBar }
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu("More", systemImage: "ellipsis") {
+                    Button("Rename", systemImage: "pencil") { showingRename = true }
+                    Button("Add Pages", systemImage: "doc.viewfinder") { app.camera = scan }
+                    Button("Delete Scan", systemImage: "trash", role: .destructive) { confirmingDelete = true }
                 }
             }
-            .confirmationDialog("Delete this scan?", isPresented: $confirmingDelete, titleVisibility: .visible) {
-                Button("Delete Scan", role: .destructive) { app.deleteScan() }
-            }
+            ToolbarItem(placement: .topBarTrailing) { SettingsButton(app: app) }
+        }
+        .confirmationDialog("Delete this scan?", isPresented: $confirmingDelete, titleVisibility: .visible) {
+            Button("Delete Scan", role: .destructive) { app.delete(scan.id) }
         }
         .task(id: scan.pdfInputs) { await scan.buildPDF() }
         .onChange(of: settings.fileNameFormat) { scan.applyFileName() }
@@ -57,18 +56,18 @@ struct ReviewView: View {
             PDFOptionsView(scan: scan)
                 .presentationDetents([.medium])
         }
-        .sheet(isPresented: $showingMail) {
+        .sheet(isPresented: $showingMail, onDismiss: finishSending) {
             if case .ready(let url, _) = scan.pdf {
                 MailView(recipient: settings.hasValidEmail ? settings.email : nil, subject: scan.scan.title, attachment: url) { sent in
-                    if sent { scan.markSent() }
+                    if sent { sentBy = .email }
                 }
                 .ignoresSafeArea()
             }
         }
-        .sheet(isPresented: $showingShare) {
+        .sheet(isPresented: $showingShare, onDismiss: finishSending) {
             if case .ready(let url, _) = scan.pdf {
                 ShareSheet(items: [url]) { completed in
-                    if completed { scan.markSent() }
+                    if completed { sentBy = .share }
                 }
                 .presentationDetents([.medium, .large])
                 .ignoresSafeArea()
@@ -96,7 +95,10 @@ struct ReviewView: View {
                         .multilineTextAlignment(.leading)
                     Image(systemName: "pencil").foregroundStyle(.tint)
                 }
-                Text(nameSource).font(.subheadline).foregroundStyle(.secondary)
+                Label("\(scan.scan.name).pdf", systemImage: "doc")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
             }
         }
         .buttonStyle(.plain)
@@ -104,16 +106,20 @@ struct ReviewView: View {
         .padding(.top, 8)
     }
 
-    private var nameSource: String {
-        "\(scan.scan.name).pdf"
-    }
-
     private var sendBar: some View {
         VStack(spacing: 8) {
             Button(action: email) {
-                Label(settings.hasValidEmail ? "Email to \(settings.email)" : "Email", systemImage: "envelope")
-                    .lineLimit(1)
-                    .frame(maxWidth: .infinity)
+                Label {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("Email")
+                        if settings.hasValidEmail {
+                            Text("to \(settings.email)").font(.caption).fontWeight(.regular).lineLimit(1)
+                        }
+                    }
+                } icon: {
+                    Image(systemName: "envelope")
+                }
+                .frame(maxWidth: .infinity)
             }
             .buttonStyle(.glassProminent)
             Button {
@@ -125,7 +131,8 @@ struct ReviewView: View {
             HStack(spacing: 4) {
                 Text(summary)
                 Text("·")
-                Button("Options") { showingOptions = true }
+                Button(scan.quality.title) { showingOptions = true }
+                    .accessibilityHint("Changes the size of the PDF")
             }
             .font(.footnote)
             .foregroundStyle(.secondary)
@@ -151,6 +158,13 @@ struct ReviewView: View {
             return "\(count) · the PDF could not be made"
         default:
             return "\(count) · preparing the PDF…"
+        }
+    }
+
+    private func finishSending() {
+        if let sentBy {
+            self.sentBy = nil
+            app.didSend(scan, by: sentBy)
         }
     }
 

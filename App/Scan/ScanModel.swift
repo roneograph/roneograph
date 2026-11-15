@@ -4,7 +4,7 @@ import ScannerKit
 
 /// One scan while it is captured, reviewed and sent; every change is saved right away.
 @MainActor @Observable
-final class ScanModel {
+final class ScanModel: Identifiable {
     enum PDFState: Equatable {
         case idle, building, failed
         case ready(url: URL, size: Int)
@@ -18,7 +18,10 @@ final class ScanModel {
         var paper: Paper
     }
 
+    let id: UUID
     private(set) var scan: Scan
+    /// Called after every save, so the list of scans stays current.
+    var didSave: (() -> Void)?
     private(set) var processing = 0
     private(set) var pdf = PDFState.idle
     private(set) var failure: String?
@@ -28,6 +31,7 @@ final class ScanModel {
     private let namer = FileNamer()
 
     init(scan: Scan, processor: ScanProcessor, settings: SettingsStore) {
+        self.id = scan.id
         self.scan = scan
         self.processor = processor
         self.settings = settings
@@ -150,8 +154,9 @@ final class ScanModel {
         save()
     }
 
-    func markSent() {
+    func markSent(_ method: SendMethod) {
         scan.sent = .now
+        scan.sentBy = method
         save()
     }
 
@@ -198,6 +203,7 @@ final class ScanModel {
         guard !scan.pages.isEmpty else { return }
         do {
             try store.save(scan)
+            didSave?()
         } catch {
             failure = "The scan could not be saved."
         }

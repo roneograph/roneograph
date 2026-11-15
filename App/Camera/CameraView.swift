@@ -5,12 +5,13 @@ import SwiftUI
 
 struct CameraView: View {
     let camera: CameraModel
-    let app: AppModel
+    let scan: ScanModel
+    let close: () -> Void
+    let done: () -> Void
     @State private var flashOverlay = false
-    @State private var showingSettings = false
     @State private var showingLastPage = false
-
-    private var scan: ScanModel { app.scan }
+    /// The name of the scan when the camera opened on a scan that already had pages.
+    @State private var addingTo: String?
 
     var body: some View {
         ZStack {
@@ -25,10 +26,28 @@ struct CameraView: View {
                     topBar
                     hint
                     Spacer()
+                    if let addingTo {
+                        (Text("Adding to ") + Text(addingTo).bold())
+                            .font(.footnote)
+                            .lineLimit(1)
+                            .padding(.horizontal, 12).padding(.vertical, 5)
+                            .background(.black.opacity(0.6), in: Capsule())
+                            .foregroundStyle(.white)
+                    }
                     bottomBar
                 }
                 .padding()
             }
+            if camera.access == .denied {
+                VStack {
+                    HStack { closeButton; Spacer() }
+                    Spacer()
+                }
+                .padding()
+            }
+        }
+        .onAppear {
+            if !scan.scan.pages.isEmpty { addingTo = scan.scan.title }
         }
         .preferredColorScheme(.dark)
         .statusBarHidden()
@@ -46,9 +65,6 @@ struct CameraView: View {
         .onCameraCaptureEvent { event in
             if event.phase == .ended { camera.shutter() }
         }
-        .sheet(isPresented: $showingSettings) {
-            SettingsView(settings: app.settings)
-        }
         .sheet(isPresented: $showingLastPage) {
             LastPageView(scan: scan) { retake in
                 if retake { camera.retake() }
@@ -59,10 +75,7 @@ struct CameraView: View {
 
     private var topBar: some View {
         HStack {
-            Button("Settings", systemImage: "gearshape") { showingSettings = true }
-                .labelStyle(.iconOnly)
-                .buttonStyle(.glass)
-                .buttonBorderShape(.circle)
+            closeButton
             Spacer()
             Button("Flash", systemImage: camera.flash.systemImage) { camera.flash = camera.flash.next }
                 .labelStyle(.iconOnly)
@@ -74,6 +87,14 @@ struct CameraView: View {
                 .fontWeight(.semibold)
         }
         .controlSize(.large)
+    }
+
+    private var closeButton: some View {
+        Button("Close", systemImage: "xmark", action: close)
+            .labelStyle(.iconOnly)
+            .buttonStyle(.glass)
+            .buttonBorderShape(.circle)
+            .controlSize(.large)
     }
 
     private var hint: some View {
@@ -110,10 +131,11 @@ struct CameraView: View {
             }
             .accessibilityLabel("Capture")
 
-            Button("Done") { app.finishCapture() }
+            Button("Done", action: done)
                 .buttonStyle(.glassProminent)
                 .controlSize(.large)
                 .fontWeight(.semibold)
+                .opacity(camera.pageCount == 0 ? 0 : 1)
                 .disabled(camera.pageCount == 0)
                 .frame(maxWidth: .infinity, alignment: .trailing)
         }

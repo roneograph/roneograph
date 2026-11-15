@@ -28,6 +28,10 @@ public struct ScanPage: Identifiable, Equatable, Sendable, Codable {
     }
 }
 
+public enum SendMethod: String, Equatable, Sendable, Codable {
+    case email, share
+}
+
 public struct Scan: Identifiable, Equatable, Sendable, Codable {
     public let id: UUID
     public var created: Date
@@ -46,6 +50,7 @@ public struct Scan: Identifiable, Equatable, Sendable, Codable {
     /// False while pages are being captured.
     public var isFinished = false
     public var sent: Date?
+    public var sentBy: SendMethod?
 
     public init(id: UUID = UUID(), created: Date = .now, name: String, title: String? = nil) {
         self.id = id
