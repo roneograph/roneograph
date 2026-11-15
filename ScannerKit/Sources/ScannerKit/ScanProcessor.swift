@@ -27,14 +27,9 @@ public struct ScanProcessor: @unchecked Sendable {
     public func addPage(photo data: Data, liveQuad: Quad?, scanID: UUID, look: PageLook?) throws -> ScanPage {
         guard let photo = CIImage(data: data, options: [.applyOrientationProperty: true]) else { throw ProcessingError.unreadablePhoto }
         let quad = extractor.detect(in: photo.scaled(by: photo.scale(toLongSide: detectionSize))) ?? liveQuad
-        let flat = quad.map { extractor.correct(photo, quad: $0) } ?? photo
-        let page = ScanPage(quad: quad, analysis: cleaner.analyze(flat), cleanup: CleanupSettings(look: look))
-
         try FileManager.default.createDirectory(at: store.directory(of: scanID), withIntermediateDirectories: true)
-        try data.write(to: store.photoURL(scanID: scanID, pageID: page.id))
-        guard let flatData = extractor.jpegData(of: flat, quality: 0.9) else { throw ProcessingError.cannotEncode }
-        try flatData.write(to: store.flatURL(scanID: scanID, pageID: page.id))
-        try writePreview(of: page, scanID: scanID, flat: flat)
+        let page = try flatten(photo, quad: quad, scanID: scanID) { ScanPage(quad: quad, analysis: $0, cleanup: CleanupSettings(look: look)) }
+        try data.write(to: store.photoURL(scanID: scanID, pageID: page.id), options: .atomic)
         return page
     }
 
@@ -43,14 +38,22 @@ public struct ScanProcessor: @unchecked Sendable {
         guard let photo = CIImage(contentsOf: store.photoURL(scanID: scanID, pageID: page.id), options: [.applyOrientationProperty: true]) else {
             throw ProcessingError.unreadablePhoto
         }
+        return try flatten(photo, quad: quad, scanID: scanID) { analysis in
+            var updated = page
+            updated.quad = quad
+            updated.analysis = analysis
+            return updated
+        }
+    }
+
+    /// Cuts the page out of the photo, then saves the flat page and its preview for the page `makePage` builds from the analysis.
+    private func flatten(_ photo: CIImage, quad: Quad?, scanID: UUID, makePage: (PageAnalysis) -> ScanPage) throws -> ScanPage {
         let flat = quad.map { extractor.correct(photo, quad: $0) } ?? photo
-        var updated = page
-        updated.quad = quad
-        updated.analysis = cleaner.analyze(flat)
-        guard let flatData = extractor.jpegData(of: flat, quality: 0.9) else { throw ProcessingError.cannotEncode }
-        try flatData.write(to: store.flatURL(scanID: scanID, pageID: page.id), options: .atomic)
-        try writePreview(of: updated, scanID: scanID, flat: flat)
-        return updated
+        let page = makePage(cleaner.analyze(flat))
+        guard let data = extractor.jpegData(of: flat, quality: 0.9) else { throw ProcessingError.cannotEncode }
+        try data.write(to: store.flatURL(scanID: scanID, pageID: page.id), options: .atomic)
+        try writePreview(of: page, scanID: scanID, flat: flat)
+        return page
     }
 
     /// Writes the small cleaned image shown in the app, after any change to the page.
