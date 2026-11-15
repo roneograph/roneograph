@@ -8,7 +8,7 @@ struct HomeView: View {
     var body: some View {
         Group {
             if app.scans.isEmpty {
-                WelcomeView(settings: app.settings)
+                WelcomeView()
             } else {
                 recent
             }
@@ -42,6 +42,10 @@ struct HomeView: View {
 
     private var recent: some View {
         List {
+            AppIcon(size: 64)
+                .frame(maxWidth: .infinity)
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 4, trailing: 0))
             Section {
                 ForEach(app.scans) { scan in
                     ScanRow(scan: scan, store: app.store, open: { app.path = [scan.id] }, continueScan: { app.continueScan(scan.id) })
@@ -132,53 +136,45 @@ private struct ScanRow: View {
 }
 
 private struct WelcomeView: View {
-    @Bindable var settings: SettingsStore
-
     var body: some View {
-        ScrollView {
-            VStack(spacing: 18) {
-                Image(.logo)
-                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                    .shadow(color: .black.opacity(0.15), radius: 6, y: 3)
-                    .accessibilityLabel("Roneograph")
-                    .padding(.top, 12)
-                VStack(spacing: 6) {
-                    Text("Scan and send").font(.title2.bold())
-                    Text("Hold your iPhone above a page.\nIt is found and captured on its own.")
-                        .multilineTextAlignment(.center)
-                        .foregroundStyle(.secondary)
-                }
-                VStack(alignment: .leading, spacing: 14) {
-                    promise("No ads, no account", "Free and open source.", image: "hand.raised.slash")
-                    promise("Stays on your iPhone", "Nothing is uploaded.", image: "wifi.slash")
-                }
-                .padding()
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Email scans to (optional)").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
-                    TextField("Email", text: $settings.value.email, prompt: Text(verbatim: "you@example.com").foregroundStyle(.tertiary))
-                        .keyboardType(.emailAddress)
-                        .textContentType(.emailAddress)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .padding(12)
-                        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
-                }
-            }
-            .padding(.horizontal)
+        ViewThatFits(in: .vertical) {
+            content.frame(maxHeight: .infinity)
+            ScrollView { content }
         }
+        .frame(maxWidth: .infinity)
         .background(Color(.systemGroupedBackground))
-        .scrollDismissesKeyboard(.interactively)
     }
 
-    private func promise(_ title: String, _ detail: String, image: String) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: image).font(.title2).foregroundStyle(.tint).frame(width: 30)
-            VStack(alignment: .leading) {
-                Text(title).fontWeight(.semibold)
-                Text(detail).font(.subheadline).foregroundStyle(.secondary)
+    private var content: some View {
+        VStack(spacing: 20) {
+            AppIcon(size: 120)
+            VStack(spacing: 8) {
+                Text("Scan and send").font(.title.bold())
+                Text("Hold your iPhone above a page.\nIt is captured on its own, ready to send as a PDF.")
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
             }
+            VStack(spacing: 2) {
+                Label("Free and open source", systemImage: "checkmark.seal")
+                Text("No ads, no account, nothing uploaded")
+            }
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .padding(.top, 4)
         }
+        .padding()
+    }
+}
+
+private struct AppIcon: View {
+    let size: CGFloat
+
+    var body: some View {
+        Image(.logo)
+            .resizable()
+            .frame(width: size, height: size)
+            .clipShape(RoundedRectangle(cornerRadius: size * 0.2237, style: .continuous))
+            .shadow(color: .black.opacity(0.18), radius: size / 16, y: size / 32)
+            .accessibilityLabel("Roneograph")
     }
 }
