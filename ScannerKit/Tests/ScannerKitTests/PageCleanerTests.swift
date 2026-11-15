@@ -55,6 +55,15 @@ struct PageCleanerTests {
         }
     }
 
+    @Test func removesASharpEdgedShadowWithoutAGhost() {
+        let page = SyntheticPage(handShadow: true).render()
+        let clean = cleaner.render(page, analysis: cleaner.analyze(page), settings: CleanupSettings(look: .gray))
+        for x in stride(from: 0.30, through: 0.70, by: 0.02) {
+            let (r, _, _) = color(of: clean, at: CGPoint(x: x, y: 0.07))
+            #expect(r > 0.97, "paper at \(x) is \(r)")
+        }
+    }
+
     @Test func keepsTheInkBlack() {
         let page = SyntheticPage(paper: (0.86, 0.8, 0.62), shadow: true).render()
         let clean = cleaner.render(page, analysis: cleaner.analyze(page), settings: CleanupSettings(look: .gray))
@@ -98,6 +107,8 @@ struct SyntheticPage {
     var shadedHeader = false
     var picture = false
     var shadow = false
+    /// A shadow with sharp edges across the blank top margin, like a hand or a phone.
+    var handShadow = false
     var rotation: Double = 0
 
     func render() -> CIImage {
@@ -144,6 +155,11 @@ struct SyntheticPage {
                 "inputColor0": CIColor(red: 0.45, green: 0.45, blue: 0.45), "inputColor1": CIColor(red: 1, green: 1, blue: 1),
             ])!.outputImage!.cropped(to: image.extent)
             image = image.applyingFilter("CIMultiplyCompositing", parameters: [kCIInputBackgroundImageKey: gradient])
+        }
+        if handShadow {
+            let band = CIImage(color: CIColor(red: 0.62, green: 0.6, blue: 0.58)).cropped(to: CGRect(x: size.width * 0.42, y: 0, width: size.width * 0.16, height: size.height))
+            let mask = band.composited(over: CIImage(color: .white).cropped(to: image.extent))
+            image = image.applyingFilter("CIMultiplyCompositing", parameters: [kCIInputBackgroundImageKey: mask])
         }
         return image
     }

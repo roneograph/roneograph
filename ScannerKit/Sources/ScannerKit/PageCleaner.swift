@@ -58,13 +58,17 @@ public struct PageCleaner: @unchecked Sendable {
     public struct Configuration: Sendable {
         public var backgroundSize: CGFloat = 512
         public var backgroundRadius: Double = 5
-        public var backgroundBlur: Double = 6
+        public var backgroundBlur: Double = 1.5
+        /// The background is never darker than this share of the page-wide paper, so large dark blocks stay ink.
+        public var deepestShadow: Double = 0.3
+        public var lightingSize: CGFloat = 128
+        public var lightingRadius: Double = 12
         public var statisticsSize: CGFloat = 256
         public var textSize: CGFloat = 1400
-        /// Paper is pushed to pure white from this fraction of its brightness.
-        public var whitePoint: Float = 0.95
-        /// The darkest ink is stretched to black, but never from lighter than this, so blank pages keep their noise light.
-        public var maximumBlackPoint: Float = 0.45
+        /// Anything at least this bright relative to the paper becomes pure white, which hides leftover shadows and noise.
+        public var paperKnee: Double = 0.8
+        /// Darkens the ink below the knee, for faint pencil and thin strokes.
+        public var inkGamma: Double = 1.4
         public var skewSize: CGFloat = 900
         public var inkDarkness: Float = 0.6
         public var colorChroma: Float = 0.12
@@ -116,13 +120,10 @@ public struct PageCleaner: @unchecked Sendable {
 
         let look = settings.look ?? analysis.suggestedLook
         if look != .photo {
-            if settings.removeShadows {
-                image = divide(image, by: background(of: image))
-            }
+            image = divide(image, by: settings.removeShadows ? background(of: image) : paperColor(of: image))
             if settings.whitePaper {
-                image = stretched(whitened(image))
+                image = whitePaper(image)
             }
-            image = image.applyingFilter("CIUnsharpMask", parameters: [kCIInputRadiusKey: 1.5, kCIInputIntensityKey: 0.5]).cropped(to: image.extent)
         }
         if settings.brightness != 0 {
             image = image.applyingFilter("CIExposureAdjust", parameters: [kCIInputEVKey: settings.brightness])
@@ -130,7 +131,7 @@ public struct PageCleaner: @unchecked Sendable {
 
         switch look {
         case .color:
-            image = image.applyingFilter("CIColorControls", parameters: [kCIInputSaturationKey: 1.1])
+            break
         case .gray:
             image = image.applyingFilter("CIColorControls", parameters: [kCIInputSaturationKey: 0])
         case .blackAndWhite:
@@ -145,7 +146,7 @@ public struct PageCleaner: @unchecked Sendable {
 
     // MARK: Lighting
 
-    /// The paper without the ink: dark details smaller than the radius are removed, then the result is blurred.
+    /// The paper without the ink: a closing removes dark details smaller than the radius while keeping the edges of shadows where they are.
     func background(of image: CIImage) -> CIImage {
         let extent = image.extent
         let scale = min(1, configuration.backgroundSize / max(extent.width, extent.height))
@@ -153,10 +154,30 @@ public struct PageCleaner: @unchecked Sendable {
         let smallExtent = small.extent
         let paper = small.clampedToExtent()
             .applyingFilter("CIMorphologyMaximum", parameters: [kCIInputRadiusKey: configuration.backgroundRadius])
+            .applyingFilter("CIMorphologyMinimum", parameters: [kCIInputRadiusKey: configuration.backgroundRadius])
             .applyingGaussianBlur(sigma: configuration.backgroundBlur)
             .cropped(to: smallExtent)
-        return paper.clampedToExtent()
+        let floor = lighting(of: small).applyingFilter("CIColorMatrix", parameters: [
+            "inputRVector": CIVector(x: configuration.deepestShadow, y: 0, z: 0, w: 0),
+            "inputGVector": CIVector(x: 0, y: configuration.deepestShadow, z: 0, w: 0),
+            "inputBVector": CIVector(x: 0, y: 0, z: configuration.deepestShadow, w: 0),
+        ])
+        return paper.applyingFilter("CIMaximumCompositing", parameters: [kCIInputBackgroundImageKey: floor])
+            .cropped(to: smallExtent)
+            .clampedToExtent()
             .transformed(by: CGAffineTransform(scaleX: 1 / scale, y: 1 / scale).concatenating(CGAffineTransform(translationX: extent.minX, y: extent.minY)))
+            .cropped(to: extent)
+    }
+
+    /// The paper brightness at the scale of the whole page, ignoring shadows, blocks and pictures.
+    private func lighting(of image: CIImage) -> CIImage {
+        let extent = image.extent
+        let scale = min(1, configuration.lightingSize / max(extent.width, extent.height))
+        return image.transformed(by: CGAffineTransform(scaleX: scale, y: scale)).clampedToExtent()
+            .applyingFilter("CIMorphologyMaximum", parameters: [kCIInputRadiusKey: configuration.lightingRadius])
+            .applyingFilter("CIMorphologyMinimum", parameters: [kCIInputRadiusKey: configuration.lightingRadius / 2])
+            .applyingGaussianBlur(sigma: configuration.lightingRadius)
+            .transformed(by: CGAffineTransform(scaleX: 1 / scale, y: 1 / scale))
             .cropped(to: extent)
     }
 
@@ -167,41 +188,25 @@ public struct PageCleaner: @unchecked Sendable {
         return (filter.outputImage ?? image).cropped(to: image.extent)
     }
 
-    /// Scales each channel so the paper becomes pure white, which also removes color casts.
-    private func whitened(_ image: CIImage) -> CIImage {
+    /// The paper color of the whole page, as a uniform image, when shadows are kept.
+    private func paperColor(of image: CIImage) -> CIImage {
         let bitmap = Bitmap(image, longSide: configuration.statisticsSize, context: context)
-        var channels: [[Float]] = [[], [], []]
-        for i in 0..<bitmap.count {
-            let (r, g, b) = bitmap.rgb(i)
-            channels[0].append(r)
-            channels[1].append(g)
-            channels[2].append(b)
-        }
-        let gains = channels.map { values in
-            let paper = max(0.05, Bitmap.percentile(values, 0.9))
-            return CGFloat(1 / (paper * configuration.whitePoint))
-        }
-        let filter = CIFilter.colorMatrix()
-        filter.inputImage = image
-        filter.rVector = CIVector(x: gains[0], y: 0, z: 0, w: 0)
-        filter.gVector = CIVector(x: 0, y: gains[1], z: 0, w: 0)
-        filter.bVector = CIVector(x: 0, y: 0, z: gains[2], w: 0)
-        return (filter.outputImage ?? image).applyingFilter("CIColorClamp")
+        let channels = (0..<3).map { c in (0..<bitmap.count).map { bitmap.pixels[$0 * 4 + c] } }
+        let paper = channels.map { CGFloat(max(0.05, Bitmap.percentile($0, 0.9))) }
+        return CIImage(color: CIColor(red: paper[0], green: paper[1], blue: paper[2], colorSpace: CGColorSpace(name: CGColorSpace.linearSRGB)!)!).cropped(to: image.extent)
     }
 
-    /// Stretches the darkest ink to black, so faint pencil or a gray print gets readable contrast.
-    private func stretched(_ image: CIImage) -> CIImage {
-        let bitmap = Bitmap(image, longSide: configuration.statisticsSize, context: context)
-        let black = min(configuration.maximumBlackPoint, Bitmap.percentile((0..<bitmap.count).map(bitmap.luminance), 0.002))
-        guard black > 0.01 else { return image }
-        let gain = CGFloat(1 / (1 - black)), offset = CGFloat(-black / (1 - black))
+    /// Pushes everything above the knee to white and darkens the ink below it.
+    private func whitePaper(_ image: CIImage) -> CIImage {
+        let gain = CGFloat(1 / configuration.paperKnee)
         let filter = CIFilter.colorMatrix()
         filter.inputImage = image
         filter.rVector = CIVector(x: gain, y: 0, z: 0, w: 0)
         filter.gVector = CIVector(x: 0, y: gain, z: 0, w: 0)
         filter.bVector = CIVector(x: 0, y: 0, z: gain, w: 0)
-        filter.biasVector = CIVector(x: offset, y: offset, z: offset, w: 0)
-        return (filter.outputImage ?? image).applyingFilter("CIColorClamp")
+        return (filter.outputImage ?? image)
+            .applyingFilter("CIColorClamp")
+            .applyingFilter("CIGammaAdjust", parameters: ["inputPower": configuration.inkGamma])
     }
 
     // MARK: Content
