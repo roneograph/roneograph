@@ -91,6 +91,17 @@ struct AppModelTests {
         #expect(app.scans.first?.sent == now)
     }
 
+    @Test(arguments: [(SendMethod.email, "", "Emailed"), (.share, "me@example.com", "Shared")])
+    func confirmsHowTheScanWasSent(method: SendMethod, email: String, toast: String) async throws {
+        let fixture = try Fixture()
+        fixture.settings.value.email = email
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+        let scan = await fixture.capturedScan(in: app)
+        app.didSend(scan, by: method)
+        #expect(app.toast == toast)
+        #expect(app.scans.first?.sentBy == method)
+    }
+
     @Test func deletingAScanRemovesItEverywhere() async throws {
         let fixture = try Fixture()
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)

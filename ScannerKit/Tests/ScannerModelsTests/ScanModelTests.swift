@@ -68,6 +68,20 @@ struct ScanModelTests {
         #expect(model.updating == 0)
     }
 
+    @Test func setsTheLookOfSeveralPages() async throws {
+        let fixture = try Fixture()
+        let model = await fixture.scanModel(pages: 3)
+        model.setLook(.photo, of: model.scan.pages.map(\.id))
+        await model.waitUntilIdle()
+        #expect(model.scan.pages.map(\.look) == [.photo, .photo, .photo])
+        #expect(model.scan.pages.map(\.revision) == [1, 1, 1])
+
+        model.setLook(nil, of: [model.scan.pages[0].id])
+        await model.waitUntilIdle()
+        #expect(model.scan.pages[0].cleanup.look == nil)
+        #expect(model.scan.pages[1].look == .photo)
+    }
+
     @Test func recropsAPage() async throws {
         let fixture = try Fixture()
         let model = await fixture.scanModel(pages: 1)
@@ -182,6 +196,14 @@ struct ScanModelTests {
         }
         #expect(url == fixture.store.pdfURL(of: model.scan))
         #expect(size > 1000)
+    }
+
+    @Test func measuresThePDFInEveryQuality() async throws {
+        let fixture = try Fixture()
+        let model = await fixture.scanModel(pages: 1)
+        let sizes = await model.pdfSizes()
+        #expect(Set(sizes.keys) == Set(PDFQuality.allCases))
+        #expect(try #require(sizes[.small]) < #require(sizes[.best]))
     }
 
     @Test func qualityOverrideIsDroppedWhenItMatchesTheDefault() async throws {
