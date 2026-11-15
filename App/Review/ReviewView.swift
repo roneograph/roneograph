@@ -150,8 +150,7 @@ struct ReviewView: View {
     }
 
     private var summary: String {
-        let pages = scan.scan.pages.count + scan.processing
-        let count = pages == 1 ? "1 page" : "\(pages) pages"
+        let count = (scan.scan.pages.count + scan.processing).counted("page")
         switch scan.pdf {
         case .ready(_, let size) where !scan.isBusy:
             return "\(count) · \(ByteCountFormatter.string(fromByteCount: Int64(size), countStyle: .file))"

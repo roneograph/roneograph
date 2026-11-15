@@ -57,7 +57,7 @@ struct HomeView: View {
                 Text("Recent")
             } footer: {
                 let days = app.settings.value.keepDays
-                Text("Scans are deleted after \(days == 1 ? "1 day" : "\(days) days").")
+                Text("Scans are deleted after \(days.counted("day")).")
                     .frame(maxWidth: .infinity)
             }
         }
@@ -112,13 +112,13 @@ private struct ScanRow: View {
 
     @ViewBuilder
     private var status: some View {
-        let pages = scan.pages.count == 1 ? "1 page" : "\(scan.pages.count) pages"
+        let pages = scan.pages.count.counted("page")
         if !scan.isFinished {
             Text("In progress · \(pages)").foregroundStyle(.tint)
         } else if let sent = scan.sent {
             HStack(spacing: 4) {
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                Text("\(scan.sentBy == .share ? "Shared" : "Emailed") \(Self.relative(sent)) · \(pages)").foregroundStyle(.secondary)
+                Text("\((scan.sentBy ?? .email).pastTense) \(Self.relative(sent)) · \(pages)").foregroundStyle(.secondary)
             }
             .lineLimit(1)
         } else {

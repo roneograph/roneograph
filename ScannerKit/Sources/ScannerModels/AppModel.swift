@@ -73,7 +73,7 @@ public final class AppModel {
         model.markSent(method)
         path = []
         let settings = settings.value
-        showToast(method == .email ? (settings.hasValidEmail ? "Emailed to \(settings.email)" : "Emailed") : "Shared")
+        showToast(method == .email && settings.hasValidEmail ? "\(method.pastTense) to \(settings.email)" : method.pastTense)
     }
 
     public func delete(_ id: UUID) {

@@ -121,7 +121,7 @@ struct CameraView: View {
             }
             .disabled(scan.scan.pages.isEmpty)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityLabel("\(camera.pageCount) pages")
+            .accessibilityLabel(camera.pageCount.counted("page"))
 
             Button(action: camera.shutter) {
                 ZStack {
