@@ -3,6 +3,8 @@ import Foundation
 public struct ScannerSettings: Equatable, Sendable, Codable {
     /// Recipient of the Email button; empty when not set.
     public var email = ""
+    /// Set once the first tap on Email asked for an address, answered or not.
+    public var askedForEmail = false
     public var autoCapture = true
     /// Nil lets each page pick its look.
     public var look: PageLook?
@@ -22,7 +24,7 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case email, autoCapture, look, quality, paper, askForName, fileNameFormat, keepDays
+        case email, askedForEmail, autoCapture, look, quality, paper, askForName, fileNameFormat, keepDays
     }
 
     /// Missing or unknown values keep their default, so settings survive app updates.
@@ -30,6 +32,7 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let defaults = ScannerSettings()
         email = (try? container.decode(String.self, forKey: .email)) ?? defaults.email
+        askedForEmail = (try? container.decode(Bool.self, forKey: .askedForEmail)) ?? defaults.askedForEmail
         autoCapture = (try? container.decode(Bool.self, forKey: .autoCapture)) ?? defaults.autoCapture
         look = try? container.decode(PageLook.self, forKey: .look)
         quality = (try? container.decode(PDFQuality.self, forKey: .quality)) ?? defaults.quality

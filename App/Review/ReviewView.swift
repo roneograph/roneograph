@@ -10,6 +10,8 @@ struct ReviewView: View {
     @State private var showingOptions = false
     @State private var showingMail = false
     @State private var showingShare = false
+    @State private var showingEmailQuestion = false
+    @State private var mailAfterQuestion = false
     @State private var confirmingDelete = false
     @State private var viewedPage: UUID?
     @State private var askedForName = false
@@ -64,6 +66,15 @@ struct ReviewView: View {
                 }
                 .ignoresSafeArea()
             }
+        }
+        .sheet(isPresented: $showingEmailQuestion, onDismiss: {
+            if mailAfterQuestion {
+                mailAfterQuestion = false
+                showingMail = true
+            }
+        }) {
+            EmailQuestionView(settings: app.settings) { mailAfterQuestion = true }
+                .presentationDetents([.medium])
         }
         .sheet(isPresented: $showingShare, onDismiss: finishSending) {
             if case .ready(let url, _) = scan.pdf {
@@ -170,10 +181,12 @@ struct ReviewView: View {
 
     /// Mail needs an account in the Mail app; without one, the share sheet lets any mail app send the PDF.
     private func email() {
-        if MFMailComposeViewController.canSendMail() {
-            showingMail = true
-        } else {
+        if !MFMailComposeViewController.canSendMail() {
             showingShare = true
+        } else if app.settings.shouldAskForEmail {
+            showingEmailQuestion = true
+        } else {
+            showingMail = true
         }
     }
 }

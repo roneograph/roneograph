@@ -16,6 +16,16 @@ public final class SettingsStore {
         value = defaults.data(forKey: Self.key).flatMap { try? JSONDecoder().decode(ScannerSettings.self, from: $0) } ?? ScannerSettings()
     }
 
+    /// The first tap on Email asks where scans go, unless an address is already set.
+    public var shouldAskForEmail: Bool { !value.hasValidEmail && !value.askedForEmail }
+
+    /// Keeps the address when it is valid; either way, the question is not asked again.
+    public func answerEmailQuestion(_ email: String) {
+        let email = email.trimmingCharacters(in: .whitespaces)
+        if ScannerSettings.isValidEmail(email) { value.email = email }
+        value.askedForEmail = true
+    }
+
     private func save() {
         defaults.set(try? JSONEncoder().encode(value), forKey: Self.key)
     }
