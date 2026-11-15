@@ -128,22 +128,12 @@ public final class ScanModel: Identifiable {
     }
 
     public func rotatePage(_ id: UUID, clockwise: Bool) {
-        update(id) { page, processor, scanID in
-            var page = page
-            page.rotate(clockwise: clockwise)
-            try processor.writePreview(of: page, scanID: scanID)
-            return page
-        }
+        editPage(id) { $0.rotate(clockwise: clockwise) }
     }
 
     public func setLook(_ look: PageLook?, of ids: [UUID]) {
         for id in ids {
-            update(id) { page, processor, scanID in
-                var page = page
-                page.cleanup.look = look
-                try processor.writePreview(of: page, scanID: scanID)
-                return page
-            }
+            editPage(id) { $0.cleanup.look = look }
         }
     }
 
@@ -151,6 +141,16 @@ public final class ScanModel: Identifiable {
     public func recrop(_ id: UUID, quad: Quad?) {
         update(id) { page, processor, scanID in
             try processor.recrop(page, scanID: scanID, quad: quad)
+        }
+    }
+
+    /// Changes how the page is rendered, then redraws its preview.
+    private func editPage(_ id: UUID, _ edit: @escaping @Sendable (inout ScanPage) -> Void) {
+        update(id) { page, processor, scanID in
+            var page = page
+            edit(&page)
+            try processor.writePreview(of: page, scanID: scanID)
+            return page
         }
     }
 
