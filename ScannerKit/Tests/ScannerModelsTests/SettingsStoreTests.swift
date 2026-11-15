@@ -26,4 +26,12 @@ struct SettingsStoreTests {
         #expect(fixture.settings.value.email == "")
         #expect(!fixture.settings.shouldAskForEmail)
     }
+
+    @Test func showsThePageTipUntilDismissed() throws {
+        let fixture = try Fixture()
+        #expect(fixture.settings.showsPageTip)
+        fixture.settings.dismissPageTip()
+        #expect(!fixture.settings.showsPageTip)
+        #expect(!SettingsStore(defaults: fixture.defaults).showsPageTip)
+    }
 }

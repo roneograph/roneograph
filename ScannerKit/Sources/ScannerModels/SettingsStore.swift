@@ -26,6 +26,12 @@ public final class SettingsStore {
         value.askedForEmail = true
     }
 
+    public var showsPageTip: Bool { !value.dismissedPageTip }
+
+    public func dismissPageTip() {
+        if !value.dismissedPageTip { value.dismissedPageTip = true }
+    }
+
     private func save() {
         defaults.set(try? JSONEncoder().encode(value), forKey: Self.key)
     }

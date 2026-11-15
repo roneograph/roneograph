@@ -24,7 +24,10 @@ struct ReviewView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 nameHeader
-                PageGrid(scan: scan, open: { viewedPage = $0 }, addPages: { app.camera = scan })
+                if app.settings.showsPageTip, !scan.scan.pages.isEmpty {
+                    PageTip { withAnimation { app.settings.dismissPageTip() } }
+                }
+                PageGrid(scan: scan, open: open, addPages: { app.camera = scan })
             }
             .padding(.horizontal)
             .padding(.bottom, 24)
@@ -32,13 +35,6 @@ struct ReviewView: View {
         .safeAreaInset(edge: .bottom) { sendBar }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu("More", systemImage: "ellipsis") {
-                    Button("Rename", systemImage: "pencil") { showingRename = true }
-                    Button("Add Pages", systemImage: "doc.viewfinder") { app.camera = scan }
-                    Button("Delete Scan", systemImage: "trash", role: .destructive) { confirmingDelete = true }
-                }
-            }
             ToolbarItem(placement: .topBarTrailing) { SettingsButton(app: app) }
         }
         .confirmationDialog("Delete this scan?", isPresented: $confirmingDelete, titleVisibility: .visible) {
@@ -120,40 +116,42 @@ struct ReviewView: View {
 
     private var sendBar: some View {
         VStack(spacing: 8) {
-            Button(action: email) {
-                Label {
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text("Email")
-                        if settings.hasValidEmail {
-                            Text("to \(settings.email)").font(.caption).fontWeight(.regular).lineLimit(1)
-                        }
-                    }
-                } icon: {
-                    Image(systemName: "envelope")
+            HStack(spacing: 10) {
+                Button("Email", systemImage: "envelope", action: email)
+                    .buttonStyle(.glassProminent)
+                    .disabled(!isReady)
+                Button("Share", systemImage: "square.and.arrow.up") { showingShare = true }
+                    .buttonStyle(.glass)
+                    .disabled(!isReady)
+                Button("Delete Scan", systemImage: "trash", role: .destructive) { confirmingDelete = true }
+                    .buttonStyle(.glass)
+                    .foregroundStyle(.red)
+            }
+            .labelStyle(SendButtonLabelStyle())
+            .controlSize(.large)
+            .font(.title3)
+            VStack(spacing: 2) {
+                if settings.hasValidEmail {
+                    Text("To \(settings.email)").lineLimit(1).truncationMode(.middle)
                 }
-                .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.glassProminent)
-            Button {
-                showingShare = true
-            } label: {
-                Label("Share", systemImage: "square.and.arrow.up").frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.glass)
-            HStack(spacing: 4) {
-                Text(summary)
-                Text("·")
-                Button(scan.quality.title) { showingOptions = true }
-                    .accessibilityHint("Changes the size of the PDF")
+                HStack(spacing: 4) {
+                    Text(summary)
+                    Text("·")
+                    Button(scan.quality.title) { showingOptions = true }
+                        .accessibilityHint("Changes the size of the PDF")
+                        .disabled(!isReady)
+                }
             }
             .font(.footnote)
             .foregroundStyle(.secondary)
         }
-        .controlSize(.large)
-        .fontWeight(.semibold)
-        .disabled(!isReady)
         .padding(.horizontal)
         .padding(.top, 8)
+    }
+
+    private func open(_ page: ScanPage) {
+        app.settings.dismissPageTip()
+        viewedPage = page
     }
 
     private var isReady: Bool {
@@ -207,11 +205,19 @@ private struct PageGrid: View {
                                 PageImage(url: scan.previewURL(of: page), revision: page.revision, maximumSize: 600)
                                     .shadow(color: .black.opacity(0.18), radius: 3, y: 1)
                             }
-                        Text("\(index + 1) · \(page.look.title)").font(.footnote).foregroundStyle(.secondary)
+                        HStack(spacing: 3) {
+                            Text("\(index + 1) · \(page.look.title)")
+                            Image(systemName: "chevron.right").font(.caption2.bold())
+                        }
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.tint)
+                        .padding(.horizontal, 9).padding(.vertical, 3)
+                        .background(.tint.opacity(0.12), in: Capsule())
                     }
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Page \(index + 1), \(page.look.title)")
+                .accessibilityHint("Changes its look, rotates or crops it")
                 .draggable(page.id.uuidString) {
                     PageImage(url: scan.previewURL(of: page), revision: page.revision, maximumSize: 300).frame(width: 120)
                 }
@@ -243,5 +249,37 @@ private struct PageGrid: View {
             .buttonStyle(.plain)
             .foregroundStyle(.tint)
         }
+    }
+}
+
+/// Icon only, full width: the three send buttons share the row equally.
+private struct SendButtonLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.icon.frame(maxWidth: .infinity)
+    }
+}
+
+/// Shown until closed or until a page is opened: pages do more than they show.
+private struct PageTip: View {
+    let close: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "hand.tap").font(.title2).foregroundStyle(.tint)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Tap a page to adjust it").font(.subheadline.weight(.semibold))
+                Text("Change its look, rotate or crop it. Touch and hold to move or delete it.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+            Button("Close", systemImage: "xmark", action: close)
+                .labelStyle(.iconOnly)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.tertiary)
+                .buttonStyle(.plain)
+        }
+        .padding(12)
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
     }
 }
