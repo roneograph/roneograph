@@ -234,13 +234,13 @@ public final class ScanModel: Identifiable {
         }.value
     }
 
-    /// Deletes the scan; pages still being processed are dropped when they finish.
+    /// Deletes the scan; pages still being processed are dropped when they finish, then their files are deleted too.
     public func delete() {
         isDeleted = true
         store.delete(scan)
-        let store = store, scan = scan
-        Task { [queue] in
-            await queue?.value
+        let store = store, scan = scan, previous = queue
+        queue = Task {
+            await previous?.value
             store.delete(scan)
         }
     }

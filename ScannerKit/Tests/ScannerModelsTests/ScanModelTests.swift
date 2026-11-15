@@ -131,14 +131,26 @@ struct ScanModelTests {
         #expect(model.scan.pages[0].quad == page.quad)
     }
 
-    @Test func deletingWhilePagesAreProcessedLeavesNothingBehind() async throws {
+    @Test func deletingBeforePagesAreProcessedLeavesNothingBehind() async throws {
         let fixture = try Fixture()
         let model = fixture.scanModel()
         model.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
         model.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
         model.delete()
         await model.waitUntilIdle()
-        try await Task.sleep(for: .milliseconds(100))
+
+        #expect(fixture.store.all().isEmpty)
+        #expect(!FileManager.default.fileExists(atPath: fixture.store.directory(of: model.id).path(percentEncoded: false)))
+    }
+
+    @Test func deletingWhileAPageIsProcessedLeavesNothingBehind() async throws {
+        let fixture = try Fixture()
+        let model = fixture.scanModel()
+        let directory = fixture.store.directory(of: model.id).path(percentEncoded: false)
+        model.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
+        while !FileManager.default.fileExists(atPath: directory) { try await Task.sleep(for: .milliseconds(1)) }
+        model.delete()
+        await model.waitUntilIdle()
 
         #expect(fixture.store.all().isEmpty)
         #expect(!FileManager.default.fileExists(atPath: fixture.store.directory(of: model.id).path(percentEncoded: false)))
