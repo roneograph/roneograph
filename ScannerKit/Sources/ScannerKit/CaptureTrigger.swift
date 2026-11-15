@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 /// Decides when to capture a page automatically: when it has been held still long enough,
@@ -10,6 +11,8 @@ public struct CaptureTrigger: Sendable {
         public var stillTolerance: Double = 0.015
         /// Smallest page area, as a fraction of the image, worth capturing.
         public var minimumArea: Double = 0.1
+        /// A corner closer than this to the edge of the image means the page goes beyond it and is cut off.
+        public var edgeMargin: Double = 0.02
         /// Missed detections shorter than this do not restart the countdown.
         public var dropTolerance: TimeInterval = 0.25
         /// After a capture, the page must disappear this long to be considered gone.
@@ -24,6 +27,8 @@ public struct CaptureTrigger: Sendable {
 
     public enum State: Equatable, Sendable {
         case searching
+        /// A page is there but goes beyond the image: the phone is too close.
+        case pageCutOff
         case steadying(progress: Double)
         case capture(Quad)
         case waitingForNextPage
@@ -50,6 +55,12 @@ public struct CaptureTrigger: Sendable {
             }
             self.captured = nil
             anchor = nil
+        }
+
+        if let quad, isCutOff(quad) {
+            anchor = nil
+            lastSeen = nil
+            return .pageCutOff
         }
 
         guard let quad else {
@@ -85,6 +96,11 @@ public struct CaptureTrigger: Sendable {
         lastSeen = nil
         captured = nil
         lostSince = nil
+    }
+
+    private func isCutOff(_ quad: Quad) -> Bool {
+        let margin = CGFloat(configuration.edgeMargin)
+        return quad.corners.contains { $0.x < margin || $0.y < margin || $0.x > 1 - margin || $0.y > 1 - margin }
     }
 
     private func progress(since: TimeInterval, at time: TimeInterval) -> Double {

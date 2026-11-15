@@ -34,6 +34,7 @@ final class CameraModel {
     var hint: String {
         switch state {
         case .searching: "Point at a page"
+        case .pageCutOff: "Move farther away"
         case .steadying: autoCapture ? "Hold still" : "Tap to capture"
         case .capture: "Capturing"
         case .waitingForNextPage: "Page \(captureCount) added · next page"

@@ -109,13 +109,16 @@ struct QuadOverlay: View {
     var body: some View {
         Canvas { context, size in
             guard let quad = detection?.quad else { return }
-            let mapping = AspectFillMapping(imageSize: imageSize, viewSize: size)
+            let mapping = ImageViewMapping(imageSize: imageSize, viewSize: size, scaling: .fit)
             var path = Path()
             path.addLines(quad.corners.map(mapping.viewPoint(for:)))
             path.closeSubpath()
-            if state == .waitingForNextPage {
+            switch state {
+            case .waitingForNextPage:
                 context.stroke(path, with: .color(.white.opacity(0.85)), style: StrokeStyle(lineWidth: 2.5, dash: [8, 7]))
-            } else {
+            case .pageCutOff:
+                context.stroke(path, with: .color(.orange), style: StrokeStyle(lineWidth: 3, lineJoin: .round))
+            default:
                 context.fill(path, with: .color(.blue.opacity(0.2)))
                 context.stroke(path, with: .color(.blue), style: StrokeStyle(lineWidth: 3, lineJoin: .round))
             }
@@ -131,7 +134,7 @@ struct PreviewView: UIViewRepresentable {
     func makeUIView(context: Context) -> PreviewUIView {
         let view = PreviewUIView()
         view.previewLayer.session = session.session
-        view.previewLayer.videoGravity = .resizeAspectFill
+        view.previewLayer.videoGravity = .resizeAspect
         return view
     }
 

@@ -1,3 +1,4 @@
+import CoreGraphics
 import ScannerKit
 import Testing
 
@@ -33,6 +34,23 @@ struct CaptureTriggerTests {
         let small = Quad.rect(x: 0.4, y: 0.4, width: 0.2, height: 0.2)
         #expect(trigger.update(quad: small, at: 0) == .searching)
         #expect(trigger.update(quad: small, at: 1) == .searching)
+    }
+
+    @Test func neverCapturesAPageThatGoesBeyondTheImage() {
+        var trigger = CaptureTrigger()
+        let cutOff = Quad(topLeft: CGPoint(x: 0.25, y: 0.004), topRight: CGPoint(x: 1, y: 0.004), bottomRight: CGPoint(x: 1, y: 0.996), bottomLeft: CGPoint(x: 0.007, y: 0.996))
+        #expect(trigger.update(quad: cutOff, at: 0) == .pageCutOff)
+        #expect(trigger.update(quad: cutOff, at: 1) == .pageCutOff)
+        #expect(trigger.update(quad: cutOff, at: 2) == .pageCutOff)
+    }
+
+    @Test func countdownStartsOnceTheWholePageIsVisible() {
+        var trigger = CaptureTrigger()
+        let cutOff = Quad.rect(x: 0.1, y: 0.01, width: 0.8, height: 0.8)
+        _ = trigger.update(quad: page, at: 0)
+        #expect(trigger.update(quad: cutOff, at: 0.3) == .pageCutOff)
+        #expect(trigger.update(quad: page, at: 0.4) == .steadying(progress: 0))
+        #expect(trigger.update(quad: page, at: 0.9) == .capture(page))
     }
 
     @Test func toleratesShortDetectionDrops() {
@@ -79,6 +97,7 @@ struct CaptureTriggerTests {
 
     @Test func rearmsWhenThePageMovesAway() {
         var trigger = CaptureTrigger()
+        let page = Quad.rect(x: 0.1, y: 0.1, width: 0.6, height: 0.8)
         _ = trigger.update(quad: page, at: 0)
         _ = trigger.update(quad: page, at: 0.5)
         let other = page.offset(by: 0.15)
