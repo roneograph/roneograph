@@ -16,6 +16,7 @@ let context = CIContext()
 let cleaner = PageCleaner(context: context)
 let extractor = PageExtractor(context: context)
 let writer = PDFWriter(context: context)
+let namer = FileNamer()
 var pdfPages: [PDFPageContent] = []
 
 for path in arguments.dropFirst() {
@@ -30,11 +31,14 @@ for path in arguments.dropFirst() {
     let name = url.deletingPathExtension().lastPathComponent
     for look in [nil] + PageLook.allCases.map(Optional.some) {
         let image = cleaner.render(page, analysis: analysis, settings: CleanupSettings(look: look))
-        if look == nil { pdfPages.append(PDFPageContent(image: image, look: analysis.suggestedLook)) }
+        if look == nil {
+            pdfPages.append(PDFPageContent(image: image, look: analysis.suggestedLook, textLineHeight: analysis.textLineHeight))
+            print("  names: \(namer.suggestions(lines: TextReader().lines(in: image), date: .now, style: .fromText))")
+        }
         guard let data = extractor.jpegData(of: image, quality: 0.8) else { continue }
         try data.write(to: output.appending(path: "\(name)-\(look?.rawValue ?? "auto").jpg"))
     }
-    print(String(format: "%@: %@, %@, skew %.2f°, color %.4f, picture %.3f, analysis %.0f ms", name, analysis.suggestedLook.rawValue, analysis.orientation.rawValue, analysis.skewDegrees, analysis.colorFraction, analysis.pictureFraction, analyzed.timeIntervalSince(started) * 1000))
+    print(String(format: "%@: %@, %@, skew %.2f°, color %.4f, picture %.3f, line %.4f, analysis %.0f ms", name, analysis.suggestedLook.rawValue, analysis.orientation.rawValue, analysis.skewDegrees, analysis.colorFraction, analysis.pictureFraction, analysis.textLineHeight ?? 0, analyzed.timeIntervalSince(started) * 1000))
 }
 
 for quality in PDFQuality.allCases {

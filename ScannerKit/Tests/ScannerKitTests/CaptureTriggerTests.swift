@@ -32,8 +32,9 @@ struct CaptureTriggerTests {
     @Test func ignoresSmallPages() {
         var trigger = CaptureTrigger()
         let small = Quad.rect(x: 0.4, y: 0.4, width: 0.2, height: 0.2)
-        #expect(trigger.update(quad: small, at: 0) == .searching)
-        #expect(trigger.update(quad: small, at: 1) == .searching)
+        #expect(trigger.update(quad: small, at: 0) == .pageTooSmall)
+        #expect(trigger.update(quad: small, at: 1) == .pageTooSmall)
+        #expect(trigger.update(quad: nil, at: 2) == .searching)
     }
 
     @Test func neverCapturesAPageThatGoesBeyondTheImage() {

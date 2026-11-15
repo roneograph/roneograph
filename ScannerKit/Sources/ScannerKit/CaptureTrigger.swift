@@ -29,6 +29,8 @@ public struct CaptureTrigger: Sendable {
         case searching
         /// A page is there but goes beyond the image: the phone is too close.
         case pageCutOff
+        /// A page is there but too small to be read well: the phone is too far.
+        case pageTooSmall
         case steadying(progress: Double)
         case capture(Quad)
         case waitingForNextPage
@@ -47,7 +49,8 @@ public struct CaptureTrigger: Sendable {
     public var isWaitingForNextPage: Bool { captured != nil }
 
     public mutating func update(quad: Quad?, signature: PageSignature? = nil, at time: TimeInterval) -> State {
-        let quad = quad.flatMap { Double($0.area) >= configuration.minimumArea ? $0 : nil }
+        let tooSmall = quad.map { Double($0.area) < configuration.minimumArea } ?? false
+        let quad = tooSmall ? nil : quad
 
         if let captured {
             guard isNewPage(quad: quad, signature: signature, captured: captured, at: time) else {
@@ -68,7 +71,7 @@ public struct CaptureTrigger: Sendable {
                 return .steadying(progress: progress(since: anchor.since, at: time))
             }
             anchor = nil
-            return .searching
+            return tooSmall ? .pageTooSmall : .searching
         }
         lastSeen = time
 

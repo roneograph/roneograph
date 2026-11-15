@@ -33,10 +33,13 @@ public enum PDFQuality: String, Codable, Sendable, CaseIterable {
 public struct PDFPageContent: @unchecked Sendable {
     public var image: CIImage
     public var look: PageLook
+    /// Median text line height as a share of the image's long side, to estimate the size of pages that are not A4 or Letter.
+    public var textLineHeight: Double?
 
-    public init(image: CIImage, look: PageLook) {
+    public init(image: CIImage, look: PageLook, textLineHeight: Double? = nil) {
         self.image = image
         self.look = look
+        self.textLineHeight = textLineHeight
     }
 }
 
@@ -63,7 +66,7 @@ public struct PDFWriter: @unchecked Sendable {
         }
         for page in pages {
             let image = page.image.transformed(by: CGAffineTransform(translationX: -page.image.extent.minX, y: -page.image.extent.minY))
-            var box = CGRect(origin: .zero, size: sizing.pageSize(forImage: image.extent.size, defaultPaper: defaultPaper))
+            var box = CGRect(origin: .zero, size: sizing.pageSize(forImage: image.extent.size, textLineHeight: page.look == .photo ? nil : page.textLineHeight, defaultPaper: defaultPaper))
             let encoded = try encode(image, look: page.look, pageSize: box.size, quality: quality)
             pdf.beginPDFPage([kCGPDFContextMediaBox: Data(bytes: &box, count: MemoryLayout<CGRect>.size)] as CFDictionary)
             pdf.interpolationQuality = .high

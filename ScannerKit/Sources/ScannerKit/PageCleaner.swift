@@ -51,6 +51,17 @@ public struct PageAnalysis: Equatable, Codable, Sendable {
     public var colorFraction: Double
     /// Share of the page covered by large dark areas, such as pictures.
     public var pictureFraction: Double
+    /// Median height of the text lines as a share of the page's long side, nil without enough text.
+    public var textLineHeight: Double?
+
+    public init(orientation: PageOrientation, skewDegrees: Double, suggestedLook: PageLook, colorFraction: Double, pictureFraction: Double, textLineHeight: Double?) {
+        self.orientation = orientation
+        self.skewDegrees = skewDegrees
+        self.suggestedLook = suggestedLook
+        self.colorFraction = colorFraction
+        self.pictureFraction = pictureFraction
+        self.textLineHeight = textLineHeight
+    }
 }
 
 /// Turns a flattened page photo into a clean page: upright, straight, even lighting, white paper, the right look.
@@ -76,6 +87,7 @@ public struct PageCleaner: @unchecked Sendable {
         public var pictureDarkness: Float = 0.45
         public var pictureFractionForPhoto: Double = 0.15
         public var minimumSkew: Double = 0.15
+        public var minimumLinesForSize = 5
         public var threshold: Double = 0.45
 
         public init() {}
@@ -91,7 +103,7 @@ public struct PageCleaner: @unchecked Sendable {
 
     public func analyze(_ page: CIImage) -> PageAnalysis {
         let page = origin(page)
-        let orientation = detectOrientation(page)
+        let (orientation, textLineHeight) = detectOrientation(page)
         let upright = page.oriented(orientation.imageOrientation)
         let paper = background(of: upright)
         let normalized = divide(upright, by: paper)
@@ -108,7 +120,7 @@ public struct PageCleaner: @unchecked Sendable {
             look = .gray
         }
         let skew = look == .photo ? 0 : skew(of: normalized)
-        return PageAnalysis(orientation: orientation, skewDegrees: skew, suggestedLook: look, colorFraction: colorFraction, pictureFraction: pictureFraction)
+        return PageAnalysis(orientation: orientation, skewDegrees: skew, suggestedLook: look, colorFraction: colorFraction, pictureFraction: pictureFraction, textLineHeight: textLineHeight)
     }
 
     public func render(_ page: CIImage, analysis: PageAnalysis, settings: CleanupSettings = .init()) -> CIImage {
@@ -232,7 +244,7 @@ public struct PageCleaner: @unchecked Sendable {
     // MARK: Text
 
     /// The accurate recognizer reads text in any orientation; the direction of its lines says how the page is turned.
-    private func detectOrientation(_ page: CIImage) -> PageOrientation {
+    private func detectOrientation(_ page: CIImage) -> (PageOrientation, Double?) {
         let extent = page.extent
         let scale = min(1, configuration.textSize / max(extent.width, extent.height))
         let request = VNRecognizeTextRequest()
@@ -241,13 +253,19 @@ public struct PageCleaner: @unchecked Sendable {
         try? VNImageRequestHandler(ciImage: page.transformed(by: CGAffineTransform(scaleX: scale, y: scale))).perform([request])
 
         var votes: [PageOrientation: Double] = [:]
+        var heights: [Double] = []
         for line in request.results ?? [] {
             let dx = Double(line.topRight.x - line.topLeft.x) * extent.width
             let dy = Double(line.topRight.y - line.topLeft.y) * extent.height
             let orientation: PageOrientation = abs(dx) >= abs(dy) ? (dx > 0 ? .up : .down) : (dy > 0 ? .right : .left)
             votes[orientation, default: 0] += hypot(dx, dy)
+            if (line.topCandidates(1).first?.string.count ?? 0) >= 4 {
+                heights.append(hypot(Double(line.topLeft.x - line.bottomLeft.x) * extent.width, Double(line.topLeft.y - line.bottomLeft.y) * extent.height))
+            }
         }
-        return votes.max { $0.value < $1.value }?.key ?? .up
+        let orientation = votes.max { $0.value < $1.value }?.key ?? .up
+        guard heights.count >= configuration.minimumLinesForSize else { return (orientation, nil) }
+        return (orientation, heights.sorted()[heights.count / 2] / max(extent.width, extent.height))
     }
 
     private func skew(of normalized: CIImage) -> Double {
