@@ -31,7 +31,12 @@ public struct ScanPage: Identifiable, Equatable, Sendable, Codable {
 public struct Scan: Identifiable, Equatable, Sendable, Codable {
     public let id: UUID
     public var created: Date
+    /// File name of the PDF, without the extension, from `title` and the file name format.
     public var name: String
+    /// The name as people read it: shown in the app and used as the email subject.
+    public var title: String
+    /// The date printed on the document, used by file name formats with a date.
+    public var documentDate: Date?
     /// True once the user renamed the scan; suggestions then stop replacing the name.
     public var isNamedByUser = false
     public var suggestions: [String] = []
@@ -42,9 +47,13 @@ public struct Scan: Identifiable, Equatable, Sendable, Codable {
     public var isFinished = false
     public var sent: Date?
 
-    public init(id: UUID = UUID(), created: Date = .now, name: String) {
+    public init(id: UUID = UUID(), created: Date = .now, name: String, title: String? = nil) {
         self.id = id
         self.created = created
         self.name = name
+        self.title = title ?? name
     }
+
+    /// The date a file name format puts first.
+    public var fileDate: Date { documentDate ?? created }
 }

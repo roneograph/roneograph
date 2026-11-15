@@ -33,7 +33,7 @@ for path in arguments.dropFirst() {
         let image = cleaner.render(page, analysis: analysis, settings: CleanupSettings(look: look))
         if look == nil {
             pdfPages.append(PDFPageContent(image: image, look: analysis.suggestedLook, textLineHeight: analysis.textLineHeight))
-            print("  names: \(namer.suggestions(lines: TextReader().lines(in: image), date: .now, style: .fromText))")
+            print("  names: \(namer.suggestions(lines: TextReader().lines(in: image), date: .now).names)")
         }
         guard let data = extractor.jpegData(of: image, quality: 0.8) else { continue }
         try data.write(to: output.appending(path: "\(name)-\(look?.rawValue ?? "auto").jpg"))

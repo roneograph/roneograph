@@ -15,8 +15,16 @@ public struct TextLine: Equatable, Sendable {
     }
 }
 
-public enum FileNameStyle: String, Codable, Sendable, CaseIterable {
-    case fromText, dateThenText, ask
+/// Names suggested from the text of a page, and the date printed on it.
+public struct NameSuggestions: Equatable, Sendable {
+    public var names: [String]
+    /// Nil when no date was found.
+    public var date: Date?
+
+    public init(names: [String], date: Date?) {
+        self.names = names
+        self.date = date
+    }
 }
 
 /// Suggests file names from the text of a page and keeps names valid for file systems and mail apps.
@@ -47,23 +55,20 @@ public struct FileNamer: Sendable {
         "Scan \(Self.isoDate(date))"
     }
 
-    /// Up to three suggestions, the first one following the style.
-    public func suggestions(lines: [TextLine], date: Date, style: FileNameStyle) -> [String] {
+    /// Up to two names, best first, or the fallback name when the text says nothing useful.
+    public func suggestions(lines: [TextLine], date: Date) -> NameSuggestions {
         let lines = lines.sorted { ($0.frame.minY, $0.frame.minX) < ($1.frame.minY, $1.frame.minX) }
         let type = documentType(in: lines)
         let isHeading = type.map { $0.word.contains(" ") } ?? false
         let issuer = isHeading ? nil : issuer(in: lines)
-        let documentDate = self.date(in: lines) ?? date
 
         let typeAndIssuer = [type?.word, issuer].compactMap { $0 }.joined(separator: " ")
         let typeAndNumber = type.flatMap { type in type.number.map { "\(type.word) \($0)" } }
-        let text = issuer == nil ? typeAndNumber ?? type?.word : typeAndIssuer
-        let dated = text.map { "\(Self.isoDate(documentDate)) \($0)" }
+        let best = issuer == nil ? typeAndNumber ?? type?.word : typeAndIssuer
 
-        let ordered = style == .dateThenText ? [dated, text, typeAndNumber] : [text, typeAndNumber, dated]
         var seen = Set<String>()
-        let suggestions = ordered.compactMap { $0 }.map { finalName($0, fallback: "") }.filter { !$0.isEmpty && seen.insert($0).inserted }
-        return suggestions.isEmpty ? [fallback(for: date)] : suggestions
+        let names = [best, typeAndNumber].compactMap { $0 }.map { finalName($0, fallback: "") }.filter { !$0.isEmpty && seen.insert($0).inserted }
+        return NameSuggestions(names: names.isEmpty ? [fallback(for: date)] : names, date: self.date(in: lines))
     }
 
     // MARK: Document type
@@ -166,7 +171,7 @@ public struct FileNamer: Sendable {
         return calendar.date(from: DateComponents(year: year, month: month, day: day, hour: 12))
     }
 
-    static func isoDate(_ date: Date) -> String {
+    public static func isoDate(_ date: Date) -> String {
         date.formatted(Date.ISO8601FormatStyle(timeZone: .current).year().month().day())
     }
 

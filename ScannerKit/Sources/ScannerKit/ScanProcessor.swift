@@ -48,10 +48,10 @@ public struct ScanProcessor: @unchecked Sendable {
         try data.write(to: store.previewURL(scanID: scanID, pageID: page.id), options: .atomic)
     }
 
-    /// File name suggestions from the text of the page.
-    public func nameSuggestions(for page: ScanPage, scanID: UUID, date: Date, style: FileNameStyle) -> [String] {
-        guard let preview = CIImage(contentsOf: store.previewURL(scanID: scanID, pageID: page.id)) else { return [] }
-        return FileNamer().suggestions(lines: reader.lines(in: preview), date: date, style: style)
+    /// Name suggestions and the document date, from the text of the page.
+    public func nameSuggestions(for page: ScanPage, scanID: UUID, date: Date) -> NameSuggestions? {
+        guard let preview = CIImage(contentsOf: store.previewURL(scanID: scanID, pageID: page.id)) else { return nil }
+        return FileNamer().suggestions(lines: reader.lines(in: preview), date: date)
     }
 
     public func pdfData(of scan: Scan, quality: PDFQuality, paper: Paper) throws -> Data {
@@ -59,6 +59,6 @@ public struct ScanProcessor: @unchecked Sendable {
             guard let flat = CIImage(contentsOf: store.flatURL(scanID: scan.id, pageID: page.id)) else { throw ProcessingError.unreadablePage }
             return PDFPageContent(image: cleaner.render(flat, analysis: page.analysis, settings: page.cleanup), look: page.look, textLineHeight: page.analysis.textLineHeight)
         }
-        return try writer.data(pages: pages, title: scan.name, quality: quality, defaultPaper: paper)
+        return try writer.data(pages: pages, title: scan.title, quality: quality, defaultPaper: paper)
     }
 }

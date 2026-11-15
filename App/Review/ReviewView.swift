@@ -43,8 +43,9 @@ struct ReviewView: View {
             }
         }
         .task(id: scan.pdfInputs) { await scan.buildPDF() }
+        .onChange(of: settings.fileNameFormat) { scan.applyFileName() }
         .task {
-            if settings.fileNameStyle == .ask, !scan.scan.isNamedByUser, !askedForName {
+            if settings.askForName, !scan.scan.isNamedByUser, !askedForName {
                 askedForName = true
                 showingRename = true
             }
@@ -58,7 +59,7 @@ struct ReviewView: View {
         }
         .sheet(isPresented: $showingMail) {
             if case .ready(let url, _) = scan.pdf {
-                MailView(recipient: settings.hasValidEmail ? settings.email : nil, subject: scan.scan.name, attachment: url) { sent in
+                MailView(recipient: settings.hasValidEmail ? settings.email : nil, subject: scan.scan.title, attachment: url) { sent in
                     if sent { scan.markSent() }
                 }
                 .ignoresSafeArea()
@@ -89,7 +90,7 @@ struct ReviewView: View {
         } label: {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    (Text(scan.scan.name) + Text(".pdf").foregroundStyle(.tertiary).fontWeight(.regular))
+                    Text(scan.scan.title)
                         .font(.title2.bold())
                         .foregroundStyle(.primary)
                         .multilineTextAlignment(.leading)
@@ -104,8 +105,7 @@ struct ReviewView: View {
     }
 
     private var nameSource: String {
-        if scan.scan.isNamedByUser { return "Tap to rename" }
-        return scan.scan.suggestions.isEmpty || scan.scan.name.hasPrefix(scan.fallbackName) ? "No name found in the text · tap to rename" : "Name found in the text · tap to rename"
+        "\(scan.scan.name).pdf"
     }
 
     private var sendBar: some View {

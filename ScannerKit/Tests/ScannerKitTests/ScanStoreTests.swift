@@ -51,6 +51,7 @@ final class ScanStoreTests {
         #expect(store.availableName("invoice", for: scan) == "invoice 2")
         #expect(store.availableName("Receipt", for: scan) == "Receipt 2")
         #expect(store.availableName("Letter", for: scan) == "Letter")
+        #expect(store.availableName("Invoice", for: scan, separator: "-") == "Invoice-2")
     }
 
     @Test func handlesNamesAndFoldersWithSpaces() throws {

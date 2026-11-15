@@ -13,15 +13,12 @@ struct RenameView: View {
         NavigationStack {
             Form {
                 Section {
-                    HStack(spacing: 2) {
-                        TextField("File name", text: $name, selection: $selection)
-                            .focused($focused)
-                            .submitLabel(.done)
-                            .onSubmit(save)
-                        Text(".pdf").foregroundStyle(.tertiary)
-                    }
+                    TextField("Name", text: $name, selection: $selection)
+                        .focused($focused)
+                        .submitLabel(.done)
+                        .onSubmit(save)
                 } footer: {
-                    Text("Used for the attached file and the email subject.")
+                    Text("File: \(scan.fileName(for: name.isEmpty ? scan.scan.suggestions.first ?? scan.fallbackTitle : name)).pdf\nThe name is the email subject; the file name follows the format in Settings.")
                 }
                 if !suggestions.isEmpty {
                     Section("Suggestions") {
@@ -29,13 +26,13 @@ struct RenameView: View {
                             Button {
                                 name = suggestion
                             } label: {
-                                Label(suggestion, systemImage: suggestion.first?.isNumber == true ? "calendar" : "sparkles")
+                                Label(suggestion, systemImage: "sparkles")
                             }
                         }
                     }
                 }
             }
-            .navigationTitle("File name")
+            .navigationTitle("Name")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -50,7 +47,7 @@ struct RenameView: View {
                 if sanitized != value { name = sanitized }
             }
             .onAppear {
-                name = scan.scan.name
+                name = scan.scan.title
                 selection = TextSelection(range: name.startIndex..<name.endIndex)
                 focused = true
             }

@@ -8,7 +8,9 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
     public var look: PageLook?
     public var quality = PDFQuality.balanced
     public var paper = Paper.a4
-    public var fileNameStyle = FileNameStyle.fromText
+    /// Opens the rename sheet when the review screen first shows.
+    public var askForName = false
+    public var fileNameFormat = FileNameFormat()
     public var keepDays = 7
 
     public init() {}
@@ -20,7 +22,7 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case email, autoCapture, look, quality, paper, fileNameStyle, keepDays
+        case email, autoCapture, look, quality, paper, askForName, fileNameFormat, keepDays
     }
 
     /// Missing or unknown values keep their default, so settings survive app updates.
@@ -32,7 +34,8 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
         look = try? container.decode(PageLook.self, forKey: .look)
         quality = (try? container.decode(PDFQuality.self, forKey: .quality)) ?? defaults.quality
         paper = (try? container.decode(Paper.self, forKey: .paper)) ?? defaults.paper
-        fileNameStyle = (try? container.decode(FileNameStyle.self, forKey: .fileNameStyle)) ?? defaults.fileNameStyle
+        askForName = (try? container.decode(Bool.self, forKey: .askForName)) ?? defaults.askForName
+        fileNameFormat = (try? container.decode(FileNameFormat.self, forKey: .fileNameFormat)) ?? defaults.fileNameFormat
         keepDays = (try? container.decode(Int.self, forKey: .keepDays)) ?? defaults.keepDays
     }
 }

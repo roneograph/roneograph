@@ -42,15 +42,25 @@ struct SettingsView: View {
                         Text("A4").tag(Paper.a4)
                         Text("Letter").tag(Paper.letter)
                     }
-                    Picker("File name", selection: $settings.value.fileNameStyle) {
-                        Text("From the text").tag(FileNameStyle.fromText)
-                        Text("Date then text").tag(FileNameStyle.dateThenText)
-                        Text("Ask every time").tag(FileNameStyle.ask)
-                    }
                 } header: {
                     Text("PDF")
                 } footer: {
                     Text("Pages get the size of what was scanned: A4, Letter, a card. The default paper is used when it is not clear.")
+                }
+
+                Section {
+                    Toggle("Date first", isOn: $settings.value.fileNameFormat.datePrefix)
+                    Picker("Words separated by", selection: $settings.value.fileNameFormat.separator) {
+                        Text("Spaces").tag(FileNameFormat.Separator.space)
+                        Text("Dashes").tag(FileNameFormat.Separator.dash)
+                        Text("Underscores").tag(FileNameFormat.Separator.underscore)
+                    }
+                    Toggle("Lowercase", isOn: $settings.value.fileNameFormat.lowercase)
+                    Toggle("Ask for a name", isOn: $settings.value.askForName)
+                } header: {
+                    Text("File name")
+                } footer: {
+                    Text("\(settings.value.fileNameFormat.fileName(name: "Lumen Energy invoice", date: .now)).pdf\nThe name is found in the text; the date is the one printed on the document, or the day of the scan.")
                 }
 
                 Section("Scans") {

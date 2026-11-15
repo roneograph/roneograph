@@ -59,12 +59,12 @@ public struct ScanStore: Sendable {
     }
 
     /// A name whose PDF does not collide with another scan's PDF or any other file: "Invoice", then "Invoice 2", and so on.
-    public func availableName(_ name: String, for scan: Scan) -> String {
+    public func availableName(_ name: String, for scan: Scan, separator: String = " ") -> String {
         let taken = Set(all().filter { $0.id != scan.id }.map { $0.name.lowercased() })
         var candidate = name
         var counter = 2
         while taken.contains(candidate.lowercased()) || (candidate != scan.name && FileManager.default.fileExists(atPath: documentsDirectory.appending(path: "\(candidate).pdf").path(percentEncoded: false))) {
-            candidate = "\(name) \(counter)"
+            candidate = "\(name)\(separator)\(counter)"
             counter += 1
         }
         return candidate

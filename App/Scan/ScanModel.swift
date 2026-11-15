@@ -36,7 +36,12 @@ final class ScanModel {
     var store: ScanStore { processor.store }
     var quality: PDFQuality { scan.quality ?? settings.value.quality }
     var pdfInputs: PDFInputs { PDFInputs(name: scan.name, pages: scan.pages, quality: quality, paper: settings.value.paper) }
-    var fallbackName: String { namer.fallback(for: scan.created) }
+    var fallbackTitle: String { namer.fallback(for: scan.created) }
+
+    /// The file name a name gets with the format from the settings, before avoiding collisions.
+    func fileName(for title: String) -> String {
+        settings.value.fileNameFormat.fileName(name: title, date: scan.fileDate)
+    }
 
     func previewURL(of page: ScanPage) -> URL { store.previewURL(scanID: scan.id, pageID: page.id) }
 
@@ -69,15 +74,16 @@ final class ScanModel {
     }
 
     private func suggestNames(from page: ScanPage) async {
-        let processor = processor, scanID = scan.id, date = scan.created, style = settings.value.fileNameStyle
-        let suggestions = await Task.detached(priority: .userInitiated) {
-            processor.nameSuggestions(for: page, scanID: scanID, date: date, style: style)
-        }.value
-        scan.suggestions = suggestions
-        if !scan.isNamedByUser, let first = suggestions.first {
-            setName(first)
+        let processor = processor, scanID = scan.id, date = scan.created
+        guard let suggestions = await Task.detached(priority: .userInitiated, operation: {
+            processor.nameSuggestions(for: page, scanID: scanID, date: date)
+        }).value else { return }
+        scan.suggestions = suggestions.names
+        scan.documentDate = suggestions.date
+        if !scan.isNamedByUser, let first = suggestions.names.first {
+            scan.title = first
         }
-        save()
+        applyFileName()
     }
 
     // MARK: Pages
@@ -125,16 +131,18 @@ final class ScanModel {
 
     // MARK: Name, PDF, sending
 
-    func rename(_ name: String) {
-        setName(namer.finalName(name, fallback: scan.suggestions.first ?? fallbackName))
+    func rename(_ title: String) {
+        scan.title = namer.finalName(title, fallback: scan.suggestions.first ?? fallbackTitle)
         scan.isNamedByUser = true
-        save()
+        applyFileName()
     }
 
-    private func setName(_ name: String) {
+    /// Derives the file name from the name, after a rename or a change of format in Settings.
+    func applyFileName() {
         let old = scan.name
-        scan.name = store.availableName(name, for: scan)
-        store.movePDF(from: old, to: scan)
+        scan.name = store.availableName(fileName(for: scan.title), for: scan, separator: settings.value.fileNameFormat.separator.character)
+        if !old.isEmpty { store.movePDF(from: old, to: scan) }
+        save()
     }
 
     func setQuality(_ quality: PDFQuality) {

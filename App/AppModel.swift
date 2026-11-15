@@ -18,7 +18,8 @@ final class AppModel {
         self.settings = settings
         processor.store.deleteScans(olderThan: Date(timeIntervalSinceNow: -Double(settings.value.keepDays) * 86400))
         let unfinished = processor.store.all().first { !$0.isFinished && !$0.pages.isEmpty }
-        scan = ScanModel(scan: unfinished ?? Self.newScan(processor: processor), processor: processor, settings: settings)
+        scan = ScanModel(scan: unfinished ?? Scan(name: "", title: FileNamer().fallback(for: .now)), processor: processor, settings: settings)
+        if unfinished == nil { scan.applyFileName() }
     }
 
     func finishCapture() {
@@ -31,18 +32,13 @@ final class AppModel {
     }
 
     func newScan() {
-        scan = ScanModel(scan: Self.newScan(processor: processor), processor: processor, settings: settings)
+        scan = ScanModel(scan: Scan(name: "", title: FileNamer().fallback(for: .now)), processor: processor, settings: settings)
+        scan.applyFileName()
         screen = .camera
     }
 
     func deleteScan() {
         scan.delete()
         newScan()
-    }
-
-    private static func newScan(processor: ScanProcessor) -> Scan {
-        var scan = Scan(name: "")
-        scan.name = processor.store.availableName(FileNamer().fallback(for: scan.created), for: scan)
-        return scan
     }
 }
