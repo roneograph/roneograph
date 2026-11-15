@@ -154,7 +154,7 @@ private struct WelcomeView: View {
                 }
                 .padding()
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.background, in: RoundedRectangle(cornerRadius: 20))
+                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 20))
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Email scans to (optional)").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
                     TextField("Email", text: $settings.value.email, prompt: Text(verbatim: "you@example.com").foregroundStyle(.tertiary))
@@ -163,7 +163,7 @@ private struct WelcomeView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .padding(12)
-                        .background(.background, in: RoundedRectangle(cornerRadius: 14))
+                        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
                 }
             }
             .padding(.horizontal)
