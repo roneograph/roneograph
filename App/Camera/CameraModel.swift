@@ -36,7 +36,7 @@ final class CameraModel {
     }
 
     enum Access {
-        case unknown, granted, denied
+        case unknown, granted, denied, unavailable
     }
 
     private(set) var detection: PageDetection?
@@ -102,7 +102,9 @@ final class CameraModel {
         self.scan = scan
         trigger.reset()
         state = .searching
-        if !CameraService.isAuthorized {
+        if !CameraService.isAvailable {
+            access = .unavailable
+        } else if !CameraService.isAuthorized {
             access = await CameraService.requestAccess() ? .granted : .denied
         } else {
             access = .granted

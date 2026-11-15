@@ -71,6 +71,9 @@ final class CameraService: NSObject, @unchecked Sendable {
         self.minimumFrameInterval = 1 / framesPerSecond
     }
 
+    /// False on devices without a back camera apps can use, such as Apple Vision Pro.
+    static var isAvailable: Bool { AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) != nil }
+
     static var isAuthorized: Bool { AVCaptureDevice.authorizationStatus(for: .video) == .authorized }
 
     static func requestAccess() async -> Bool {
