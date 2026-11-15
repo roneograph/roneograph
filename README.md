@@ -22,9 +22,7 @@ Then:
 - `make test`: runs the ScannerKit tests on the Mac and builds the app
 - `make install`: builds and installs the app on the first paired iPhone (`IPHONE=<name>` to pick one)
 - `make scans-pull`: copies the scans from the iPhone to `build/scans`, to tune the page cleanup on real pages
-- `make screenshots`: takes the App Store screenshots in the iPhone 17 Pro Max simulator, from the fake documents in `tools/sample-photos`
 - `make app-icon-preview`: renders the app icon in every appearance to `build/app-icon`
-- `make testflight`: runs the tests, archives a Release build and uploads it to App Store Connect
 
 The app icon is drawn in `tools/app-icon.svg`; export it to a 1024 × 1024 PNG without transparency as `App/AppIcon.icon/Assets/icon.png`, then resize it to 96, 192 and 288 px for the home screen logo in `App/Assets.xcassets/Logo.imageset`.
 
