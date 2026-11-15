@@ -44,11 +44,8 @@ struct PageViewer: View {
     private var tools: some View {
         if let page {
             VStack(spacing: 12) {
-                Picker("Filter", selection: Binding(get: { page.cleanup.look }, set: { scan.setLook($0, of: [page.id]) })) {
-                    Text("Auto").tag(PageLook?.none)
-                    ForEach(PageLook.allCases, id: \.self) { Text($0.title).tag(PageLook?.some($0)) }
-                }
-                .pickerStyle(.segmented)
+                LookPicker(look: Binding(get: { page.cleanup.look }, set: { scan.setLook($0, of: [page.id]) }))
+                    .pickerStyle(.segmented)
                 HStack {
                     Text(page.cleanup.look == nil ? "Auto picked \(page.analysis.suggestedLook.title)" : " ")
                     Spacer()

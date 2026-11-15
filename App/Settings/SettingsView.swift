@@ -61,12 +61,7 @@ struct SettingsView: View {
 
                 Section("Scanning") {
                     Toggle("Auto capture", isOn: $settings.value.autoCapture)
-                    Picker("Filter", selection: $settings.value.look) {
-                        Text("Auto").tag(PageLook?.none)
-                        ForEach(PageLook.allCases, id: \.self) { look in
-                            Text(look.title).tag(PageLook?.some(look))
-                        }
-                    }
+                    LookPicker(look: $settings.value.look)
                     Picker("Keep scans for", selection: $settings.value.keepDays) {
                         Text("1 day").tag(1)
                         Text("7 days").tag(7)
