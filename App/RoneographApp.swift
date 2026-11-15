@@ -17,6 +17,7 @@ struct RoneographApp: App {
         _camera = State(initialValue: CameraModel(service: CameraService(extractor: PageExtractor(context: context)), settings: app.settings))
         #if DEBUG
         Self.loadSamplePhotos(into: app)
+        Self.openScreen(in: app)
         #endif
     }
 
@@ -27,15 +28,30 @@ struct RoneographApp: App {
     }
 
     #if DEBUG
-    /// Scans the photos of a folder, to try the app in the simulator, which has no camera.
+    /// Scans the photos of a folder, to try the app in the simulator, which has no camera; with RONEOGRAPH_SAMPLE_APPEND, adds them to the newest scan.
     private static func loadSamplePhotos(into app: AppModel) {
         guard let folder = ProcessInfo.processInfo.environment["RONEOGRAPH_SAMPLE_PHOTOS"] else { return }
         let photos = ((try? FileManager.default.contentsOfDirectory(atPath: folder)) ?? []).filter { $0.hasSuffix(".jpg") }.sorted()
-        let scan = app.startScan()
+        let append = ProcessInfo.processInfo.environment["RONEOGRAPH_SAMPLE_APPEND"]?.isEmpty == false
+        let scan = append ? app.scans.first.flatMap { app.model(for: $0.id) } ?? app.startScan() : app.startScan()
         for photo in photos {
             if let data = FileManager.default.contents(atPath: "\(folder)/\(photo)") { scan.addPhoto(data, liveQuad: nil) }
         }
         app.finishCapture(scan)
+    }
+
+    /// Opens a screen on launch, for App Store screenshots: RONEOGRAPH_SCREEN=home, review or settings.
+    private static func openScreen(in app: AppModel) {
+        switch ProcessInfo.processInfo.environment["RONEOGRAPH_SCREEN"] {
+        case "home":
+            app.path = []
+            for scan in app.scans.dropFirst() where scan.sent == nil {
+                app.model(for: scan.id)?.markSent(.email)
+            }
+        case "review": if app.path.isEmpty { app.path = app.scans.first.map { [$0.id] } ?? [] }
+        case "settings": app.showingSettings = true
+        default: break
+        }
     }
     #endif
 }

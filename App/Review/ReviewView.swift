@@ -199,14 +199,7 @@ private struct PageGrid: View {
                                 PageImage(url: scan.previewURL(of: page), revision: page.revision, maximumSize: 600)
                                     .shadow(color: .black.opacity(0.18), radius: 3, y: 1)
                             }
-                            .overlay(alignment: .topLeading) {
-                                Text(page.look.title)
-                                    .font(.caption2.bold())
-                                    .padding(.horizontal, 6).padding(.vertical, 2)
-                                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6))
-                                    .padding(6)
-                            }
-                        Text("\(index + 1)").font(.footnote).foregroundStyle(.secondary)
+                        Text("\(index + 1) · \(page.look.title)").font(.footnote).foregroundStyle(.secondary)
                     }
                 }
                 .buttonStyle(.plain)

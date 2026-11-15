@@ -28,7 +28,7 @@ struct CameraView: View {
                     hint
                     Spacer()
                     if let addingTo {
-                        (Text("Adding to ") + Text(addingTo).bold())
+                        Text("Adding to \(Text(addingTo).bold())")
                             .font(.footnote)
                             .lineLimit(1)
                             .padding(.horizontal, 12).padding(.vertical, 5)
