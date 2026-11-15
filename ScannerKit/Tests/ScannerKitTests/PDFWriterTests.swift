@@ -20,6 +20,25 @@ struct PDFWriterTests {
         #expect(document.documentAttributes?[PDFDocumentAttribute.creatorAttribute] as? String == "Roneograph")
     }
 
+    @Test func declaresPDFAWithAnOutputIntent() throws {
+        let data = try PDFWriter(context: context).data(pages: [PDFPageContent(image: SyntheticPage().render(), look: .color)], title: "Invoice", quality: .balanced, defaultPaper: .a4)
+        let document = try #require(CGPDFDocument(CGDataProvider(data: data as CFData)!))
+        let catalog = try #require(document.catalog)
+
+        var metadata: CGPDFStreamRef?
+        #expect(CGPDFDictionaryGetStream(catalog, "Metadata", &metadata))
+        var format = CGPDFDataFormat.raw
+        let xmp = try #require(metadata.flatMap { CGPDFStreamCopyData($0, &format) }.map { String(decoding: $0 as Data, as: UTF8.self) })
+        #expect(xmp.contains("<pdfaid:part>2</pdfaid:part>"))
+        #expect(xmp.contains("<pdfaid:conformance>B</pdfaid:conformance>"))
+
+        var intents: CGPDFArrayRef?, intent: CGPDFDictionaryRef?, subtype: UnsafePointer<CChar>?
+        #expect(CGPDFDictionaryGetArray(catalog, "OutputIntents", &intents))
+        #expect(intents.map { CGPDFArrayGetDictionary($0, 0, &intent) } == true)
+        #expect(intent.map { CGPDFDictionaryGetName($0, "S", &subtype) } == true)
+        #expect(subtype.map { String(cString: $0) } == "GTS_PDFA1")
+    }
+
     @Test func embedsJPEGForGrayAnd1BitForBlackAndWhite() throws {
         let page = SyntheticPage().render()
         let writer = PDFWriter(context: context)

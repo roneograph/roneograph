@@ -63,7 +63,7 @@ public struct PDFWriter: @unchecked Sendable {
     public func data(pages: [PDFPageContent], title: String, quality: PDFQuality, defaultPaper: Paper) throws -> Data {
         let data = NSMutableData()
         guard let consumer = CGDataConsumer(data: data as CFMutableData),
-              let pdf = CGContext(consumer: consumer, mediaBox: nil, [kCGPDFContextTitle: title, kCGPDFContextCreator: creator] as CFDictionary) else {
+              let pdf = CGContext(consumer: consumer, mediaBox: nil, [kCGPDFContextTitle: title, kCGPDFContextCreator: creator, kCGPDFContextCreatePDFA: true] as CFDictionary) else {
             throw PDFWriterError.cannotCreateDocument
         }
         for page in pages {
