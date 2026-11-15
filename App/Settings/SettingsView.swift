@@ -66,13 +66,18 @@ struct SettingsView: View {
                 }
 
                 Section {
-                } footer: {
-                    VStack(spacing: 4) {
-                        Text("No ads, no account, no tracking.")
-                        Text("Open source, MIT license · [Source code](https://github.com/roneograph/roneograph)")
-                        Text("Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")")
+                    NavigationLink {
+                        AboutView()
+                    } label: {
+                        LabeledContent {
+                            Text(AppVersion.marketing)
+                        } label: {
+                            HStack(spacing: 12) {
+                                AppIcon(size: 30).accessibilityHidden(true)
+                                Text("About Roneograph")
+                            }
+                        }
                     }
-                    .frame(maxWidth: .infinity)
                 }
             }
             .navigationTitle("Settings")
