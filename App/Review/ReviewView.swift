@@ -13,7 +13,7 @@ struct ReviewView: View {
     @State private var showingEmailQuestion = false
     @State private var mailAfterQuestion = false
     @State private var confirmingDelete = false
-    @State private var viewedPage: UUID?
+    @State private var viewedPage: ScanPage?
     @State private var askedForName = false
     /// Set when the PDF went out, acted on once the mail or share sheet is gone.
     @State private var sentBy: SendMethod?
@@ -85,11 +85,11 @@ struct ReviewView: View {
                 .ignoresSafeArea()
             }
         }
-        .fullScreenCover(item: $viewedPage) { id in
-            PageViewer(scan: scan, selection: id)
+        .fullScreenCover(item: $viewedPage) { page in
+            PageViewer(scan: scan, selection: page.id)
         }
-        .alert("Something went wrong", isPresented: .constant(scan.failure != nil)) {
-            Button("OK") { scan.dismissFailure() }
+        .alert("Something went wrong", isPresented: Binding(get: { scan.failure != nil }, set: { if !$0 { scan.dismissFailure() } })) {
+            Button("OK") {}
         } message: {
             Text(scan.failure ?? "")
         }
@@ -191,19 +191,15 @@ struct ReviewView: View {
     }
 }
 
-extension UUID: @retroactive Identifiable {
-    public var id: UUID { self }
-}
-
 private struct PageGrid: View {
     let scan: ScanModel
-    let open: (UUID) -> Void
+    let open: (ScanPage) -> Void
     let addPages: () -> Void
 
     var body: some View {
         LazyVGrid(columns: [GridItem(.flexible(), spacing: 18), GridItem(.flexible(), spacing: 18)], spacing: 16) {
             ForEach(Array(scan.scan.pages.enumerated()), id: \.element.id) { index, page in
-                Button { open(page.id) } label: {
+                Button { open(page) } label: {
                     VStack(spacing: 5) {
                         Color.clear
                             .aspectRatio(Paper.a4.aspectRatio, contentMode: .fit)
