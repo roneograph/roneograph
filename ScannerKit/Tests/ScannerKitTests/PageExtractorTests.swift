@@ -6,7 +6,7 @@ import Testing
 
 struct PageExtractorTests {
     let extractor = PageExtractor(context: CIContext())
-    let tilted = Quad(topLeft: CGPoint(x: 0.22, y: 0.18), topRight: CGPoint(x: 0.8, y: 0.21), bottomRight: CGPoint(x: 0.86, y: 0.82), bottomLeft: CGPoint(x: 0.14, y: 0.8))
+    let tilted = Quad.tilted
 
     @Test func findsATiltedPage() throws {
         let photo = SyntheticPhoto.render(page: tilted)

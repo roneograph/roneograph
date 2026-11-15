@@ -1,4 +1,6 @@
+import CoreImage
 import ScannerKit
+import ScannerKitTesting
 import Testing
 
 struct ScanTests {
@@ -16,5 +18,15 @@ struct ScanTests {
         page.rotate(clockwise: false)
         #expect(page.analysis.orientation == .left)
         #expect(page.revision == 1)
+    }
+
+    @Test func aPageTurnedClockwiseRendersSideways() {
+        let cleaner = PageCleaner(context: CIContext())
+        let flat = SyntheticPage().render()
+        var page = ScanPage(quad: nil, analysis: cleaner.analyze(flat))
+        page.rotate(clockwise: true)
+        let turned = cleaner.render(flat, analysis: page.analysis, settings: page.cleanup)
+        #expect(turned.extent.width > turned.extent.height)
+        #expect(cleaner.analyze(turned).orientation == .left)
     }
 }

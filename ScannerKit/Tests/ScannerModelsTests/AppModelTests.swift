@@ -53,11 +53,7 @@ struct AppModelTests {
 
     @Test func continueAddsPagesToTheSameScan() async throws {
         let fixture = try Fixture()
-        let first = AppModel(processor: fixture.processor, settings: fixture.settings)
-        let scan = first.startScan()
-        scan.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
-        await scan.waitUntilIdle()
-        first.finishCapture(scan)
+        let scan = await fixture.capturedScan(in: AppModel(processor: fixture.processor, settings: fixture.settings))
 
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)
         app.continueScan(scan.id)
@@ -75,10 +71,7 @@ struct AppModelTests {
     @Test func continueFromReviewReturnsToTheSameReview() async throws {
         let fixture = try Fixture()
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)
-        let scan = app.startScan()
-        scan.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
-        await scan.waitUntilIdle()
-        app.finishCapture(scan)
+        let scan = await fixture.capturedScan(in: app)
         app.camera = scan
         app.finishCapture(scan)
         #expect(app.path == [scan.id])
@@ -89,10 +82,7 @@ struct AppModelTests {
         fixture.settings.value.email = "me@example.com"
         let now = Date(timeIntervalSince1970: 1_794_700_000)
         let app = AppModel(processor: fixture.processor, settings: fixture.settings, now: { now })
-        let scan = app.startScan()
-        scan.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
-        await scan.waitUntilIdle()
-        app.finishCapture(scan)
+        let scan = await fixture.capturedScan(in: app)
 
         app.didSend(scan, by: .email)
         #expect(app.path.isEmpty)
@@ -104,10 +94,7 @@ struct AppModelTests {
     @Test func deletingAScanRemovesItEverywhere() async throws {
         let fixture = try Fixture()
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)
-        let scan = app.startScan()
-        scan.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
-        await scan.waitUntilIdle()
-        app.finishCapture(scan)
+        let scan = await fixture.capturedScan(in: app)
 
         app.delete(scan.id)
         #expect(app.scans.isEmpty)
@@ -120,7 +107,7 @@ struct AppModelTests {
         let now = Date()
         for (name, age) in [("Old", 8.0), ("Week", 6.0), ("Today", 0.0)] {
             var scan = Scan(created: now.addingTimeInterval(-age * 86400), name: name)
-            scan.pages = [ScanPage(quad: nil, analysis: PageAnalysis(orientation: .up, skewDegrees: 0, suggestedLook: .gray, colorFraction: 0, pictureFraction: 0, textLineHeight: nil))]
+            scan.pages = [ScanPage(quad: nil, analysis: .sample)]
             try fixture.store.save(scan)
         }
         let app = AppModel(processor: fixture.processor, settings: fixture.settings, now: { now })

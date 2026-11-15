@@ -82,9 +82,8 @@ struct PageCleanerTests {
     @Test func blackAndWhiteHasOnlyTwoValues() {
         let page = SyntheticPage(shadow: true).render()
         let bw = cleaner.render(page, analysis: cleaner.analyze(page), settings: CleanupSettings(look: .blackAndWhite))
-        let small = bw
-        var pixels = [UInt8](repeating: 0, count: Int(small.extent.width) * Int(small.extent.height) * 4)
-        context.render(small, toBitmap: &pixels, rowBytes: Int(small.extent.width) * 4, bounds: small.extent, format: .RGBA8, colorSpace: CGColorSpaceCreateDeviceRGB())
+        var pixels = [UInt8](repeating: 0, count: Int(bw.extent.width) * Int(bw.extent.height) * 4)
+        context.render(bw, toBitmap: &pixels, rowBytes: Int(bw.extent.width) * 4, bounds: bw.extent, format: .RGBA8, colorSpace: CGColorSpaceCreateDeviceRGB())
         #expect(Set(stride(from: 0, to: pixels.count, by: 4).map { pixels[$0] }).isSubset(of: [0, 255]))
     }
 

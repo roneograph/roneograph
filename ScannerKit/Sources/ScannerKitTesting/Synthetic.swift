@@ -121,12 +121,15 @@ public struct SyntheticPage {
 
 extension SyntheticPhoto {
     /// A JPEG photo of a tilted page, as the camera would take it.
-    public static func jpeg(page: Quad = Quad(topLeft: CGPoint(x: 0.22, y: 0.18), topRight: CGPoint(x: 0.8, y: 0.21), bottomRight: CGPoint(x: 0.86, y: 0.82), bottomLeft: CGPoint(x: 0.14, y: 0.8))) -> Data {
+    public static func jpeg(page: Quad = .tilted) -> Data {
         CIContext().jpegRepresentation(of: render(page: page), colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!)!
     }
 }
 
 extension Quad {
+    /// A page photographed at a slight angle.
+    public static let tilted = Quad(topLeft: CGPoint(x: 0.22, y: 0.18), topRight: CGPoint(x: 0.8, y: 0.21), bottomRight: CGPoint(x: 0.86, y: 0.82), bottomLeft: CGPoint(x: 0.14, y: 0.8))
+
     public static func rect(x: CGFloat, y: CGFloat, width: CGFloat, height: CGFloat) -> Quad {
         Quad(topLeft: CGPoint(x: x, y: y), topRight: CGPoint(x: x + width, y: y), bottomRight: CGPoint(x: x + width, y: y + height), bottomLeft: CGPoint(x: x, y: y + height))
     }
@@ -134,4 +137,9 @@ extension Quad {
     public func offset(by d: CGFloat) -> Quad {
         Quad(topLeft: CGPoint(x: topLeft.x + d, y: topLeft.y), topRight: CGPoint(x: topRight.x + d, y: topRight.y), bottomRight: CGPoint(x: bottomRight.x + d, y: bottomRight.y), bottomLeft: CGPoint(x: bottomLeft.x + d, y: bottomLeft.y))
     }
+}
+
+extension PageAnalysis {
+    /// An upright gray text page.
+    public static let sample = PageAnalysis(orientation: .up, skewDegrees: 0, suggestedLook: .gray, colorFraction: 0, pictureFraction: 0, textLineHeight: 0.0125)
 }

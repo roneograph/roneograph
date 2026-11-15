@@ -1,51 +1,8 @@
-import CoreImage
 import Foundation
 import ScannerKit
 import ScannerKitTesting
 @testable import ScannerModels
 import Testing
-
-/// A temporary scan store, settings and processor, removed after each test.
-@MainActor
-final class Fixture {
-    let root = FileManager.default.temporaryDirectory.appending(path: "ScannerModelsTests-\(UUID().uuidString)", directoryHint: .isDirectory)
-    let store: ScanStore
-    let settings: SettingsStore
-    let processor: ScanProcessor
-    let defaults: UserDefaults
-    private let suite = "ScannerModelsTests-\(UUID().uuidString)"
-
-    init() throws {
-        store = ScanStore(scansDirectory: root.appending(path: "Application Support/Scans"), documentsDirectory: root.appending(path: "Documents"))
-        try FileManager.default.createDirectory(at: store.documentsDirectory, withIntermediateDirectories: true)
-        defaults = UserDefaults(suiteName: suite)!
-        settings = SettingsStore(defaults: defaults)
-        processor = ScanProcessor(store: store, context: CIContext())
-    }
-
-    deinit {
-        try? FileManager.default.removeItem(at: root)
-        UserDefaults().removePersistentDomain(forName: suite)
-    }
-
-    func scanModel(title: String = "Scan 2026-11-15") -> ScanModel {
-        let model = ScanModel(scan: Scan(name: "", title: title), processor: processor, settings: settings)
-        model.applyFileName()
-        return model
-    }
-
-    /// A scan with pages already processed.
-    func scanModel(pages: Int) async -> ScanModel {
-        let model = scanModel()
-        for _ in 0..<pages { model.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil) }
-        await model.waitUntilIdle()
-        return model
-    }
-
-    func pdfExists(_ name: String) -> Bool {
-        FileManager.default.fileExists(atPath: store.documentsDirectory.appending(path: "\(name).pdf").path(percentEncoded: false))
-    }
-}
 
 @MainActor
 @Suite(.serialized)
@@ -105,11 +62,7 @@ struct ScanModelTests {
         await model.waitUntilIdle()
 
         let page = model.scan.pages[0]
-        var expected = ScanPage(quad: nil, analysis: page.analysis)
-        expected.analysis.orientation = orientation
-        expected.rotate(clockwise: true)
-        expected.rotate(clockwise: true)
-        #expect(page.analysis.orientation == expected.analysis.orientation)
+        #expect(page.analysis.orientation == orientation.turned(clockwise: true).turned(clockwise: true))
         #expect(page.cleanup.look == .blackAndWhite)
         #expect(page.revision == 3)
         #expect(model.updating == 0)
@@ -172,11 +125,21 @@ struct ScanModelTests {
         #expect(!fixture.pdfExists(first))
     }
 
-    @Test func anEmptyNameFallsBack() async throws {
+    @Test func anEmptyNameFallsBackToTheFirstSuggestion() throws {
         let fixture = try Fixture()
-        let model = await fixture.scanModel(pages: 1)
+        var scan = Scan(name: "Scan", title: "Scan")
+        scan.suggestions = ["Invoice Lumen Energy", "Invoice 1234"]
+        let model = ScanModel(scan: scan, processor: fixture.processor, settings: fixture.settings)
         model.rename("   ")
-        #expect(model.scan.title == (model.scan.suggestions.first ?? model.fallbackTitle))
+        #expect(model.scan.title == "Invoice Lumen Energy")
+    }
+
+    @Test func anEmptyNameWithoutSuggestionsFallsBackToTheDate() throws {
+        let fixture = try Fixture()
+        let created = ISO8601DateFormatter().date(from: "2026-11-12T12:00:00Z")!
+        let model = ScanModel(scan: Scan(created: created, name: "Scan"), processor: fixture.processor, settings: fixture.settings)
+        model.rename("   ")
+        #expect(model.scan.title == "Scan 2026-11-12")
     }
 
     @Test func twoScansWithTheSameNameGetDifferentFiles() async throws {

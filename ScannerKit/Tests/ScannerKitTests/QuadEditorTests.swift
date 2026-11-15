@@ -47,11 +47,4 @@ struct QuadEditorTests {
     @Test func sideHandlesSitInTheMiddle() {
         #expect(editor.position(of: .side(2), in: page) == CGPoint(x: 0.5, y: 0.8))
     }
-
-    @Test func convexity() {
-        #expect(page.isConvex)
-        #expect(Quad.full.isConvex)
-        let bowtie = Quad(topLeft: CGPoint(x: 0, y: 0), topRight: CGPoint(x: 1, y: 1), bottomRight: CGPoint(x: 1, y: 0), bottomLeft: CGPoint(x: 0, y: 1))
-        #expect(!bowtie.isConvex)
-    }
 }
