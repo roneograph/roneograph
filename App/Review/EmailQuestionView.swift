@@ -19,11 +19,7 @@ struct EmailQuestionView: View {
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
-            TextField("Email", text: $email, prompt: Text(verbatim: "you@example.com"))
-                .keyboardType(.emailAddress)
-                .textContentType(.emailAddress)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
+            EmailField(title: "Email", email: $email)
                 .focused($focused)
                 .submitLabel(.continue)
                 .onSubmit { if isValid { answer(email) } }

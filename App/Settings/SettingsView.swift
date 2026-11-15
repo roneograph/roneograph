@@ -10,11 +10,7 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("Send to", text: $settings.value.email, prompt: Text("you@example.com"))
-                        .keyboardType(.emailAddress)
-                        .textContentType(.emailAddress)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
+                    EmailField(title: "Send to", email: $settings.value.email)
                 } header: {
                     Text("Email")
                 } footer: {
