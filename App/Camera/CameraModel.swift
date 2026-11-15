@@ -15,13 +15,15 @@ final class CameraModel {
     var autoCapture = true
 
     let session: SpikeSession
+    let exporter: PDFExporter
     private let camera: CameraService
     private let processor: PageProcessor
     private var trigger = CaptureTrigger()
     private var lastSignature: PageSignature?
 
-    init(session: SpikeSession, camera: CameraService, processor: PageProcessor) {
+    init(session: SpikeSession, camera: CameraService, processor: PageProcessor, exporter: PDFExporter) {
         self.session = session
+        self.exporter = exporter
         self.camera = camera
         self.processor = processor
         camera.onFrame = { [weak self] frame in

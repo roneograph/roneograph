@@ -7,6 +7,7 @@ struct ResultsView: View {
     let model: CameraModel
     @Environment(\.dismiss) private var dismiss
     @State private var showingAppleScanner = false
+    @State private var showingPDF = false
 
     private var session: SpikeSession { model.session }
 
@@ -42,6 +43,13 @@ struct ResultsView: View {
                     Button("Scan with Apple's scanner", systemImage: "apple.logo") { showingAppleScanner = true }
                         .disabled(!VNDocumentCameraViewController.isSupported)
                 }
+                ToolbarItem(placement: .bottomBar) {
+                    Button("PDF", systemImage: "doc.richtext") { showingPDF = true }
+                        .disabled(session.pages.isEmpty)
+                }
+            }
+            .sheet(isPresented: $showingPDF) {
+                PDFExportView(pages: session.pages, directory: session.directory, exporter: model.exporter)
             }
             .fullScreenCover(isPresented: $showingAppleScanner) {
                 AppleScannerView { images in

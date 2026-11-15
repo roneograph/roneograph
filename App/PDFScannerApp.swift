@@ -7,8 +7,10 @@ struct PDFScannerApp: App {
     @State private var model: CameraModel = {
         let context = CIContext()
         let extractor = PageExtractor(context: context)
-        let processor = PageProcessor(extractor: extractor, cleaner: PageCleaner(context: context))
-        return CameraModel(session: SpikeSession(), camera: CameraService(extractor: extractor), processor: processor)
+        let cleaner = PageCleaner(context: context)
+        let processor = PageProcessor(extractor: extractor, cleaner: cleaner)
+        let exporter = PDFExporter(cleaner: cleaner, writer: PDFWriter(context: context))
+        return CameraModel(session: SpikeSession(), camera: CameraService(extractor: extractor), processor: processor, exporter: exporter)
     }()
 
     var body: some Scene {
