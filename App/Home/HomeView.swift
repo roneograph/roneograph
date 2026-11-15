@@ -13,7 +13,6 @@ struct HomeView: View {
                 recent
             }
         }
-        .navigationTitle("Roneograph")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) { SettingsButton(app: app) }
         }
@@ -138,11 +137,10 @@ private struct WelcomeView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 18) {
-                Image(systemName: "doc.viewfinder")
-                    .font(.system(size: 46))
-                    .foregroundStyle(.tint)
-                    .frame(width: 96, height: 96)
-                    .background(.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 28))
+                Image(.logo)
+                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                    .shadow(color: .black.opacity(0.15), radius: 6, y: 3)
+                    .accessibilityLabel("Roneograph")
                     .padding(.top, 12)
                 VStack(spacing: 6) {
                     Text("Scan and send").font(.title2.bold())
