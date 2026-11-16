@@ -278,7 +278,7 @@ private struct ScanThumbnail: View {
                 RoundedRectangle(cornerRadius: 3).fill(.quaternary)
             }
         }
-        .frame(width: width, height: width * 4 / 3)
+        .frame(width: width, height: width / Paper.a4.aspectRatio)
     }
 }
 
