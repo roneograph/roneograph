@@ -641,7 +641,7 @@ public struct DocumentDetector: Sendable {
             let score: Int
             if Self.contains(Self.issueDateLabels, in: label) {
                 score = 100
-            } else if Self.placeAndDate.firstMatch(in: label, range: NSRange(label.startIndex..., in: label)) != nil {
+            } else if label == "le" || Self.placeAndDate.firstMatch(in: label, range: NSRange(label.startIndex..., in: label)) != nil {
                 score = 90
             } else if let last = label.split(separator: " ").last, DocumentVocabulary.dateLabels.contains(String(last)) {
                 score = 80
@@ -654,7 +654,7 @@ public struct DocumentDetector: Sendable {
         }
     }
 
-    /// "Lyon, le", "Leipzig, den", "En Madrid, a", "Bologna,".
+    /// "Lyon, le", "Leipzig, den", "En Madrid, a", "Bologna,"; a plain "Le" before the date counts as much.
     private static let placeAndDate = try! NSRegularExpression(pattern: #"^(fait a |en )?[\p{L}' \-]{2,30}, ?(le|den|a|li|il)?$"#)
     private static let postcode = try! NSRegularExpression(pattern: #"\b[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}\b"#)
 

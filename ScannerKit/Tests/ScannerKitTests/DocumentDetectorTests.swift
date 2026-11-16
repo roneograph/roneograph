@@ -354,6 +354,11 @@ struct DocumentDetectorTests {
         #expect(detector.detect(lines: lines).details.date == nil)
     }
 
+    @Test func prefersTheDateOfTheLetterOverThePostmark() {
+        let lines = [line("102345 100 Déposé le 17.03.26", y: 0.14), line("Le 14/03/2026", y: 0.31), line("Madame,", y: 0.35)]
+        #expect(iso(detector.detect(lines: lines).details.date) == "2026-03-14")
+    }
+
     @Test func usesTheEndOfThePeriodOfAStatement() {
         let lines = [line("Relevé de compte du 01/02/2026 au 28/02/2026", y: 0.25), line("05/02/2026 Prélèvement", y: 0.5)]
         #expect(iso(detector.detect(lines: lines).details.date) == "2026-02-28")

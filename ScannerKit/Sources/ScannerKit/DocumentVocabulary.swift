@@ -269,6 +269,7 @@ enum DocumentVocabulary {
         "nato", "nata", "nascita", "effet", "effective", "commencement", "start", "begins", "beginn", "mietbeginn", "versicherungsbeginn",
         "einzugsdatum", "efecto", "vigor", "decorrenza", "attivazione", "à compter", "à partir", "a partir", "seit", "ab dem", "desde",
         "livraison", "delivery", "lieferdatum", "entrega", "consegna", "collected", "jusqu'au", "until", "hasta", "fino al", "bis",
+        "déposé le", "posted", "aufgegeben am", "imbucato",
     ]
 
     /// Words between two dates of a period, or before its first date.
