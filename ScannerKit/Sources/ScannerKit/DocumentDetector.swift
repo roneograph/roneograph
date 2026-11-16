@@ -303,14 +303,23 @@ public struct DocumentDetector: Sendable {
 
     private static let smallWords: Set<String> = ["de", "du", "des", "la", "le", "les", "et", "of", "the", "and", "for", "von", "der", "und", "di", "del", "della", "delle", "y", "il"]
 
+    private static let elisions: Set<String> = ["d", "l", "qu", "dell", "all", "dall", "nell", "sull"]
+
     /// Calms down text in capitals: "OFFICE DU TOURISME" becomes "Office du Tourisme", or "Office du tourisme" without `capitalizeAll`; text in lowercase gets capitals too.
+    /// An elided article stays small, so "CAISSE D'ÉPARGNE" becomes "Caisse d'Épargne".
     static func titleCased(_ words: [String], capitalizeAll: Bool = true) -> String {
         let letters = words.joined().filter(\.isLetter)
         guard letters.allSatisfy(\.isUppercase) || letters.allSatisfy(\.isLowercase) else { return words.joined(separator: " ") }
-        return words.enumerated().map { index, word in
+        func cased(_ word: Substring, first: Bool) -> String {
             let lower = word.lowercased()
-            let capitalize = index == 0 || (capitalizeAll && !smallWords.contains(lower))
-            return capitalize ? lower.prefix(1).uppercased() + lower.dropFirst() : lower
+            return first || (capitalizeAll && !smallWords.contains(lower)) ? lower.prefix(1).uppercased() + lower.dropFirst() : lower
+        }
+        return words.enumerated().map { index, word in
+            if let apostrophe = word.firstIndex(where: { "'’".contains($0) }), elisions.contains(word[..<apostrophe].lowercased()), apostrophe != word.indices.last {
+                let rest = word[word.index(after: apostrophe)...]
+                return (index == 0 ? cased(word[..<apostrophe], first: true) : word[..<apostrophe].lowercased()) + String(word[apostrophe]) + cased(rest, first: false)
+            }
+            return cased(word[...], first: index == 0)
         }.joined(separator: " ")
     }
 

@@ -55,6 +55,17 @@ struct FileNamerTests {
         #expect(namer.suggestions(lines: lines, date: today).names.first == "Lumen Energy")
     }
 
+    @Test(arguments: [("CAISSE D'ÉPARGNE", "Caisse d'Épargne"), ("L'ORÉAL FRANCE", "L'Oréal France"), ("BANCA DELL’ADRIATICO", "Banca dell’Adriatico")])
+    func keepsElidedArticlesSmallInAnIssuerInCapitals(text: String, expected: String) {
+        let lines = [line(text, y: 0.05, height: 0.03), line("12 rue des Lilas, 75011 Paris", y: 0.09, height: 0.01)]
+        #expect(namer.suggestions(lines: lines, date: today).names.first == expected)
+    }
+
+    @Test func keepsElidedArticlesSmallInAHeading() {
+        let lines = [line("FACTURE D'ÉLECTRICITÉ", y: 0.2, height: 0.015), line("Adresse : 12 R DES LILAS", y: 0.25, height: 0.012)]
+        #expect(namer.suggestions(lines: lines, date: today).names.first == "Facture d'électricité")
+    }
+
     @Test func fallsBackToTheDateWithoutText() {
         #expect(namer.suggestions(lines: [], date: today) == NameSuggestions(names: ["Scan \(isoToday)"]))
     }
