@@ -177,7 +177,7 @@ extension FileNameFormat {
             }
         }
 
-        public enum Token: Equatable, Sendable {
+        private enum Token: Equatable, Sendable {
             case text(String)
             case variable(Variable)
         }
@@ -203,7 +203,7 @@ extension FileNameFormat {
         }
 
         /// The folders, then the file name.
-        public let components: [[Token]]
+        private let components: [[Token]]
 
         public init(_ string: String) throws(ParseError) {
             let string = string.hasSuffix(".pdf") ? String(string.dropLast(4)) : string
@@ -216,7 +216,7 @@ extension FileNameFormat {
             }
         }
 
-        public var variables: Set<Variable> {
+        private var variables: Set<Variable> {
             Set(components.joined().compactMap { if case .variable(let variable) = $0 { variable } else { nil } })
         }
 
