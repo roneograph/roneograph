@@ -31,7 +31,7 @@ struct FileNamerTests {
             line("Lyon, le 6 octobre 2026,", y: 0.3, height: 0.013),
         ]
         let suggestions = namer.suggestions(lines: lines, date: today)
-        #expect(suggestions.names == ["Facture Office du Tourisme des", "Facture 2026FA0004711"])
+        #expect(suggestions.names == ["Facture Office du Tourisme", "Facture 2026FA0004711"])
         #expect(suggestions.date.map(FileNamer.isoDate) == "2026-10-06")
     }
 

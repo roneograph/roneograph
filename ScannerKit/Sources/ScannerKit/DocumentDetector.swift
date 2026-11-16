@@ -499,7 +499,7 @@ public struct DocumentDetector: Sendable {
         return issuerName(of: best.line)
     }
 
-    /// The name on a line, without the legal form or what follows a separator.
+    /// The name on a line, without the legal form or what follows a separator, and at most five words not ending with "de" or "of".
     /// Lone letters around a logo read uncertainly are left out: they are usually its symbol or ornaments.
     static func issuerName(of line: Line) -> String {
         var words: [String] = []
@@ -517,7 +517,9 @@ public struct DocumentDetector: Sendable {
         if let last = words.last, last.hasSuffix(",") { words[words.count - 1] = String(last.dropLast()) }
         if let last = words.last, last.hasSuffix("."), !last.dropLast().contains("."), last.filter(\.isLetter).count > 3 { words[words.count - 1] = String(last.dropLast()) }
         if line.confidence <= 0.5 { words = words.map(regularCapitals) }
-        return titleCased(Array(words.prefix(5))).trimmingCharacters(in: .punctuationCharacters.union(.whitespaces).subtracting(CharacterSet(charactersIn: ".")))
+        words = Array(words.prefix(5))
+        while words.count > 1, let last = words.last, last.count > 1, smallWords.contains(last.lowercased()) { words.removeLast() }
+        return titleCased(words).trimmingCharacters(in: .punctuationCharacters.union(.whitespaces).subtracting(CharacterSet(charactersIn: ".")))
     }
 
     /// "VeRDaLiS" becomes "Verdalis": the letters of a logo are often read in the wrong case; acronyms and words in one case are kept.

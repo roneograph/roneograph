@@ -161,6 +161,11 @@ struct DocumentDetectorTests {
         #expect(detector.detect(lines: lines).details.issuer == "Verdalis Énergie")
     }
 
+    @Test func aShortenedIssuerNeverEndsWithDeOrOf() {
+        #expect(detector.detect(lines: [line("Caisse Primaire d'Assurance Maladie de Lyon", y: 0.04, height: 0.03)]).details.issuer == "Caisse Primaire d'Assurance Maladie")
+        #expect(detector.detect(lines: [line("Northfield County Water Board of Supply", y: 0.04, height: 0.03)]).details.issuer == "Northfield County Water Board")
+    }
+
     @Test func dropsAPeriodEndingTheIssuerButNotAnAbbreviation() {
         #expect(detector.detect(lines: [line("Caisse des Retraites.", y: 0.04, height: 0.03)]).details.issuer == "Caisse des Retraites")
         #expect(detector.detect(lines: [line("Garage Leroy et Cie.", y: 0.04, height: 0.03)]).details.issuer == "Garage Leroy et Cie.")
