@@ -228,7 +228,7 @@ public struct DocumentDetector: Sendable {
     private static let clues: Phrases<Clue> = {
         var phrases: [(Phrase, Clue)] = []
         for entry in DocumentVocabulary.entries {
-            for title in entry.titles { phrases.append((Phrase(title), Clue(category: entry.category, evidence: .title(weight: entry.category == nil ? 0 : 3), phrase: phrases.count))) }
+            for title in entry.titles { phrases.append((Phrase(title), Clue(category: entry.category, evidence: .title(weight: 3), phrase: phrases.count))) }
             for title in entry.weakTitles { phrases.append((Phrase(title), Clue(category: entry.category, evidence: .title(weight: 2), phrase: phrases.count))) }
             for word in entry.nameWords { phrases.append((Phrase(word), Clue(category: entry.category, evidence: .title(weight: 2), isInNames: true, phrase: phrases.count))) }
             for label in entry.labels { phrases.append((Phrase(label), Clue(category: entry.category, evidence: .label, phrase: phrases.count))) }
