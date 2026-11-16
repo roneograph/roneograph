@@ -77,7 +77,7 @@ The simulator has no camera: in Debug builds, set `RONEOGRAPH_SAMPLE_PHOTOS` to 
 
 ## Privacy
 
-Roneograph collects nothing and never connects to the network; see [PRIVACY.md](PRIVACY.md).
+Roneograph collects nothing; see [PRIVACY.md](PRIVACY.md).
 
 ## License
 
