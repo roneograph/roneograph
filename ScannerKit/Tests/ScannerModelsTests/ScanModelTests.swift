@@ -22,6 +22,16 @@ struct ScanModelTests {
         #expect(fixture.store.all().first?.pages == model.scan.pages)
     }
 
+    @Test func saysWhenAPageCannotBeProcessed() async throws {
+        let fixture = try Fixture()
+        let model = fixture.scanModel()
+        model.addPhoto(Data("not a photo".utf8), liveQuad: nil)
+        await model.waitUntilIdle()
+        #expect(model.failure == "A page could not be processed.")
+        #expect(model.processing == 0)
+        #expect(model.scan.pages.isEmpty)
+    }
+
     @Test func emptyScansAreNeverSaved() throws {
         let fixture = try Fixture()
         _ = fixture.scanModel()

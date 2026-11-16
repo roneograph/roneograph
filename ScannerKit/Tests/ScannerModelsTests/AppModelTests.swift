@@ -38,6 +38,18 @@ struct AppModelTests {
         #expect(app.path.isEmpty)
     }
 
+    @Test func closingTheCameraWhileAPageIsProcessedKeepsTheScan() async throws {
+        let fixture = try Fixture()
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+        let scan = app.startScan()
+        scan.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
+        app.closeCamera()
+        #expect(app.model(for: scan.id) === scan)
+
+        await scan.waitUntilIdle()
+        #expect(app.scans.map(\.id) == [scan.id])
+    }
+
     @Test func deletingTheOnlyPageInTheCameraLeavesNoScan() async throws {
         let fixture = try Fixture()
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)
@@ -207,6 +219,18 @@ struct AppModelTests {
         app.delete(scan.id)
         #expect(app.scans.isEmpty)
         #expect(app.path.isEmpty)
+        #expect(fixture.store.all().isEmpty)
+    }
+
+    @Test func deletesAScanNotOpenedSinceLaunch() throws {
+        let fixture = try Fixture()
+        var scan = Scan(name: "Bill")
+        scan.pages = [ScanPage(quad: nil, analysis: .sample)]
+        try fixture.store.save(scan)
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+
+        app.delete(scan.id)
+        #expect(app.scans.isEmpty)
         #expect(fixture.store.all().isEmpty)
     }
 
