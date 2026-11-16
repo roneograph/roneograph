@@ -57,12 +57,10 @@ public struct CaptureTrigger: Sendable {
                 return .waitingForNextPage
             }
             self.captured = nil
-            anchor = nil
         }
 
         if let quad, isCutOff(quad) {
             anchor = nil
-            lastSeen = nil
             return .pageCutOff
         }
 
