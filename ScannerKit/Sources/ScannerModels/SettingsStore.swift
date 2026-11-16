@@ -82,12 +82,14 @@ public final class SettingsStore {
         return others.isEmpty ? found.first : nil
     }
 
-    /// Links the header lines of a sent document to its owner; a line seen with documents of several owners tells none of them.
-    public func link(lines fingerprints: [String], to ownerID: UUID) {
+    /// Links the header lines of a sent document to its owner, instead of the previous one when the owner of a sent document changed.
+    /// A line seen with documents of several owners tells none of them.
+    public func link(lines fingerprints: [String], to ownerID: UUID, replacing previous: UUID? = nil) {
         guard value.hasSeveralOwners, !fingerprints.isEmpty else { return }
         var lines = value.headerLines
-        for index in lines.indices where fingerprints.contains(lines[index].fingerprint) && !lines[index].owners.contains(ownerID) {
-            lines[index].owners.append(ownerID)
+        for index in lines.indices where fingerprints.contains(lines[index].fingerprint) {
+            if let previous { lines[index].owners.removeAll { $0 == previous } }
+            if !lines[index].owners.contains(ownerID) { lines[index].owners.append(ownerID) }
         }
         if lines != value.headerLines { value.headerLines = lines }
     }

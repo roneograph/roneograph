@@ -324,17 +324,19 @@ public final class ScanModel: Identifiable {
         save()
     }
 
-    /// The lines of the page are linked to the owner the scan went out with.
+    /// The lines of the page are linked to the owner the scan went out with, unless nothing told it and it only got the default owner.
     public func markSent(_ method: SendMethod) {
         scan.sent = Sent(date: now(), method: method)
-        settings.link(lines: scan.headerLines, to: owner.id)
+        if !hasDefaultOwner { settings.link(lines: scan.headerLines, to: owner.id) }
         save()
     }
 
     /// Gives the scan to another owner, renamed with its format; the owner is reused for the next documents from the same issuer.
+    /// The lines of a scan already sent move to the new owner.
     public func setOwner(_ id: UUID) {
         guard settings.value.hasOwner(id), id != scan.owner?.id || hasDefaultOwner else { return }
         settings.learn(keys: scan.issuerKeys, label: scan.details.issuer) { $0.owner = id }
+        if scan.sent != nil { settings.link(lines: scan.headerLines, to: id, replacing: hasDefaultOwner ? nil : owner.id) }
         give(to: ScanOwner(id: id))
     }
 

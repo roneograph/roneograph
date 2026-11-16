@@ -549,6 +549,47 @@ struct ScanModelTests {
         #expect(fixture.settings.value.headerLines.first?.owners == [holding.id])
     }
 
+    @Test func sendingWithTheDefaultOwnerLinksNothing() throws {
+        let fixture = try Fixture()
+        let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
+        fixture.settings.recordHeaderLines(["fernwood holding"], issuerEvidence: ["print.example"])
+        fixture.settings.recordHeaderLines(["fernwood holding"], issuerEvidence: ["bank.example"])
+        var scan = Scan(name: "Scan")
+        scan.headerLines = ["fernwood holding"]
+        let unsure = ScanModel(scan: scan, processor: fixture.processor, settings: fixture.settings)
+        unsure.markSent(.email)
+        #expect(fixture.settings.value.headerLines.first?.owners == [])
+
+        scan.owner = ScanOwner(id: holding.id)
+        ScanModel(scan: scan, processor: fixture.processor, settings: fixture.settings).markSent(.email)
+        #expect(fixture.settings.owner(recognizing: ["fernwood holding"]) == holding.id)
+    }
+
+    @Test func changingTheOwnerOfASentScanMovesItsLines() throws {
+        let fixture = try Fixture()
+        let personal = fixture.settings.value.defaultOwnerID
+        let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
+        let employer = try #require(fixture.settings.addOwner("Halcyon Labs"))
+        fixture.settings.recordHeaderLines(["fernwood holding"], issuerEvidence: ["print.example"])
+        var scan = Scan(name: "Scan")
+        scan.headerLines = ["fernwood holding"]
+        scan.owner = ScanOwner(id: personal)
+        let model = ScanModel(scan: scan, processor: fixture.processor, settings: fixture.settings)
+        model.setOwner(holding.id)
+        #expect(fixture.settings.value.headerLines.first?.owners == [])
+
+        model.markSent(.email)
+        model.setOwner(employer.id)
+        #expect(fixture.settings.value.headerLines.first?.owners == [employer.id])
+
+        var other = Scan(name: "Other")
+        other.headerLines = ["fernwood holding"]
+        let unsure = ScanModel(scan: other, processor: fixture.processor, settings: fixture.settings)
+        unsure.markSent(.email)
+        unsure.setOwner(holding.id)
+        #expect(fixture.settings.value.headerLines.first?.owners == [employer.id, holding.id])
+    }
+
     @Test func trimsTypedDetailsAndRemovesBlankOnes() throws {
         let fixture = try Fixture()
         let model = fixture.scanModel()
