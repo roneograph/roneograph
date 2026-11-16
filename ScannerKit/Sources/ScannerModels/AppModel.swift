@@ -144,7 +144,7 @@ public final class AppModel {
         return owner.hasValidEmail ? "\(owner.name) · To \(owner.email)" : owner.name
     }
 
-    /// The scans of an owner other than the default one, which deleting it moves or deletes.
+    /// The scans of an owner, which deleting it moves or deletes.
     public func scans(of ownerID: UUID) -> [Scan] {
         scans.filter { $0.owner?.id == ownerID }
     }
