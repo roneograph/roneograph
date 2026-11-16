@@ -149,8 +149,8 @@ private struct WelcomeView: View {
         VStack(spacing: 20) {
             AppIcon(size: 120)
             VStack(spacing: 8) {
-                Text("Scan and send").font(.title.bold())
-                Text("Hold your iPhone above a page.\nIt is captured on its own, ready to send as a PDF.")
+                Text("Archive your paperwork").font(.title.bold())
+                Text("Hold your iPhone above a letter, an invoice or a payslip.\nIt is captured on its own and saved as a small PDF/A, ready to send.")
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.secondary)
             }

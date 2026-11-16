@@ -4,7 +4,9 @@
 
 # Roneograph
 
-A free, open source document scanner for iPhone: point the camera at a page, it is captured and cleaned up, and a small PDF is ready to send. No ads, no account, no tracking.
+A free, open source iPhone scanner for administrative paper: letters, invoices, contracts, payslips, statements. Point the camera at a page and get a clean, small PDF/A, ready to archive or send. No ads, no account, no tracking.
+
+The [manifesto](MANIFESTO.md) says what Roneograph is for and how features are chosen.
 
 [Download Roneograph on the App Store](https://apps.apple.com/app/id6835211020).
 

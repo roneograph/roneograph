@@ -23,7 +23,7 @@ struct AboutView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Why “Roneograph”?").font(.headline.italic()).foregroundStyle(.tint)
                     Text("roneograph, noun: a rotary stencil duplicator.").font(.footnote).foregroundStyle(.secondary)
-                    Text("Offices once copied letters on a Roneo: a stencil wrapped around an inked drum, a crank, and copies rolled out one by one. Roneograph does the same job the other way round: paper in, a clean copy out, ready to send.")
+                    Text("Offices once copied their letters, forms and circulars on a Roneo: a stencil wrapped around an inked drum, a crank, and copies rolled out one by one. Roneograph makes one faithful copy of your paperwork instead: black ink on white paper, every word kept, in a file made to last.")
                         .font(.subheadline)
                 }
                 .fontDesign(.serif)
