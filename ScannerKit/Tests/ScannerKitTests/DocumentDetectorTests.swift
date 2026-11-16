@@ -110,6 +110,42 @@ struct DocumentDetectorTests {
         #expect(detector.detect(lines: lines).details.issuer == "Cabinet d'Orthodontie de la Butte")
     }
 
+    @Test func readsACenteredNameWrappedOnSeveralLinesAsOne() {
+        let lines = [
+            TextLine(text: "Maison", frame: CGRect(x: 0.2, y: 0.05, width: 0.2, height: 0.02)),
+            TextLine(text: "d'Horlogerie", frame: CGRect(x: 0.15, y: 0.071, width: 0.3, height: 0.02)),
+            TextLine(text: "de Vence", frame: CGRect(x: 0.22, y: 0.092, width: 0.16, height: 0.02)),
+            line("Lorem ipsum", y: 0.5),
+        ]
+        #expect(detector.detect(lines: lines).details.issuer == "Maison d'Horlogerie de Vence")
+    }
+
+    @Test func takesALogoReadUncertainlyWhenTheWebDomainConfirmsIt() {
+        let lines = [
+            TextLine(text: "VeRDaLiS", frame: CGRect(x: 0.08, y: 0.03, width: 0.2, height: 0.03), confidence: 0.5),
+            TextLine(text: "Urgent", frame: CGRect(x: 0.75, y: 0.1, width: 0.12, height: 0.02)),
+            line("Lorem ipsum", y: 0.5),
+            line("www.verdalis.fr", y: 0.95),
+        ]
+        #expect(detector.detect(lines: lines).details.issuer == "Verdalis")
+        #expect(detector.detect(lines: Array(lines.dropLast())).details.issuer != "Verdalis")
+    }
+
+    @Test func aDomainSharingOneWordDoesNotConfirmALogoReadUncertainly() {
+        let lines = [
+            line("CHAMBRE DES MÉTIERS", y: 0.04, height: 0.012),
+            TextLine(text: "_ DE LA METROPOLE E", frame: CGRect(x: 0.1, y: 0.06, width: 0.2, height: 0.02), confidence: 0.5),
+            line("Lorem ipsum", y: 0.5),
+            line("contact@artisans-metropole.fr", y: 0.95),
+        ]
+        #expect(detector.detect(lines: lines).details.issuer == "Chambre des Métiers")
+    }
+
+    @Test func dropsAPeriodEndingTheIssuerButNotAnAbbreviation() {
+        #expect(detector.detect(lines: [line("Caisse des Retraites.", y: 0.04, height: 0.03)]).details.issuer == "Caisse des Retraites")
+        #expect(detector.detect(lines: [line("Garage Leroy et Cie.", y: 0.04, height: 0.03)]).details.issuer == "Garage Leroy et Cie.")
+    }
+
     @Test func neverTakesALineStartingWithDeAsTheIssuer() {
         let lines = [line("Cabinet", y: 0.08, height: 0.02), line("de la Butte", y: 0.2, height: 0.03), line("Lorem ipsum", y: 0.5)]
         #expect(detector.detect(lines: lines).details.issuer == "Cabinet")

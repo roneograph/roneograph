@@ -19,7 +19,7 @@ public struct DocumentDetector: Sendable {
         let kind = Self.kind(of: page, aspectRatio: aspectRatio)
         let type = Self.type(in: page, kind: kind)
         let evidence = IssuerEvidence(page: page)
-        let candidates = Self.issuerCandidates(in: page, clues: kind.clues)
+        let candidates = Self.issuerCandidates(in: page, clues: kind.clues, evidence: evidence)
         let issuer = Self.issuer(among: candidates.filter { !$0.isOwn }, page: page, evidence: evidence)
         let details = DocumentDetails(
             category: kind.category,
@@ -401,13 +401,14 @@ public struct DocumentDetector: Sendable {
     // MARK: Issuer
 
     /// Name-like lines in the header, own lines included so they can be learned.
-    static func issuerCandidates(in page: Page, clues: [[(range: Range<Int>, tag: Clue)]]) -> [Line] {
+    /// An uncertain reading, as of a logo, counts only when a web domain or a legal name on the page confirms it.
+    static func issuerCandidates(in page: Page, clues: [[(range: Range<Int>, tag: Clue)]], evidence: IssuerEvidence) -> [Line] {
         joiningContinuations(of: page).filter { indices, line in
             let text = line.text.trimmingCharacters(in: .whitespaces)
             let letters = text.filter(\.isLetter).count
             let digits = text.filter(\.isNumber).count
             let inHeader = (line.frame.minY < 0.3 && line.frame.minX < 0.5) || (line.frame.minY < 0.12 && page.isLarge(line))
-            guard inHeader, line.confidence > 0.5, (3...60).contains(text.count), line.words.count <= 8, Double(letters) >= Double(text.count) * 0.6, digits <= 2,
+            guard inHeader, line.confidence > 0.5 || (line.confidence >= 0.5 && isConfirmed(line, by: evidence)), (3...60).contains(text.count), line.words.count <= 8, Double(letters) >= Double(text.count) * 0.6, digits <= 2,
                   !(text.first?.isNumber ?? false), !text.contains("@"), !text.contains(":"), !text.lowercased().contains("www."), IssuerEvidence.domains(in: text).isEmpty,
                   let first = line.words.first else { return false }
             if DocumentVocabulary.recipientPrefixes.contains(first.key.replacing(".", with: "")) || startsWithConnector(line) { return false }
@@ -440,9 +441,20 @@ public struct DocumentDetector: Sendable {
         return result
     }
 
+    /// Right under the line above, starting at its left edge or within it, or centered on it as in a logo.
     private static func continues(_ line: Line, after previous: Line) -> Bool {
         let gap = line.frame.minY - previous.frame.maxY
-        return startsWithConnector(line) && gap > -previous.frame.height * 0.3 && gap < min(line.frame.height, previous.frame.height) && abs(line.frame.minX - previous.frame.minX) < 0.02
+        let isAligned = (line.frame.minX > previous.frame.minX - 0.02 && line.frame.minX < previous.frame.maxX) || abs(line.frame.midX - previous.frame.midX) < 0.03
+        return startsWithConnector(line) && isAligned && gap > -previous.frame.height * 0.3 && gap < min(line.frame.height, previous.frame.height)
+    }
+
+    /// Whether every longer word of a web domain is in the name, as "verdalis.fr" for "VeRDaLiS", or a legal name is the name.
+    private static func isConfirmed(_ line: Line, by evidence: IssuerEvidence) -> Bool {
+        let name = letters(issuerName(of: line))
+        return evidence.domains.contains { domain in
+            let words = (domain.domain.split(separator: ".").first ?? "").split(separator: "-").filter { $0.count >= 4 }
+            return !words.isEmpty && words.allSatisfy { name.contains($0.filter(\.isLetter)) }
+        } || evidence.legalNames.contains { letters($0.name) == name }
     }
 
     /// Whether the line starts with a lowercase "de" or "d'", so it ends a line above it instead of starting a name.
@@ -493,7 +505,16 @@ public struct DocumentDetector: Sendable {
             words.removeLast()
         }
         if let last = words.last, last.hasSuffix(",") { words[words.count - 1] = String(last.dropLast()) }
+        if let last = words.last, last.hasSuffix("."), !last.dropLast().contains("."), last.filter(\.isLetter).count > 3 { words[words.count - 1] = String(last.dropLast()) }
+        if line.confidence <= 0.5 { words = words.map(regularCapitals) }
         return titleCased(Array(words.prefix(5))).trimmingCharacters(in: .punctuationCharacters.union(.whitespaces).subtracting(CharacterSet(charactersIn: ".")))
+    }
+
+    /// "VeRDaLiS" becomes "Verdalis": the letters of a logo are often read in the wrong case; acronyms and words in one case are kept.
+    private static func regularCapitals(_ word: String) -> String {
+        guard zip(word, word.dropFirst()).contains(where: { $0.isLowercase && $1.isUppercase }) else { return word }
+        let lower = word.lowercased()
+        return lower.prefix(1).uppercased() + lower.dropFirst()
     }
 
     static func isLegalForm(_ token: Token) -> Bool {
