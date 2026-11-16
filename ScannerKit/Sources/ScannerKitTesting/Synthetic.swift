@@ -46,7 +46,7 @@ public enum SyntheticPhoto {
     }
 }
 
-/// An A4 page at about 100 dpi with real text, optionally with a title, a stamp, a shaded header, a picture, a shadow or a rotation.
+/// An A4 page at about 100 dpi with lines of real text, optionally with a title, a stamp, a shaded header, a picture, a shadow or a rotation.
 public struct SyntheticPage {
     public static let size = CGSize(width: 840, height: 1188)
     public static let blockCenter = CGPoint(x: 0.5, y: 0.93)
@@ -61,8 +61,9 @@ public struct SyntheticPage {
     public let rotation: Double
     /// Big text above the body text.
     public let title: String?
+    public let lines: Int
 
-    public init(paper: (CGFloat, CGFloat, CGFloat) = (0.95, 0.95, 0.93), title: String? = nil, stamp: Bool = false, shadedHeader: Bool = false, picture: Bool = false, shadow: Bool = false, handShadow: Bool = false, rotation: Double = 0) {
+    public init(paper: (CGFloat, CGFloat, CGFloat) = (0.95, 0.95, 0.93), title: String? = nil, stamp: Bool = false, shadedHeader: Bool = false, picture: Bool = false, shadow: Bool = false, handShadow: Bool = false, rotation: Double = 0, lines: Int = 30) {
         self.paper = paper
         self.title = title
         self.stamp = stamp
@@ -71,6 +72,7 @@ public struct SyntheticPage {
         self.shadow = shadow
         self.handShadow = handShadow
         self.rotation = rotation
+        self.lines = lines
     }
 
     public func render() -> CIImage {
@@ -86,7 +88,7 @@ public struct SyntheticPage {
 
         let words = "The quick brown fox jumps over the lazy dog while the invoice waits for payment".split(separator: " ")
         let font = CTFontCreateWithName("Helvetica" as CFString, 17, nil)
-        for line in 0..<30 {
+        for line in 0..<lines {
             let start = line * 3 % words.count
             let text = (0..<9).map { String(words[(start + $0) % words.count]) }.joined(separator: " ")
             let attributed = NSAttributedString(string: text, attributes: [NSAttributedString.Key(kCTFontAttributeName as String): font, NSAttributedString.Key(kCTForegroundColorAttributeName as String): CGColor(gray: 0.08, alpha: 1)])

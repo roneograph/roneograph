@@ -20,6 +20,17 @@ struct PageCleanerTests {
         }
     }
 
+    @Test func measuresTheTextLineHeight() throws {
+        let height = try #require(cleaner.analyze(SyntheticPage().render()).textLineHeight)
+        #expect((0.012...0.018).contains(height))
+    }
+
+    @Test(arguments: [4, 6])
+    func measuresTheTextLineHeightOnlyWithEnoughLines(lines: Int) {
+        let height = cleaner.analyze(SyntheticPage(lines: lines).render()).textLineHeight
+        #expect((height == nil) == (lines < 5))
+    }
+
     @Test func aColoredStampKeepsColor() {
         #expect(cleaner.analyze(SyntheticPage(stamp: true).render()).suggestedLook == .color)
     }
