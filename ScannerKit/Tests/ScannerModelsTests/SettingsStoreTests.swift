@@ -185,6 +185,17 @@ struct SettingsStoreTests {
         #expect(fixture.settings.owner(recognizing: ["both"]) == employer.id)
     }
 
+    @Test func forgetsTheOwnersOfIssuersWhenOneOwnerIsLeft() throws {
+        let fixture = try Fixture()
+        let personal = fixture.settings.value.defaultOwnerID
+        let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
+        fixture.settings.learn(keys: ["print"]) { $0.owner = personal }
+        fixture.settings.learn(keys: ["lumen"]) { $0.owner = personal; $0.category = .invoice }
+        fixture.settings.learn(keys: ["bank"]) { $0.owner = holding.id }
+        fixture.settings.removeOwner(holding.id, movingTo: personal)
+        #expect(fixture.settings.value.learnedIssuers == [LearnedIssuer(keys: ["lumen"], category: .invoice)])
+    }
+
     /// Lines seen with documents from two issuers, as the address block of an owner.
     private func recordAddressBlock(_ lines: [String], in settings: SettingsStore) {
         settings.recordHeaderLines(lines + ["print"], issuerEvidence: ["print.example"])

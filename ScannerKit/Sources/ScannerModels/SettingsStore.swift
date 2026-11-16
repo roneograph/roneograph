@@ -57,12 +57,13 @@ public final class SettingsStore {
 
     /// Removes an owner, never the default one. Its issuers and lines go to the owner its scans moved to;
     /// without one, its issuers are forgotten and a line also seen with another owner keeps telling none.
+    /// With a single owner left, no issuer remembers an owner.
     public func removeOwner(_ id: UUID, movingTo newOwner: UUID? = nil) {
         guard id != value.defaultOwnerID, newOwner.map({ $0 != id && value.hasOwner($0) }) ?? true else { return }
         var settings = value
         settings.removeOwner(id)
-        for index in settings.learnedIssuers.indices where settings.learnedIssuers[index].owner == id {
-            settings.learnedIssuers[index].owner = newOwner
+        for index in settings.learnedIssuers.indices where settings.learnedIssuers[index].owner == id || !settings.hasSeveralOwners {
+            settings.learnedIssuers[index].owner = settings.hasSeveralOwners ? newOwner : nil
         }
         settings.learnedIssuers.removeAll(where: \.isEmpty)
         for index in settings.headerLines.indices where settings.headerLines[index].owners.contains(id) {
