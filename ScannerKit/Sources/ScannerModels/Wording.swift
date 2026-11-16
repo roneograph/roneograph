@@ -45,11 +45,12 @@ extension FileNameFormat {
 
 extension ScanModel {
     /// What renaming the scan to the typed name changes for the next documents from the same issuer; nil when nothing.
-    public func learning(forName name: String) -> String? {
+    public func learning(forName typed: String) -> String? {
+        let name = finalName(typed)
         let issuer = scan.details.issuerName
         let replaces = rememberedName.map { $0 != name } ?? false
         guard let pattern = learnedPattern(for: name) else {
-            return replaces && !name.isEmpty ? "The name remembered for \(issuer) will be forgotten." : nil
+            return replaces ? "The name remembered for \(issuer) will be forgotten." : nil
         }
         let own = [pattern.follows.date ? "date" : nil, pattern.follows.number ? "number" : nil].compactMap { $0 }
         let with = own.isEmpty ? "" : ", with their own \(own.joined(separator: " and "))"

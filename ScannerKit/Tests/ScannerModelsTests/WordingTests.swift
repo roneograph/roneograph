@@ -52,7 +52,8 @@ struct WordingTests {
         #expect(remembered.learning(forName: "Lumen bill") == "The next documents from Lumen Energy will be named the same way.")
         #expect(remembered.learning(forName: "Lumen electricity") == "Replaces the name remembered for Lumen Energy. The next documents from Lumen Energy will be named the same way.")
         #expect(remembered.learning(forName: "Invoice Lumen Energy") == "The name remembered for Lumen Energy will be forgotten.")
-        #expect(remembered.learning(forName: "") == nil)
+        #expect(remembered.learning(forName: "") == "The name remembered for Lumen Energy will be forgotten.")
+        #expect(remembered.learning(forName: " Lumen  bill ") == "The next documents from Lumen Energy will be named the same way.")
     }
 
     @Test func saysWhereEachScanIsOnHome() {
