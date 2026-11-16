@@ -16,7 +16,7 @@ struct HomeView: View {
             }
         }
         .toolbar { toolbar }
-        .safeAreaInset(edge: .bottom) {
+        .safeAreaBar(edge: .bottom) {
             VStack(spacing: 12) {
                 if let toast = app.toast {
                     Label(toast, systemImage: "checkmark.circle.fill")
