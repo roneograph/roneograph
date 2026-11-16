@@ -30,9 +30,9 @@ struct PageCleanerTests {
         #expect(r < 0.4)
     }
 
-    @Test func aLookThatNoLongerExistsDecodesAsColor() throws {
-        let looks = try JSONDecoder().decode([PageLook].self, from: Data(#"["photo", "gray"]"#.utf8))
-        #expect(looks == [.color, .gray])
+    @Test func looksThatNoLongerExistDecodeAsTheClosestOne() throws {
+        let looks = try JSONDecoder().decode([PageLook].self, from: Data(#"["photo", "blackAndWhite", "gray", "color"]"#.utf8))
+        #expect(looks == [.color, .gray, .gray, .color])
     }
 
     @Test func turnsAnUpsideDownPageUpright() {
@@ -78,14 +78,6 @@ struct PageCleanerTests {
         let clean = cleaner.render(page, analysis: cleaner.analyze(page), settings: CleanupSettings(look: .gray))
         let (r, _, _) = color(of: clean, at: SyntheticPage.blockCenter)
         #expect(r < 0.2)
-    }
-
-    @Test func blackAndWhiteHasOnlyTwoValues() {
-        let page = SyntheticPage(shadow: true).render()
-        let bw = cleaner.render(page, analysis: cleaner.analyze(page), settings: CleanupSettings(look: .blackAndWhite))
-        var pixels = [UInt8](repeating: 0, count: Int(bw.extent.width) * Int(bw.extent.height) * 4)
-        context.render(bw, toBitmap: &pixels, rowBytes: Int(bw.extent.width) * 4, bounds: bw.extent, format: .RGBA8, colorSpace: CGColorSpaceCreateDeviceRGB())
-        #expect(Set(stride(from: 0, to: pixels.count, by: 4).map { pixels[$0] }).isSubset(of: [0, 255]))
     }
 
     /// sRGB color at a normalized point, origin at the top left.

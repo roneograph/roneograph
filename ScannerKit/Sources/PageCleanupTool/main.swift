@@ -42,10 +42,8 @@ for path in arguments.dropFirst() {
 }
 
 for quality in PDFQuality.allCases {
-    for (suffix, pages) in [("", pdfPages), ("-bw", pdfPages.map { PDFPageContent(image: $0.image, look: .blackAndWhite) })] {
-        let started = Date()
-        let data = try writer.data(pages: pages, title: "Scan", quality: quality, defaultPaper: .a4)
-        try data.write(to: output.appending(path: "scan-\(quality.rawValue)\(suffix).pdf"))
-        print(String(format: "scan-%@%@.pdf: %d pages, %d KB, %d KB per page, %.0f ms", quality.rawValue, suffix, pages.count, data.count / 1024, data.count / 1024 / max(1, pages.count), Date().timeIntervalSince(started) * 1000))
-    }
+    let started = Date()
+    let data = try writer.data(pages: pdfPages, title: "Scan", quality: quality, defaultPaper: .a4)
+    try data.write(to: output.appending(path: "scan-\(quality.rawValue).pdf"))
+    print(String(format: "scan-%@.pdf: %d pages, %d KB, %d KB per page, %.0f ms", quality.rawValue, pdfPages.count, data.count / 1024, data.count / 1024 / max(1, pdfPages.count), Date().timeIntervalSince(started) * 1000))
 }

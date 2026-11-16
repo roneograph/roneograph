@@ -4,11 +4,12 @@ import ImageIO
 import Vision
 
 public enum PageLook: String, Codable, Sendable, CaseIterable {
-    case color, gray, blackAndWhite
+    case gray, color
 
-    /// Pages saved with a look that no longer exists keep their colors.
+    /// Pages saved with a look that no longer exists become gray when they were black and white, color otherwise.
     public init(from decoder: Decoder) throws {
-        self = Self(rawValue: try decoder.singleValueContainer().decode(String.self)) ?? .color
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = Self(rawValue: raw) ?? (raw == "blackAndWhite" ? .gray : .color)
     }
 }
 
@@ -92,7 +93,6 @@ public struct PageCleaner: @unchecked Sendable {
         public var pictureFractionForPaperColor: Double = 0.15
         public var minimumSkew: Double = 0.15
         public var minimumLinesForSize = 5
-        public var threshold: Double = 0.45
 
         public init() {}
     }
@@ -113,7 +113,6 @@ public struct PageCleaner: @unchecked Sendable {
         let normalized = divide(upright, by: paper)
         let pictureFraction = pictureFraction(Bitmap(paper, longSide: configuration.statisticsSize, context: context))
         let colorFraction = colorFraction(Bitmap(normalized, longSide: configuration.statisticsSize, context: context))
-        // Black and white is never picked automatically: gray blocks, faint stamps or pencil can vanish in it.
         let look: PageLook = colorFraction >= configuration.colorFractionForColor ? .color : .gray
         return PageAnalysis(orientation: orientation, skewDegrees: skew(of: normalized), suggestedLook: look, colorFraction: colorFraction, pictureFraction: pictureFraction, textLineHeight: textLineHeight)
     }
@@ -131,9 +130,6 @@ public struct PageCleaner: @unchecked Sendable {
             break
         case .gray:
             image = image.applyingFilter("CIColorControls", parameters: [kCIInputSaturationKey: 0])
-        case .blackAndWhite:
-            image = image.applyingFilter("CIColorControls", parameters: [kCIInputSaturationKey: 0])
-                .applyingFilter("CIColorThreshold", parameters: ["inputThreshold": configuration.threshold])
         }
         return image.cropped(to: CGRect(origin: .zero, size: image.extent.size)).applyingFilter("CIColorClamp")
     }

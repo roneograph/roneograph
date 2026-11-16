@@ -11,7 +11,7 @@ struct PDFWriterTests {
 
     @Test func writesOnePagePerImageAtTheRightSize() throws {
         let page = SyntheticPage().render()
-        let data = try PDFWriter(context: context).data(pages: [PDFPageContent(image: page, look: .gray), PDFPageContent(image: page, look: .blackAndWhite)], title: "Invoice", quality: .balanced, defaultPaper: .a4)
+        let data = try PDFWriter(context: context).data(pages: [PDFPageContent(image: page, look: .gray), PDFPageContent(image: page, look: .color)], title: "Invoice", quality: .balanced, defaultPaper: .a4)
         let document = try #require(PDFDocument(data: data))
         #expect(document.pageCount == 2)
         let box = try #require(document.page(at: 0)).bounds(for: .mediaBox)
@@ -39,14 +39,9 @@ struct PDFWriterTests {
         #expect(subtype.map { String(cString: $0) } == "GTS_PDFA1")
     }
 
-    @Test func embedsJPEGForGrayAnd1BitForBlackAndWhite() throws {
-        let page = SyntheticPage().render()
-        let writer = PDFWriter(context: context)
-        let gray = try writer.data(pages: [PDFPageContent(image: page, look: .gray)], title: "", quality: .balanced, defaultPaper: .a4)
-        let bw = try writer.data(pages: [PDFPageContent(image: page, look: .blackAndWhite)], title: "", quality: .balanced, defaultPaper: .a4)
+    @Test func embedsPagesAsJPEG() throws {
+        let gray = try PDFWriter(context: context).data(pages: [PDFPageContent(image: SyntheticPage().render(), look: .gray)], title: "", quality: .balanced, defaultPaper: .a4)
         #expect(gray.range(of: Data("/DCTDecode".utf8)) != nil)
-        #expect(bw.range(of: Data("/DCTDecode".utf8)) == nil)
-        #expect(bw.range(of: Data("/BitsPerComponent 1".utf8)) != nil)
     }
 
     @Test func smallerQualityMakesSmallerFiles() throws {

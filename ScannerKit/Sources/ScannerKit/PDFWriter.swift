@@ -14,13 +14,6 @@ public enum PDFQuality: String, Codable, Sendable, CaseIterable {
         }
     }
 
-    var blackAndWhiteDPI: CGFloat {
-        switch self {
-        case .small: 200
-        case .balanced, .best: 300
-        }
-    }
-
     var jpegQuality: Double {
         switch self {
         case .small: 0.3
@@ -48,7 +41,7 @@ public enum PDFWriterError: Error {
     case cannotEncodePage
 }
 
-/// Writes one image per page, encoded for its look: grayscale JPEG, color JPEG, or lossless 1-bit.
+/// Writes one image per page, encoded for its look as a grayscale or color JPEG.
 public struct PDFWriter: @unchecked Sendable {
     private let context: CIContext
     private let sizing: PageSizing
@@ -80,16 +73,8 @@ public struct PDFWriter: @unchecked Sendable {
     }
 
     private func encode(_ image: CIImage, look: PageLook, pageSize: CGSize, quality: PDFQuality) throws -> CGImage {
-        let dpi = look == .blackAndWhite ? quality.blackAndWhiteDPI : quality.imageDPI
-        let resized = resample(image, to: CGSize(width: pageSize.width / 72 * dpi, height: pageSize.height / 72 * dpi))
-        switch look {
-        case .blackAndWhite:
-            return try oneBit(resized)
-        case .gray:
-            return try jpeg(resized, gray: true, quality: quality.jpegQuality)
-        case .color:
-            return try jpeg(resized, gray: false, quality: quality.jpegQuality)
-        }
+        let resized = resample(image, to: CGSize(width: pageSize.width / 72 * quality.imageDPI, height: pageSize.height / 72 * quality.imageDPI))
+        return try jpeg(resized, gray: look == .gray, quality: quality.jpegQuality)
     }
 
     /// Resamples to the target pixel size, or to the page proportions at the image's own resolution when it has fewer pixels.
@@ -118,24 +103,5 @@ public struct PDFWriter: @unchecked Sendable {
             throw PDFWriterError.cannotEncodePage
         }
         return jpeg
-    }
-
-    private func oneBit(_ image: CIImage) throws -> CGImage {
-        let width = Int(image.extent.width), height = Int(image.extent.height)
-        var gray = [UInt8](repeating: 0, count: width * height)
-        context.render(image, toBitmap: &gray, rowBytes: width, bounds: image.extent, format: .L8, colorSpace: CGColorSpace(name: CGColorSpace.genericGrayGamma2_2))
-
-        let rowBytes = (width + 7) / 8
-        var bits = [UInt8](repeating: 0, count: rowBytes * height)
-        for y in 0..<height {
-            for x in 0..<width where gray[y * width + x] >= 128 {
-                bits[y * rowBytes + x / 8] |= 0x80 >> UInt8(x % 8)
-            }
-        }
-        guard let provider = CGDataProvider(data: Data(bits) as CFData),
-              let image = CGImage(width: width, height: height, bitsPerComponent: 1, bitsPerPixel: 1, bytesPerRow: rowBytes, space: CGColorSpaceCreateDeviceGray(), bitmapInfo: [], provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent) else {
-            throw PDFWriterError.cannotEncodePage
-        }
-        return image
     }
 }

@@ -96,7 +96,6 @@ extension PageLook {
         switch self {
         case .color: "Color"
         case .gray: "Gray"
-        case .blackAndWhite: "B&W"
         }
     }
 }
