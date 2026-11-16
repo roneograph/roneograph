@@ -363,8 +363,7 @@ public struct DocumentDetector: Sendable {
     // MARK: Number
 
     private static let numberLabels: [DocumentCategory?: Phrases<Bool>] = Dictionary(
-        DocumentVocabulary.entries.map { ($0.category, Phrases($0.numberLabels.map { (Phrase($0), true) })) },
-        uniquingKeysWith: { first, _ in first }
+        uniqueKeysWithValues: DocumentVocabulary.entries.map { ($0.category, Phrases($0.numberLabels.map { (Phrase($0), true) })) }
     )
 
     private static let allNumberLabels = Phrases(DocumentVocabulary.entries.flatMap(\.numberLabels).map { (Phrase($0), true) })
