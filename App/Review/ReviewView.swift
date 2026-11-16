@@ -193,6 +193,7 @@ private struct PageGrid: View {
     let scan: ScanModel
     let open: (ScanPage) -> Void
     let addPages: () -> Void
+    @State private var deleting: UUID?
 
     var body: some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 18, alignment: .top), count: 2), spacing: 16) {
@@ -230,6 +231,9 @@ private struct PageGrid: View {
                     Button("Rotate", systemImage: "rotate.right") { scan.rotatePage(page.id) }
                     Button("Delete", systemImage: "trash", role: .destructive) { withAnimation { scan.deletePage(page.id) } }
                 }
+                .overlay(alignment: .bottomTrailing) {
+                    if scan.scan.pages.count > 1 { deleteButton(page, number: index + 1) }
+                }
             }
             ForEach(0..<scan.processing, id: \.self) { _ in
                 Rectangle().fill(.quaternary).aspectRatio(Paper.a4.aspectRatio, contentMode: .fit).overlay { ProgressView() }
@@ -249,6 +253,19 @@ private struct PageGrid: View {
             .foregroundStyle(.tint)
         }
     }
+
+    private func deleteButton(_ page: ScanPage, number: Int) -> some View {
+        Button("Delete Page \(number)", systemImage: "trash") { deleting = page.id }
+            .labelStyle(.iconOnly)
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .frame(width: 44, height: 24)
+            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .confirmationDialog("Delete page \(number)?", isPresented: Binding(get: { deleting == page.id }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible) {
+                Button("Delete Page", role: .destructive) { withAnimation { scan.deletePage(page.id) } }
+            }
+    }
 }
 
 /// Icon only, full width: the three send buttons share the row equally.
@@ -267,7 +284,7 @@ private struct PageTip: View {
             Image(systemName: "hand.tap").font(.title2).foregroundStyle(.tint)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Tap a page to adjust it").font(.subheadline.weight(.semibold))
-                Text("Change its look, rotate or crop it. Touch and hold to move or delete it.")
+                Text("Change its look, rotate or crop it. Touch and hold to move it.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
