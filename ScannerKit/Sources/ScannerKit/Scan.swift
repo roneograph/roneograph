@@ -40,7 +40,7 @@ public struct ScanPage: Identifiable, Equatable, Sendable, Codable {
 
 /// A value of a scan that can come from what the user corrected on a past document from the same issuer.
 public enum RememberedValue: String, CaseIterable, Comparable, Sendable, Codable {
-    case name, category, issuer
+    case name, category, issuer, owner
 
     public static func < (lhs: Self, rhs: Self) -> Bool {
         allCases.firstIndex(of: lhs)! < allCases.firstIndex(of: rhs)!
@@ -88,6 +88,10 @@ public struct Scan: Identifiable, Equatable, Sendable, Codable {
     public var suggestedParts = SuggestedParts()
     /// How to recognize the issuer on the next document, to reuse what the user corrected.
     public var issuerKeys: [String] = []
+    /// Nil until read on the page or chosen: the default owner.
+    public var owner: UUID?
+    /// Fingerprints of the header lines of the first page, linked to the owner when the scan is sent.
+    public var headerLines: [String] = []
     /// Nil until the first page is read.
     public var read: ReadDocument?
     /// The values that come from what the user corrected on a past document, until changed.

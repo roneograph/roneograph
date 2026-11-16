@@ -162,7 +162,7 @@ struct ScanModelTests {
 
     @Test func renameUsesTheFileNameFormatAndMovesThePDF() async throws {
         let fixture = try Fixture()
-        fixture.settings.value.fileNameFormat = FileNameFormat(datePosition: .start, separator: .dash, lowercase: true)
+        fixture.settings.value.defaultOwner.fileNameFormat = FileNameFormat(datePosition: .start, separator: .dash, lowercase: true)
         let model = await fixture.scanModel(pages: 1)
         await model.buildPDF(delay: .zero)
         let first = model.scan.name
@@ -196,7 +196,7 @@ struct ScanModelTests {
     @Test(arguments: ["  Lumen   bill ", "", "   "])
     func previewsTheFileNameATypedNameGets(typed: String) throws {
         let fixture = try Fixture()
-        fixture.settings.value.fileNameFormat = FileNameFormat(separator: .dash)
+        fixture.settings.value.defaultOwner.fileNameFormat = FileNameFormat(separator: .dash)
         let model = fixture.scanModel()
         let preview = model.fileNameSegments(for: model.finalName(typed)).map(\.text).joined()
         model.rename(typed)
@@ -205,7 +205,7 @@ struct ScanModelTests {
 
     @Test func twoScansWithTheSameNameGetDifferentFiles() async throws {
         let fixture = try Fixture()
-        fixture.settings.value.fileNameFormat = FileNameFormat(separator: .dash)
+        fixture.settings.value.defaultOwner.fileNameFormat = FileNameFormat(separator: .dash)
         let first = await fixture.scanModel(pages: 1)
         let second = await fixture.scanModel(pages: 1)
         first.rename("Invoice")
@@ -251,7 +251,7 @@ struct ScanModelTests {
         let fixture = try Fixture()
         let model = await fixture.scanModel(pages: 1)
         model.rename("Lumen invoice")
-        fixture.settings.value.fileNameFormat = FileNameFormat(separator: .underscore, lowercase: true)
+        fixture.settings.value.defaultOwner.fileNameFormat = FileNameFormat(separator: .underscore, lowercase: true)
         model.applyFileName()
         #expect(model.scan.name == "lumen_invoice")
         #expect(model.scan.title == "Lumen invoice")
@@ -312,7 +312,7 @@ struct ScanModelTests {
 
     @Test func editedDetailsRenameTheFileWithACustomFormat() async throws {
         let fixture = try Fixture()
-        fixture.settings.value.fileNameFormat = FileNameFormat(isCustom: true, template: "{CATEGORY}/{YYYY} {ISSUER} {NUMBER}")
+        fixture.settings.value.defaultOwner.fileNameFormat = FileNameFormat(isCustom: true, template: "{CATEGORY}/{YYYY} {ISSUER} {NUMBER}")
         let model = await fixture.scanModel(pages: 1)
         let year = String(FileNamer.isoDate(model.scan.created).prefix(4))
         await model.buildPDF(delay: .zero)
@@ -325,7 +325,7 @@ struct ScanModelTests {
 
     @Test func aSuggestedNameLeavesOutTheDetailsTheFormatShows() throws {
         let fixture = try Fixture()
-        fixture.settings.value.fileNameFormat = FileNameFormat(isCustom: true, template: "{CATEGORY} {ISSUER} {NAME}")
+        fixture.settings.value.defaultOwner.fileNameFormat = FileNameFormat(isCustom: true, template: "{CATEGORY} {ISSUER} {NAME}")
         var scan = Scan(name: "Scan", title: "Facture Lumen Energy")
         scan.suggestions = ["Facture Lumen Energy"]
         scan.suggestedParts = SuggestedParts(type: "Facture", issuer: "Lumen Energy")
@@ -474,6 +474,65 @@ struct ScanModelTests {
         await second.waitUntilIdle()
         #expect(second.scan.details.issuer == "Lumen")
         #expect(second.scan.title == "Lumen bill")
+    }
+
+    @Test func anotherOwnerNamesTheFileWithItsFormatAndIsReusedForTheIssuer() async throws {
+        let fixture = try Fixture()
+        let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
+        var owner = holding
+        owner.fileNameFormat = FileNameFormat(separator: .underscore)
+        fixture.settings.value.updateOwner(owner)
+        let photo = try #require(PageExtractor(context: CIContext()).jpegData(of: SyntheticPage(title: "LUMEN ENERGY SAS").render(), quality: 0.9))
+        let first = fixture.scanModel()
+        first.addPhoto(photo, liveQuad: nil)
+        await first.waitUntilIdle()
+        #expect(first.hasDefaultOwner)
+        first.rename("Office power")
+
+        first.setOwner(holding.id)
+        #expect(first.owner.id == holding.id)
+        #expect(!first.hasDefaultOwner)
+        #expect(first.scan.name == "Office_power")
+        #expect(fixture.pdfExists("Office_power") == fixture.pdfExists(first.scan.name))
+
+        let second = fixture.scanModel()
+        second.addPhoto(photo, liveQuad: nil)
+        await second.waitUntilIdle()
+        #expect(second.owner.id == holding.id)
+        #expect(second.scan.remembered.contains(.owner))
+
+        second.forget([.owner])
+        #expect(second.hasDefaultOwner)
+        #expect(!second.scan.remembered.contains(.owner))
+        #expect(fixture.settings.learnedIssuer(for: second.scan.issuerKeys)?.owner == nil)
+    }
+
+    @Test func aRememberedOwnerIsNotUsedWithASingleOwner() async throws {
+        let fixture = try Fixture()
+        let photo = try #require(PageExtractor(context: CIContext()).jpegData(of: SyntheticPage(title: "LUMEN ENERGY SAS").render(), quality: 0.9))
+        let first = fixture.scanModel()
+        first.addPhoto(photo, liveQuad: nil)
+        await first.waitUntilIdle()
+        fixture.settings.learn(keys: first.scan.issuerKeys) { $0.owner = UUID() }
+
+        let second = fixture.scanModel()
+        second.addPhoto(photo, liveQuad: nil)
+        await second.waitUntilIdle()
+        #expect(second.hasDefaultOwner)
+        #expect(second.scan.remembered.isEmpty)
+    }
+
+    @Test func sendingLinksTheLinesOfThePageToItsOwner() throws {
+        let fixture = try Fixture()
+        let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
+        fixture.settings.recordHeaderLines(["fernwood holding"], issuerEvidence: ["print.example"])
+        var scan = Scan(name: "Scan")
+        scan.headerLines = ["fernwood holding"]
+        scan.owner = holding.id
+        let model = ScanModel(scan: scan, processor: fixture.processor, settings: fixture.settings)
+
+        model.markSent(.email)
+        #expect(fixture.settings.value.headerLines.first?.owners == [holding.id])
     }
 
     @Test func trimsTypedDetailsAndRemovesBlankOnes() throws {

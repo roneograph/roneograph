@@ -98,7 +98,7 @@ struct HomeView: View {
             }
             Section {
                 ForEach(app.scans) { scan in
-                    ScanRow(scan: scan, store: app.store, isSelecting: isSelecting, open: { app.path = [scan.id] }, continueScan: { app.continueScan(scan.id) })
+                    ScanRow(scan: scan, store: app.store, owner: app.settings.value.hasSeveralOwners ? app.settings.value.owner(scan.owner) : nil, isSelecting: isSelecting, open: { app.path = [scan.id] }, continueScan: { app.continueScan(scan.id) })
                         .selectionDisabled(!scan.isFinished)
                         .swipeActions {
                             if !isSelecting {
@@ -209,6 +209,8 @@ private struct NotSentCard: View {
 private struct ScanRow: View {
     let scan: Scan
     let store: ScanStore
+    /// Shown only when there are several owners.
+    let owner: Owner?
     let isSelecting: Bool
     let open: () -> Void
     let continueScan: () -> Void
@@ -231,6 +233,13 @@ private struct ScanRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(scan.title).font(.headline).lineLimit(1)
                 status.font(.subheadline)
+                if let owner {
+                    Label(owner.name, systemImage: owner.symbol.systemImage)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .labelStyle(OwnerLabelStyle())
+                        .lineLimit(1)
+                }
             }
             Spacer(minLength: 0)
         }
@@ -260,6 +269,16 @@ private struct ScanRow: View {
             .lineLimit(1)
         } else {
             Text(scan.status).foregroundStyle(.orange).lineLimit(1)
+        }
+    }
+}
+
+/// A small symbol tinted like the app, close to the owner's name.
+private struct OwnerLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 4) {
+            configuration.icon.foregroundStyle(.tint)
+            configuration.title
         }
     }
 }

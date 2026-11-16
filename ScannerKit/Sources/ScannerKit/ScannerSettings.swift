@@ -1,27 +1,62 @@
 import Foundation
 
 public struct ScannerSettings: Equatable, Sendable, Codable {
-    /// Recipient of the Email button; empty when not set.
-    public var email = ""
-    /// Where the Save button puts PDFs; nil until a folder is picked.
-    public var archiveFolder: ArchiveFolder?
-    /// Set once the first tap on Email asked for an address, answered or not.
-    public var askedForEmail = false
+    /// Never empty; with a single owner, the app never mentions owners.
+    public private(set) var owners: [Owner]
+    /// The owner of the documents nothing on the page tells the owner of.
+    public var defaultOwnerID: UUID {
+        didSet { if !owners.contains(where: { $0.id == defaultOwnerID }) { defaultOwnerID = oldValue } }
+    }
     /// Set once the review screen tip about tapping pages was closed, or a page was opened.
     public var dismissedPageTip = false
     public var autoCapture = true
     /// Opens the rename sheet when the review screen first shows.
     public var askForName = false
-    public var fileNameFormat = FileNameFormat()
     /// Categories the user added to the built-in ones.
     public var categories: [DocumentCategory] = []
-    /// The issuer, category and name the user gave to documents from an issuer, most recent first.
+    /// The issuer, category, name and owner the user gave to documents from an issuer, most recent first.
     public var learnedIssuers: [LearnedIssuer] = []
     /// Header lines seen on past scans, to recognize the user's own name and address.
     public var headerLines: [HeaderLine] = []
     public var keepScans = ScanRetention.week
 
-    public init() {}
+    public init() {
+        let personal = Owner(name: "Personal", symbol: .house)
+        owners = [personal]
+        defaultOwnerID = personal.id
+    }
+
+    public var hasSeveralOwners: Bool { owners.count > 1 }
+
+    /// The owner with this ID; the default owner when there is none or it was deleted.
+    public func owner(_ id: UUID?) -> Owner {
+        owners.first { $0.id == id } ?? defaultOwner
+    }
+
+    public func hasOwner(_ id: UUID?) -> Bool {
+        owners.contains { $0.id == id }
+    }
+
+    public var defaultOwner: Owner {
+        get { owners.first { $0.id == defaultOwnerID } ?? owners[0] }
+        set { updateOwner(newValue) }
+    }
+
+    /// Replaces the owner with the same ID; does nothing when there is none.
+    public mutating func updateOwner(_ owner: Owner) {
+        guard let index = owners.firstIndex(where: { $0.id == owner.id }) else { return }
+        owners[index] = owner
+    }
+
+    public mutating func addOwner(_ owner: Owner) {
+        owners.append(owner)
+    }
+
+    /// Removes an owner, never the default one, so there is always one left.
+    public mutating func removeOwner(_ id: UUID) {
+        guard id != defaultOwnerID else { return }
+        owners.removeAll { $0.id == id }
+    }
 
     /// The built-in categories, then the user's, Other last.
     public var allCategories: [DocumentCategory] {
@@ -33,8 +68,6 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
         let all = allCategories
         return all.contains(current) ? all : all + [current]
     }
-
-    public var hasValidEmail: Bool { Self.isValidEmail(email) }
 
     public static func isValidEmail(_ email: String) -> Bool {
         email.wholeMatch(of: /[^@\s]+@[^@\s]+\.[^@\s.]{2,}/) != nil
@@ -64,13 +97,20 @@ public struct LearnedIssuer: Equatable, Sendable, Codable {
     public var issuer: String?
     public var category: DocumentCategory?
     public var name: NamePattern?
+    public var owner: UUID?
 
-    public init(keys: [String], label: String? = nil, issuer: String? = nil, category: DocumentCategory? = nil, name: NamePattern? = nil) {
+    public init(keys: [String], label: String? = nil, issuer: String? = nil, category: DocumentCategory? = nil, name: NamePattern? = nil, owner: UUID? = nil) {
         self.keys = keys
         self.label = label
         self.issuer = issuer
         self.category = category
         self.name = name
+        self.owner = owner
+    }
+
+    /// Whether anything is left to reuse for the next documents.
+    public var isEmpty: Bool {
+        issuer == nil && category == nil && name == nil && owner == nil
     }
 
     /// Who this is: the corrected issuer, the issuer of the last document, or how it is recognized.
@@ -90,10 +130,13 @@ public struct HeaderLine: Equatable, Sendable, Codable {
     public var scans: Int
     /// Fingerprints of the domains and company identifiers of the documents it was on.
     public var issuers: [String]
+    /// The owners of the documents it was on when they were sent, while there were several owners.
+    public var owners: [UUID]
 
-    public init(fingerprint: String, scans: Int = 0, issuers: [String] = []) {
+    public init(fingerprint: String, scans: Int = 0, issuers: [String] = [], owners: [UUID] = []) {
         self.fingerprint = fingerprint
         self.scans = scans
         self.issuers = issuers
+        self.owners = owners
     }
 }

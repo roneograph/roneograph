@@ -2,9 +2,10 @@ import ScannerKit
 import ScannerModels
 import SwiftUI
 
-/// Asked on the first tap on Email: where scans go from now on.
+/// Asked on the first tap on Email for an owner: where its scans go from now on.
 struct EmailQuestionView: View {
     let settings: SettingsStore
+    let ownerID: UUID?
     let answered: () -> Void
     @State private var email = ""
     @FocusState private var focused: Bool
@@ -13,7 +14,7 @@ struct EmailQuestionView: View {
     var body: some View {
         VStack(spacing: 16) {
             VStack(spacing: 6) {
-                Text("Email scans to").font(.title3.bold())
+                Text(title).font(.title3.bold())
                 Text("The Email button fills in this address from now on. Change it anytime in Settings.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -46,10 +47,14 @@ struct EmailQuestionView: View {
         .onAppear { focused = true }
     }
 
+    private var title: String {
+        settings.value.hasSeveralOwners ? "Email \(settings.value.owner(ownerID).name) scans to" : "Email scans to"
+    }
+
     private var isValid: Bool { ScannerSettings.isValidEmail(email.trimmingCharacters(in: .whitespaces)) }
 
     private func answer(_ email: String) {
-        settings.answerEmailQuestion(email)
+        settings.answerEmailQuestion(email, for: ownerID)
         answered()
         dismiss()
     }

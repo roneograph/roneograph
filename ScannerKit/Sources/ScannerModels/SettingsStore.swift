@@ -20,19 +20,86 @@ public final class SettingsStore {
         value = defaults.data(forKey: Self.key).flatMap { try? JSONDecoder().decode(ScannerSettings.self, from: $0) } ?? ScannerSettings()
     }
 
-    /// The first tap on Email asks where scans go, unless an address is already set.
-    public var shouldAskForEmail: Bool { !value.hasValidEmail && !value.askedForEmail }
-
-    /// Keeps the address when it is valid; either way, the question is not asked again.
-    public func answerEmailQuestion(_ email: String) {
-        let email = email.trimmingCharacters(in: .whitespaces)
-        if ScannerSettings.isValidEmail(email) { value.email = email }
-        value.askedForEmail = true
+    /// The first tap on Email for an owner asks where its scans go, unless an address is already set.
+    public func shouldAskForEmail(for ownerID: UUID?) -> Bool {
+        let owner = value.owner(ownerID)
+        return !owner.hasValidEmail && !owner.askedForEmail
     }
 
-    /// Remembers the folder picked in Files for the Save button.
-    public func chooseArchiveFolder(_ url: URL) throws {
-        value.archiveFolder = try ArchiveFolder(url: url)
+    /// Keeps the address when it is valid; either way, the question is not asked again for this owner.
+    public func answerEmailQuestion(_ email: String, for ownerID: UUID?) {
+        var owner = value.owner(ownerID)
+        let email = email.trimmingCharacters(in: .whitespaces)
+        if ScannerSettings.isValidEmail(email) { owner.email = email }
+        owner.askedForEmail = true
+        value.updateOwner(owner)
+    }
+
+    /// Remembers the folder picked in Files for the Save button of an owner.
+    public func chooseArchiveFolder(_ url: URL, for ownerID: UUID?) throws {
+        var owner = value.owner(ownerID)
+        owner.archiveFolder = try ArchiveFolder(url: url)
+        value.updateOwner(owner)
+    }
+
+    // MARK: Owners
+
+    /// Adds an owner named as typed, with the file name format of the default owner; returns it, or the existing owner with the same name.
+    @discardableResult
+    public func addOwner(_ name: String, symbol: Owner.Symbol = .building) -> Owner? {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return nil }
+        if let existing = value.owners.first(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame }) { return existing }
+        let owner = Owner(name: name, symbol: symbol, fileNameFormat: value.defaultOwner.fileNameFormat)
+        value.addOwner(owner)
+        return owner
+    }
+
+    /// Removes an owner, never the default one, and forgets which issuers and lines it was recognized by.
+    public func removeOwner(_ id: UUID) {
+        guard id != value.defaultOwnerID else { return }
+        var settings = value
+        settings.removeOwner(id)
+        for index in settings.learnedIssuers.indices where settings.learnedIssuers[index].owner == id {
+            settings.learnedIssuers[index].owner = nil
+        }
+        settings.learnedIssuers.removeAll(where: \.isEmpty)
+        for index in settings.headerLines.indices {
+            settings.headerLines[index].owners.removeAll { $0 == id }
+        }
+        value = settings
+    }
+
+    /// The owner the lines of a page tell, from the documents sent before: a line counts once it was seen with documents from different issuers, all of one owner.
+    /// Another owner wins over the default one, whose name also shows on the paper of a company; two other owners tell nothing.
+    public func owner(recognizing fingerprints: [String]) -> UUID? {
+        guard value.hasSeveralOwners, !fingerprints.isEmpty else { return nil }
+        let found = Set(value.headerLines.filter { line in
+            line.issuers.count >= 2 && line.owners.count == 1 && fingerprints.contains(line.fingerprint)
+        }.compactMap(\.owners.first).filter(value.hasOwner))
+        let others = found.subtracting([value.defaultOwnerID])
+        if others.count == 1 { return others.first }
+        return others.isEmpty ? found.first : nil
+    }
+
+    /// Links the header lines of a sent document to its owner; a line seen with documents of several owners tells none of them.
+    public func link(lines fingerprints: [String], to ownerID: UUID) {
+        guard value.hasSeveralOwners, !fingerprints.isEmpty else { return }
+        var lines = value.headerLines
+        for index in lines.indices where fingerprints.contains(lines[index].fingerprint) && !lines[index].owners.contains(ownerID) {
+            lines[index].owners.append(ownerID)
+        }
+        if lines != value.headerLines { value.headerLines = lines }
+    }
+
+    /// Whether the lines of some documents tell this owner.
+    public func recognizesLines(of ownerID: UUID) -> Bool {
+        value.headerLines.contains { $0.issuers.count >= 2 && $0.owners == [ownerID] }
+    }
+
+    /// How many issuers this owner is remembered for.
+    public func issuerCount(of ownerID: UUID) -> Int {
+        value.learnedIssuers.filter { $0.owner == ownerID }.count
     }
 
     /// What the user corrected on the last document recognized by one of these keys.
@@ -50,7 +117,7 @@ public final class SettingsStore {
         if let label { learned.label = label }
         change(&learned)
         var issuers = value.learnedIssuers.filter { !$0.keys.contains(where: keys.contains) }
-        if learned.issuer != nil || learned.category != nil || learned.name != nil { issuers.insert(learned, at: 0) }
+        if !learned.isEmpty { issuers.insert(learned, at: 0) }
         value.learnedIssuers = Array(issuers.prefix(Self.learnedIssuersLimit))
     }
 
@@ -81,6 +148,7 @@ public final class SettingsStore {
             if values.contains(.name) { learned.name = nil }
             if values.contains(.category) { learned.category = nil }
             if values.contains(.issuer) { learned.issuer = nil }
+            if values.contains(.owner) { learned.owner = nil }
         }
     }
 

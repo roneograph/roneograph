@@ -8,24 +8,24 @@ import Testing
 struct SettingsStoreTests {
     @Test func asksForAnEmailOnlyWhenNoneIsSet() throws {
         let fixture = try Fixture()
-        #expect(fixture.settings.shouldAskForEmail)
-        fixture.settings.value.email = "me@example.com"
-        #expect(!fixture.settings.shouldAskForEmail)
+        #expect(fixture.settings.shouldAskForEmail(for: nil))
+        fixture.settings.value.defaultOwner.email = "me@example.com"
+        #expect(!fixture.settings.shouldAskForEmail(for: nil))
     }
 
     @Test func keepsTheAnsweredEmailAndStopsAsking() throws {
         let fixture = try Fixture()
-        fixture.settings.answerEmailQuestion(" me@example.com ")
-        #expect(fixture.settings.value.email == "me@example.com")
-        #expect(!SettingsStore(defaults: fixture.defaults).shouldAskForEmail)
+        fixture.settings.answerEmailQuestion(" me@example.com ", for: nil)
+        #expect(fixture.settings.value.defaultOwner.email == "me@example.com")
+        #expect(!SettingsStore(defaults: fixture.defaults).shouldAskForEmail(for: nil))
     }
 
     @Test(arguments: ["", "me@example"])
     func stopsAskingWhenDeclinedOrInvalid(answer: String) throws {
         let fixture = try Fixture()
-        fixture.settings.answerEmailQuestion(answer)
-        #expect(fixture.settings.value.email == "")
-        #expect(!fixture.settings.shouldAskForEmail)
+        fixture.settings.answerEmailQuestion(answer, for: nil)
+        #expect(fixture.settings.value.defaultOwner.email == "")
+        #expect(!fixture.settings.shouldAskForEmail(for: nil))
     }
 
     @Test func learnsCorrectionsByAnyKeyOfTheIssuerAndKeepsTheOthers() throws {
@@ -105,6 +105,100 @@ struct SettingsStoreTests {
         #expect(fixture.settings.hasLearned)
         fixture.settings.forgetEverything()
         #expect(!fixture.settings.hasLearned)
+    }
+
+    @Test func startsWithOnePersonalOwnerThatIsTheDefault() throws {
+        let fixture = try Fixture()
+        let settings = fixture.settings.value
+        #expect(settings.owners.map(\.name) == ["Personal"])
+        #expect(settings.defaultOwner.id == settings.owners[0].id)
+        #expect(!settings.hasSeveralOwners)
+    }
+
+    @Test func addsOwnersOnceWithTheFormatOfTheDefaultOwner() throws {
+        let fixture = try Fixture()
+        fixture.settings.value.defaultOwner.fileNameFormat = FileNameFormat(separator: .dash)
+        let holding = try #require(fixture.settings.addOwner(" Fernwood Holding "))
+        #expect(holding.name == "Fernwood Holding")
+        #expect(holding.fileNameFormat == FileNameFormat(separator: .dash))
+        #expect(fixture.settings.addOwner("fernwood holding")?.id == holding.id)
+        #expect(fixture.settings.addOwner("  ") == nil)
+        #expect(SettingsStore(defaults: fixture.defaults).value.owners.map(\.name) == ["Personal", "Fernwood Holding"])
+    }
+
+    @Test func asksForTheEmailOfEachOwner() throws {
+        let fixture = try Fixture()
+        let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
+        fixture.settings.answerEmailQuestion("accounting@fernwood.example", for: holding.id)
+        #expect(fixture.settings.value.owner(holding.id).email == "accounting@fernwood.example")
+        #expect(!fixture.settings.shouldAskForEmail(for: holding.id))
+        #expect(fixture.settings.shouldAskForEmail(for: nil))
+    }
+
+    @Test func neverRemovesTheDefaultOwner() throws {
+        let fixture = try Fixture()
+        let personal = fixture.settings.value.defaultOwnerID
+        let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
+        fixture.settings.removeOwner(personal)
+        #expect(fixture.settings.value.owners.count == 2)
+        fixture.settings.value.defaultOwnerID = UUID()
+        #expect(fixture.settings.value.defaultOwnerID == personal)
+        fixture.settings.value.defaultOwnerID = holding.id
+        fixture.settings.removeOwner(personal)
+        #expect(fixture.settings.value.owners.map(\.id) == [holding.id])
+    }
+
+    @Test func removingAnOwnerForgetsWhatRecognizedIt() throws {
+        let fixture = try Fixture()
+        let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
+        let personal = fixture.settings.value.defaultOwnerID
+        fixture.settings.learn(keys: ["print"]) { $0.owner = holding.id }
+        fixture.settings.learn(keys: ["lumen"]) { $0.owner = holding.id; $0.category = .invoice }
+        fixture.settings.value.headerLines = [HeaderLine(fingerprint: "street", owners: [personal, holding.id])]
+        fixture.settings.removeOwner(holding.id)
+        #expect(fixture.settings.learnedIssuer(for: ["print"]) == nil)
+        #expect(fixture.settings.learnedIssuer(for: ["lumen"]) == LearnedIssuer(keys: ["lumen"], category: .invoice))
+        #expect(fixture.settings.value.headerLines.map(\.owners) == [[personal]])
+    }
+
+    /// Lines seen with documents from two issuers, as the address block of an owner.
+    private func recordAddressBlock(_ lines: [String], in settings: SettingsStore) {
+        settings.recordHeaderLines(lines + ["print"], issuerEvidence: ["print.example"])
+        settings.recordHeaderLines(lines + ["bank"], issuerEvidence: ["bank.example"])
+    }
+
+    @Test func recognizesAnOwnerByTheLinesOnlyItsDocumentsHad() throws {
+        let fixture = try Fixture()
+        let personal = fixture.settings.value.defaultOwnerID
+        let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
+        recordAddressBlock(["fernwood holding", "street"], in: fixture.settings)
+        recordAddressBlock(["alex martin", "street"], in: fixture.settings)
+        fixture.settings.link(lines: ["fernwood holding", "street", "print"], to: holding.id)
+        fixture.settings.link(lines: ["alex martin", "street", "bank"], to: personal)
+
+        #expect(fixture.settings.owner(recognizing: ["fernwood holding", "street", "lumen"]) == holding.id)
+        #expect(fixture.settings.owner(recognizing: ["alex martin", "street"]) == personal)
+        #expect(fixture.settings.owner(recognizing: ["street", "print"]) == nil)
+        #expect(fixture.settings.owner(recognizing: ["alex martin", "fernwood holding"]) == holding.id)
+        #expect(fixture.settings.recognizesLines(of: holding.id))
+    }
+
+    @Test func twoOtherOwnersTellNothing() throws {
+        let fixture = try Fixture()
+        let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
+        let employer = try #require(fixture.settings.addOwner("Halcyon Labs"))
+        recordAddressBlock(["fernwood holding", "halcyon labs"], in: fixture.settings)
+        fixture.settings.link(lines: ["fernwood holding"], to: holding.id)
+        fixture.settings.link(lines: ["halcyon labs"], to: employer.id)
+        #expect(fixture.settings.owner(recognizing: ["fernwood holding", "halcyon labs"]) == nil)
+    }
+
+    @Test func linksNothingWithASingleOwner() throws {
+        let fixture = try Fixture()
+        recordAddressBlock(["alex martin"], in: fixture.settings)
+        fixture.settings.link(lines: ["alex martin"], to: fixture.settings.value.defaultOwnerID)
+        #expect(fixture.settings.value.headerLines.allSatisfy { $0.owners.isEmpty })
+        #expect(fixture.settings.owner(recognizing: ["alex martin"]) == nil)
     }
 
     @Test func addsCategoriesOnceBeforeOther() throws {

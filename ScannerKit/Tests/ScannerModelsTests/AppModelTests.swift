@@ -96,7 +96,7 @@ struct AppModelTests {
     @Test(arguments: [(SendMethod.email, "me@example.com", "Emailed to me@example.com"), (.email, "", "Emailed"), (.share, "me@example.com", "Shared")])
     func sendingReturnsHomeWithAConfirmation(method: SendMethod, email: String, toast: String) async throws {
         let fixture = try Fixture()
-        fixture.settings.value.email = email
+        fixture.settings.value.defaultOwner.email = email
         let now = Date(timeIntervalSince1970: 1_794_700_000)
         let app = AppModel(processor: fixture.processor, settings: fixture.settings, now: { now })
         let scan = await fixture.capturedScan(in: app)
@@ -111,7 +111,7 @@ struct AppModelTests {
         let fixture = try Fixture()
         let folder = fixture.root.appending(path: "Paperwork", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        try fixture.settings.chooseArchiveFolder(folder)
+        try fixture.settings.chooseArchiveFolder(folder, for: nil)
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)
         let scan = await fixture.capturedScan(in: app)
         await scan.buildPDF(delay: .zero)
@@ -126,8 +126,8 @@ struct AppModelTests {
         let fixture = try Fixture()
         let folder = fixture.root.appending(path: "Paperwork", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        try fixture.settings.chooseArchiveFolder(folder)
-        fixture.settings.value.fileNameFormat = FileNameFormat(isCustom: true, template: "{CATEGORY}/{ISSUER}")
+        try fixture.settings.chooseArchiveFolder(folder, for: nil)
+        fixture.settings.value.defaultOwner.fileNameFormat = FileNameFormat(isCustom: true, template: "{CATEGORY}/{ISSUER}")
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)
         let scan = await fixture.capturedScan(in: app)
         scan.setDetails(DocumentDetails(category: .payslip, issuer: "Acme"))
@@ -150,7 +150,7 @@ struct AppModelTests {
 
     @Test func sendingSeveralScansMarksThemAllWithOneConfirmation() async throws {
         let fixture = try Fixture()
-        fixture.settings.value.email = "me@example.com"
+        fixture.settings.value.defaultOwner.email = "me@example.com"
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)
         let first = await fixture.capturedScan(in: app)
         let second = await fixture.capturedScan(in: app)
@@ -179,7 +179,7 @@ struct AppModelTests {
         let fixture = try Fixture()
         let folder = fixture.root.appending(path: "Paperwork", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        try fixture.settings.chooseArchiveFolder(folder)
+        try fixture.settings.chooseArchiveFolder(folder, for: nil)
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)
         let first = await fixture.capturedScan(in: app)
         let second = await fixture.capturedScan(in: app)
@@ -197,7 +197,7 @@ struct AppModelTests {
         let fixture = try Fixture()
         let folder = fixture.root.appending(path: "Paperwork", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        try fixture.settings.chooseArchiveFolder(folder)
+        try fixture.settings.chooseArchiveFolder(folder, for: nil)
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)
         let ready = await fixture.capturedScan(in: app)
         let notReady = await fixture.capturedScan(in: app)
@@ -208,6 +208,88 @@ struct AppModelTests {
         #expect(ready.scan.sent?.method == .files)
         #expect(notReady.scan.sent == nil)
         #expect(app.toast == "Saved to Paperwork")
+    }
+
+    @Test func savesEachScanToTheFolderOfItsOwner() async throws {
+        let fixture = try Fixture()
+        let personal = fixture.root.appending(path: "Personal", directoryHint: .isDirectory)
+        let company = fixture.root.appending(path: "Fernwood", directoryHint: .isDirectory)
+        for folder in [personal, company] { try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true) }
+        let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
+        try fixture.settings.chooseArchiveFolder(personal, for: nil)
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+        let mine = await fixture.capturedScan(in: app)
+        let theirs = await fixture.capturedScan(in: app)
+        theirs.setOwner(holding.id)
+        theirs.rename("Office power")
+        await mine.preparePDF()
+        await theirs.preparePDF()
+
+        #expect(app.ownerWithoutFolder(among: [mine, theirs])?.id == holding.id)
+        try fixture.settings.chooseArchiveFolder(company, for: holding.id)
+        #expect(app.ownerWithoutFolder(among: [mine, theirs]) == nil)
+
+        try app.saveToArchive([mine, theirs])
+        #expect(try FileManager.default.contentsOfDirectory(atPath: personal.path(percentEncoded: false)) == ["\(mine.scan.name).pdf"])
+        #expect(try FileManager.default.contentsOfDirectory(atPath: company.path(percentEncoded: false)) == ["Office power.pdf"])
+        #expect(app.toast == "2 scans saved to Files")
+    }
+
+    @Test func saysWhereEmailSendsTheScansOfEachOwner() async throws {
+        let fixture = try Fixture()
+        fixture.settings.value.defaultOwner.email = "me@example.com"
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+        let mine = await fixture.capturedScan(in: app)
+        let other = await fixture.capturedScan(in: app)
+        #expect(app.destination(of: [mine]) == "To me@example.com")
+
+        let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
+        #expect(app.destination(of: [mine]) == "Personal · To me@example.com")
+        other.setOwner(holding.id)
+        #expect(app.destination(of: [other]) == "Fernwood Holding")
+        #expect(app.destination(of: [mine, other, mine]) == "2 emails: Personal (2), Fernwood Holding (1)")
+        #expect(app.byOwner([other, mine]).map(\.owner.id) == [holding.id, fixture.settings.value.defaultOwnerID])
+
+        app.didSend([other], by: .email)
+        #expect(app.toast == "Emailed")
+    }
+
+    @Test func deletingAnOwnerMovesItsScansToAnother() async throws {
+        let fixture = try Fixture()
+        let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
+        let employer = try #require(fixture.settings.addOwner("Halcyon Labs"))
+        var format = employer
+        format.fileNameFormat = FileNameFormat(separator: .underscore)
+        fixture.settings.value.updateOwner(format)
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+        let scan = await fixture.capturedScan(in: app)
+        scan.rename("Office power")
+        scan.setOwner(holding.id)
+        #expect(app.scans(of: holding.id).map(\.id) == [scan.id])
+
+        app.deleteOwner(holding.id, movingScansTo: holding.id)
+        #expect(fixture.settings.value.hasOwner(holding.id))
+
+        app.deleteOwner(holding.id, movingScansTo: employer.id)
+        #expect(!fixture.settings.value.hasOwner(holding.id))
+        #expect(app.scans.first?.owner == employer.id)
+        #expect(app.scans.first?.name == "Office_power")
+    }
+
+    @Test func deletingAnOwnerCanDeleteItsScans() async throws {
+        let fixture = try Fixture()
+        let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+        let mine = await fixture.capturedScan(in: app)
+        let theirs = await fixture.capturedScan(in: app)
+        theirs.setOwner(holding.id)
+
+        app.deleteOwner(fixture.settings.value.defaultOwnerID, movingScansTo: nil)
+        #expect(app.scans.count == 2)
+
+        app.deleteOwner(holding.id, movingScansTo: nil)
+        #expect(app.scans.map(\.id) == [mine.id])
+        #expect(fixture.settings.value.owners.count == 1)
     }
 
     @Test func deletingAScanRemovesItEverywhere() async throws {

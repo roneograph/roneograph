@@ -51,8 +51,13 @@ public final class ScanModel: Identifiable {
     public var isBusy: Bool { processing > 0 || updating > 0 }
     /// The name remembered for the issuer, while it is the name of the scan.
     public var rememberedName: String? { scan.remembered.contains(.name) ? scan.title : nil }
+    /// Where the PDF goes and how it is named.
+    public var owner: Owner { settings.value.owner(scan.owner) }
+    /// True when nothing on the page told the owner and none was chosen.
+    public var hasDefaultOwner: Bool { !settings.value.hasOwner(scan.owner) }
+    public var fileNameFormat: FileNameFormat { owner.fileNameFormat }
 
-    /// The file name a name and details get with the format from the settings, before avoiding collisions.
+    /// The file name a name and details get with the format of the owner, before avoiding collisions.
     /// A name the user typed is kept as typed; a suggested one leaves out what a custom format already shows.
     func fileName(for title: String) -> String {
         fileNameSegments(for: title).map(\.text).joined()
@@ -113,6 +118,7 @@ public final class ScanModel: Identifiable {
         }).value, !isDeleted else { return }
         settings.recordHeaderLines(document.headerLines, issuerEvidence: document.issuerEvidence)
         scan.read = ReadDocument(details: document.details, parts: document.parts)
+        scan.headerLines = document.headerLines
         let learned = settings.learnedIssuer(for: document.issuerKeys)
         var remembered = Set<RememberedValue>()
         if let issuer = learned?.issuer {
@@ -137,6 +143,14 @@ public final class ScanModel: Identifiable {
             let learnedName = learned?.name.map { FileNamer.finalName($0.name(details: document.details, date: document.details.date ?? date), fallback: first) }
             scan.title = learnedName ?? first
             if let learnedName, learnedName != first { remembered.insert(.name) }
+        }
+        if scan.owner == nil {
+            if let owner = settings.owner(recognizing: document.headerLines) {
+                scan.owner = owner
+            } else if let owner = learned?.owner, settings.value.hasSeveralOwners, settings.value.hasOwner(owner) {
+                scan.owner = owner
+                remembered.insert(.owner)
+            }
         }
         scan.remembered = remembered
         applyFileName()
@@ -228,6 +242,7 @@ public final class ScanModel: Identifiable {
         settings.forget(values, keys: scan.issuerKeys)
         let restored = values.intersection(scan.remembered)
         guard !restored.isEmpty else { return }
+        if restored.contains(.owner) { scan.owner = nil }
         var details = scan.details
         var parts = scan.suggestedParts
         if let read = scan.read {
@@ -255,7 +270,7 @@ public final class ScanModel: Identifiable {
     /// The parts of the file name a name gives, and where each comes from.
     public func fileNameSegments(for title: String) -> [FileNameSegment] {
         let isSuggested = (!scan.isNamedByUser && title == scan.title) || scan.suggestions.contains(title)
-        return settings.value.fileNameFormat.segments(name: title, details: scan.details, scanDate: scan.created, suggestedParts: isSuggested ? scan.suggestedParts : nil)
+        return fileNameFormat.segments(name: title, details: scan.details, scanDate: scan.created, suggestedParts: isSuggested ? scan.suggestedParts : nil)
     }
 
     /// What the next documents from the same issuer will be named after this name; nil when the name is the suggestion or the issuer cannot be recognized again.
@@ -302,14 +317,30 @@ public final class ScanModel: Identifiable {
     /// Derives the file name from the name and details, after a change of either.
     public func applyFileName() {
         let old = scan.fileName
-        scan.name = store.availableName(fileName(for: scan.title), for: scan, separator: settings.value.fileNameFormat.separator.character)
+        scan.name = store.availableName(fileName(for: scan.title), for: scan, separator: fileNameFormat.separator.character)
         if !old.isEmpty { store.movePDF(from: old, to: scan) }
         save()
     }
 
+    /// The lines of the page are linked to the owner the scan went out with.
     public func markSent(_ method: SendMethod) {
         scan.sent = Sent(date: now(), method: method)
+        settings.link(lines: scan.headerLines, to: owner.id)
         save()
+    }
+
+    /// Gives the scan to another owner, renamed with its format; the owner is reused for the next documents from the same issuer.
+    public func setOwner(_ id: UUID) {
+        guard settings.value.hasOwner(id), id != scan.owner else { return }
+        settings.learn(keys: scan.issuerKeys, label: scan.details.issuer) { $0.owner = id }
+        assignOwner(id)
+    }
+
+    /// Gives the scan to another owner without learning anything, as when its owner is deleted.
+    func assignOwner(_ id: UUID?) {
+        scan.owner = id
+        scan.remembered.remove(.owner)
+        applyFileName()
     }
 
     public func buildPDF(delay: Duration = .milliseconds(200)) async {

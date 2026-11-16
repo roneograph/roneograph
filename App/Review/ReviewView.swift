@@ -37,7 +37,7 @@ struct ReviewView: View {
         }
         .sheet(item: $editing) { field in
             switch field {
-            case .name: NameView(scan: scan, settings: app.settings)
+            case .name: NameView(scan: scan)
             case .issuer, .number: DetailTextView(scan: scan, field: field)
             }
         }

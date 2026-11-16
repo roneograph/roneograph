@@ -14,7 +14,7 @@ struct IssuersView: View {
                 ContentUnavailableView {
                     Label("Nothing Remembered", systemImage: "clock.arrow.circlepath")
                 } description: {
-                    Text("Correct the name, issuer or category of a scan, and it is reused for the next documents from the same issuer.")
+                    Text("Correct the name, issuer, category or owner of a scan, and it is reused for the next documents from the same issuer.")
                 }
             } else {
                 list
@@ -28,7 +28,7 @@ struct IssuersView: View {
         Form {
             Section {
                 ForEach(issuers, id: \.keys) { issuer in
-                    IssuerRow(issuer: issuer)
+                    IssuerRow(issuer: issuer, owner: issuer.owner.flatMap { id in settings.value.owners.first { $0.id == id } })
                         .swipeActions {
                             Button("Forget", role: .destructive) { settings.forget(issuer) }
                         }
@@ -60,6 +60,7 @@ struct IssuersView: View {
 
 private struct IssuerRow: View {
     let issuer: LearnedIssuer
+    let owner: Owner?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -68,6 +69,7 @@ private struct IssuerRow: View {
                 if let name = issuer.name { Text(nameLine(name)) }
                 if let corrected = issuer.issuer { Text("Issuer: \(corrected)") }
                 if let category = issuer.category { Text("Category: \(category.rawValue)") }
+                if let owner { Text("Owner: \(owner.name)") }
                 if let recognizedBy = issuer.recognizedBy { Text(recognizedBy).foregroundStyle(.secondary) }
             }
             .font(.footnote)

@@ -8,7 +8,7 @@ struct WordingTests {
     @Test func listsRememberedValuesInAFixedOrder() {
         #expect([RememberedValue.category].listed == "Category")
         #expect([RememberedValue.category, .name].listed == "Name and category")
-        #expect(Set(RememberedValue.allCases).listed == "Name, category and issuer")
+        #expect(Set(RememberedValue.allCases).listed == "Name, category, issuer and owner")
     }
 
     @Test func countsInTheSingularOnlyForOne() {

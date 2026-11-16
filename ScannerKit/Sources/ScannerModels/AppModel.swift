@@ -79,13 +79,31 @@ public final class AppModel {
         guard !models.isEmpty else { return }
         for model in models { model.markSent(method) }
         path = []
-        let settings = settings.value
         let done = models.count == 1 ? method.pastTense : "\(models.count) scans \(method.pastTense.lowercased())"
+        let owners = Self.owners(of: models)
+        let owner = owners.count == 1 ? owners[0] : nil
         switch method {
-        case .email where settings.hasValidEmail: showToast("\(done) to \(settings.email)")
-        case .files: showToast("\(done) to \(settings.archiveFolder?.name ?? "Files")")
+        case .email where owner?.hasValidEmail == true: showToast("\(done) to \(owner!.email)")
+        case .files: showToast("\(done) to \(owner?.archiveFolder?.name ?? "Files")")
         default: showToast(done)
         }
+    }
+
+    /// The owners of the scans, each once, in the order of the scans.
+    static func owners(of models: [ScanModel]) -> [Owner] {
+        models.reduce(into: []) { owners, model in
+            if !owners.contains(where: { $0.id == model.owner.id }) { owners.append(model.owner) }
+        }
+    }
+
+    /// The scans grouped by owner, in the order of the scans, to send each group where its owner's go.
+    public func byOwner(_ models: [ScanModel]) -> [(owner: Owner, scans: [ScanModel])] {
+        Self.owners(of: models).map { owner in (owner, models.filter { $0.owner.id == owner.id }) }
+    }
+
+    /// The first owner of these scans without a folder to save them to.
+    public func ownerWithoutFolder(among models: [ScanModel]) -> Owner? {
+        Self.owners(of: models).first { $0.archiveFolder == nil }
     }
 
     /// A PDF could not be saved; `saved` lists the scans saved before it.
@@ -93,20 +111,56 @@ public final class AppModel {
         public let saved: [UUID]
     }
 
-    /// Copies each PDF to the archive folder, in order, up to the first that cannot be saved, and confirms the ones saved like any other sending.
+    /// Copies each PDF to the folder of its owner, in order, up to the first that cannot be saved, and confirms the ones saved like any other sending.
     public func saveToArchive(_ models: [ScanModel]) throws {
         var saved: [ScanModel] = []
         defer { didSend(saved, by: .files) }
         for model in models {
-            guard var folder = settings.value.archiveFolder, case .ready(let url, _) = model.pdf else { throw ArchiveError(saved: saved.map(\.id)) }
+            var owner = model.owner
+            guard var folder = owner.archiveFolder, case .ready(let url, _) = model.pdf else { throw ArchiveError(saved: saved.map(\.id)) }
             do {
-                try folder.save(url, as: model.scan.name, separator: settings.value.fileNameFormat.separator.character)
+                try folder.save(url, as: model.scan.name, separator: owner.fileNameFormat.separator.character)
             } catch {
                 throw ArchiveError(saved: saved.map(\.id))
             }
-            if folder != settings.value.archiveFolder { settings.value.archiveFolder = folder }
+            if folder != owner.archiveFolder {
+                owner.archiveFolder = folder
+                settings.value.updateOwner(owner)
+            }
             saved.append(model)
         }
+    }
+
+    /// Under the send buttons: where Email sends the scans, when there is something to say.
+    public func destination(of models: [ScanModel]) -> String? {
+        let groups = byOwner(models)
+        guard settings.value.hasSeveralOwners else {
+            return groups.first.flatMap { $0.owner.hasValidEmail ? "To \($0.owner.email)" : nil }
+        }
+        guard groups.count == 1, let owner = groups.first?.owner else {
+            return "\(groups.count) emails: " + groups.map { "\($0.owner.name) (\($0.scans.count))" }.joined(separator: ", ")
+        }
+        return owner.hasValidEmail ? "\(owner.name) · To \(owner.email)" : owner.name
+    }
+
+    /// The scans of an owner other than the default one, which deleting it moves or deletes.
+    public func scans(of ownerID: UUID) -> [Scan] {
+        scans.filter { $0.owner == ownerID }
+    }
+
+    /// Deletes an owner, never the default one; its scans go to another owner, or are deleted without one.
+    public func deleteOwner(_ id: UUID, movingScansTo newOwner: UUID?) {
+        guard id != settings.value.defaultOwnerID, settings.value.hasOwner(id) else { return }
+        if let newOwner, newOwner == id || !settings.value.hasOwner(newOwner) { return }
+        for scan in scans(of: id) {
+            if let newOwner {
+                model(for: scan.id)?.assignOwner(newOwner)
+            } else {
+                delete(scan.id)
+            }
+        }
+        settings.removeOwner(id)
+        reload()
     }
 
     public func delete(_ id: UUID) {

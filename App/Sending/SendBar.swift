@@ -18,12 +18,14 @@ struct SendBar<Summary: View>: View {
     @State private var confirmingDelete = false
     @State private var choosingFolder = false
     @State private var savingFailed = false
+    /// The owner the folder picker and the email question are for.
+    @State private var ownerID: UUID?
+    /// The scans still to email, one mail per owner, the first one being sent.
+    @State private var mails: [[ScanModel]] = []
     /// Set when the PDFs went out, acted on once the mail or share sheet is gone.
     @State private var sentBy: SendMethod?
 
-    private var settings: ScannerSettings { app.settings.value }
-
-    private var pdfs: [URL] {
+    private func pdfs(of scans: [ScanModel]) -> [URL] {
         scans.compactMap { scan in
             if case .ready(let url, _) = scan.pdf { url } else { nil }
         }
@@ -50,8 +52,8 @@ struct SendBar<Summary: View>: View {
             .controlSize(.large)
             .font(.title3)
             VStack(spacing: 2) {
-                if settings.hasValidEmail {
-                    Text("To \(settings.email)").lineLimit(1).truncationMode(.middle)
+                if let destination = app.destination(of: scans) {
+                    Text(destination).lineLimit(1).truncationMode(.middle)
                 }
                 summary()
             }
@@ -63,8 +65,10 @@ struct SendBar<Summary: View>: View {
         .confirmationDialog(scans.count > 1 ? "Delete \(scans.count) scans?" : "Delete this scan?", isPresented: $confirmingDelete, titleVisibility: .visible) {
             Button(scans.count > 1 ? "Delete \(scans.count) Scans" : "Delete Scan", role: .destructive, action: delete)
         }
-        .sheet(isPresented: $showingMail, onDismiss: finishSending) {
-            MailView(recipient: settings.hasValidEmail ? settings.email : nil, subject: scans.map(\.scan).mailSubject, attachments: pdfs) { sent in
+        .sheet(isPresented: $showingMail, onDismiss: finishMail) {
+            let group = mails.first ?? []
+            let owner = group.first?.owner
+            MailView(recipient: owner?.hasValidEmail == true ? owner?.email : nil, subject: group.map(\.scan).mailSubject, attachments: pdfs(of: group)) { sent in
                 if sent { sentBy = .email }
             }
             .ignoresSafeArea()
@@ -73,13 +77,15 @@ struct SendBar<Summary: View>: View {
             if mailAfterQuestion {
                 mailAfterQuestion = false
                 showingMail = true
+            } else {
+                mails = []
             }
         }) {
-            EmailQuestionView(settings: app.settings) { mailAfterQuestion = true }
+            EmailQuestionView(settings: app.settings, ownerID: ownerID) { mailAfterQuestion = true }
                 .presentationDetents([.medium])
         }
-        .sheet(isPresented: $showingShare, onDismiss: finishSending) {
-            ShareSheet(items: pdfs) { completed in
+        .sheet(isPresented: $showingShare, onDismiss: finishSharing) {
+            ShareSheet(items: pdfs(of: scans)) { completed in
                 if completed { sentBy = .share }
             }
             .presentationDetents([.medium, .large])
@@ -88,7 +94,7 @@ struct SendBar<Summary: View>: View {
         .fileImporter(isPresented: $choosingFolder, allowedContentTypes: [.folder]) { result in
             guard case .success(let url) = result else { return }
             do {
-                try app.settings.chooseArchiveFolder(url)
+                try app.settings.chooseArchiveFolder(url, for: ownerID)
                 saveToFiles()
             } catch {
                 savingFailed = true
@@ -102,16 +108,30 @@ struct SendBar<Summary: View>: View {
         }
     }
 
-    private func finishSending() {
+    private func finishSharing() {
         guard let sentBy else { return }
         self.sentBy = nil
         app.didSend(scans, by: sentBy)
         finished(Set(scans.map(\.id)))
     }
 
-    /// The first save asks for the folder; later ones go straight to it.
+    /// Confirms the mail just sent, then opens the next owner's; a cancelled mail stops the others.
+    private func finishMail() {
+        guard sentBy != nil, let group = mails.first else {
+            mails = []
+            return
+        }
+        sentBy = nil
+        mails.removeFirst()
+        app.didSend(group, by: .email)
+        finished(Set(group.map(\.id)))
+        nextMail()
+    }
+
+    /// The first save for an owner asks for its folder; later ones go straight to it.
     private func saveToFiles() {
-        guard settings.archiveFolder != nil else {
+        if let owner = app.ownerWithoutFolder(among: scans) {
+            ownerID = owner.id
             choosingFolder = true
             return
         }
@@ -119,16 +139,28 @@ struct SendBar<Summary: View>: View {
             try app.saveToArchive(scans)
             finished(Set(scans.map(\.id)))
         } catch {
-            if let error = error as? AppModel.ArchiveError, !error.saved.isEmpty { finished(Set(error.saved)) }
+            let saved = (error as? AppModel.ArchiveError)?.saved ?? []
+            if !saved.isEmpty { finished(Set(saved)) }
+            ownerID = scans.first { !saved.contains($0.id) }?.owner.id
             savingFailed = true
         }
     }
 
     /// Mail needs an account in the Mail app; without one, the share sheet lets any mail app send the PDFs.
+    /// Scans of different owners go in one mail per owner, one after the other.
     private func email() {
         if !MFMailComposeViewController.canSendMail() {
             showingShare = true
-        } else if app.settings.shouldAskForEmail {
+        } else {
+            mails = app.byOwner(scans).map(\.scans)
+            nextMail()
+        }
+    }
+
+    private func nextMail() {
+        guard let owner = mails.first?.first?.owner else { return }
+        if app.settings.shouldAskForEmail(for: owner.id) {
+            ownerID = owner.id
             showingEmailQuestion = true
         } else {
             showingMail = true

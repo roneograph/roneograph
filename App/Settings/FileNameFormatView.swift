@@ -4,7 +4,7 @@ import SwiftUI
 
 /// Edits the custom file name format; only a valid format replaces the one in use.
 struct FileNameFormatView: View {
-    @Bindable var settings: SettingsStore
+    @Binding var format: FileNameFormat
     @State private var draft = ""
 
     var body: some View {
@@ -19,7 +19,7 @@ struct FileNameFormatView: View {
                         .font(.footnote)
                         .foregroundStyle(.red)
                 } else {
-                    Label("\(settings.value.fileNameFormat.sampleFileName).pdf", systemImage: "doc")
+                    Label("\(format.sampleFileName).pdf", systemImage: "doc")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
@@ -45,9 +45,9 @@ struct FileNameFormatView: View {
         }
         .navigationTitle("Format")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { draft = settings.value.fileNameFormat.template }
+        .onAppear { draft = format.template }
         .onChange(of: draft) { _, value in
-            if (try? FileNameFormat.Template(value)) != nil { settings.value.fileNameFormat.template = value }
+            if (try? FileNameFormat.Template(value)) != nil { format.template = value }
         }
     }
 

@@ -5,7 +5,6 @@ import SwiftUI
 /// Renames a scan, showing which part of the file name the name gives and which parts the format adds.
 struct NameView: View {
     let scan: ScanModel
-    let settings: SettingsStore
     @State private var name = ""
     /// The name when the sheet opened or when the text was read, to keep a name read while the user has not typed.
     @State private var shownName = ""
@@ -65,7 +64,7 @@ struct NameView: View {
                 } header: {
                     Text("File name")
                 } footer: {
-                    Text(settings.value.fileNameFormat.explanation(for: segments))
+                    Text(scan.fileNameFormat.explanation(for: segments))
                 }
                 if let learning = scan.learning(forName: name) {
                     Section {

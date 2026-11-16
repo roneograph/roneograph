@@ -18,6 +18,8 @@ struct DocumentCard: View {
     @State private var newCategory = ""
     @State private var pickingDate = false
     @State private var forgetting = false
+    @State private var addingOwner = false
+    @State private var newOwner = ""
 
     private var details: DocumentDetails { scan.scan.details }
     private var remembered: Set<RememberedValue> { scan.scan.remembered }
@@ -25,6 +27,10 @@ struct DocumentCard: View {
         VStack(spacing: 0) {
             nameRow
             Divider().padding(.leading, 50)
+            if settings.value.hasSeveralOwners {
+                ownerRow
+                Divider().padding(.leading, 50)
+            }
             categoryRow
             Divider().padding(.leading, 50)
             textRow(.issuer, title: "Issuer", systemImage: "person.text.rectangle", value: details.issuer)
@@ -46,6 +52,53 @@ struct DocumentCard: View {
             }
             Button("Cancel", role: .cancel) { newCategory = "" }
         }
+        .alert("New Owner", isPresented: $addingOwner) {
+            TextField("Name", text: $newOwner)
+            Button("Add") {
+                if let owner = settings.addOwner(newOwner) { scan.setOwner(owner.id) }
+                newOwner = ""
+            }
+            Button("Cancel", role: .cancel) { newOwner = "" }
+        } message: {
+            Text("A company you scan documents for, such as your employer. Set its email address and folder in Settings.")
+        }
+    }
+
+    /// Who the document belongs to, which decides where it goes and how it is named; tinted for that reason.
+    private var ownerRow: some View {
+        let owner = scan.owner
+        return Menu {
+            Picker("Owner", selection: Binding(get: { scan.hasDefaultOwner ? nil : owner.id }, set: { id in if let id { scan.setOwner(id) } })) {
+                ForEach(settings.value.owners) { owner in
+                    Label(owner.name, systemImage: owner.symbol.systemImage).tag(Optional(owner.id))
+                }
+            }
+            Divider()
+            Button("New Owner…", systemImage: "plus") { addingOwner = true }
+        } label: {
+            HStack(spacing: 14) {
+                icon(owner.symbol.systemImage)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Owner")
+                    if scan.hasDefaultOwner {
+                        Text("Default").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                Spacer(minLength: 12)
+                HStack(spacing: 4) {
+                    Text(owner.name).lineLimit(1)
+                    Image(systemName: "chevron.up.chevron.down").font(.caption2.bold())
+                }
+                .foregroundStyle(.tint)
+                mark(.owner)
+            }
+            .padding(.horizontal, 14)
+            .frame(minHeight: 46)
+            .background(Color.accentColor.opacity(0.08))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Owner, \(owner.name)\(scan.hasDefaultOwner ? ", default" : "")\(remembered.contains(.owner) ? ", remembered" : "")")
     }
 
     private var nameRow: some View {
