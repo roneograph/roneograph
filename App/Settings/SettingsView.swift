@@ -174,9 +174,7 @@ struct SettingsView: View {
             }
         }
     }
-}
 
-extension SettingsView {
     private var stored: String {
         app.scans.isEmpty ? "None" : "\(app.scans.count.counted("scan")) · \(storedBytes.formatted(.byteCount(style: .file)))"
     }
