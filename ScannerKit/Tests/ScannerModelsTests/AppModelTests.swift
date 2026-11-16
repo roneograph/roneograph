@@ -104,8 +104,7 @@ struct AppModelTests {
         app.didSend([scan], by: method)
         #expect(app.path.isEmpty)
         #expect(app.toast == toast)
-        #expect(app.scans.first?.sentBy == method)
-        #expect(app.scans.first?.sent == now)
+        #expect(app.scans.first?.sent == Sent(date: now, method: method))
     }
 
     @Test func savesToTheArchiveFolderAndConfirmsIt() async throws {
@@ -120,7 +119,7 @@ struct AppModelTests {
         try app.saveToArchive([scan])
         #expect(FileManager.default.fileExists(atPath: folder.appending(path: "\(scan.scan.name).pdf").path(percentEncoded: false)))
         #expect(app.toast == "Saved to Paperwork")
-        #expect(app.scans.first?.sentBy == .files)
+        #expect(app.scans.first?.sent?.method == .files)
     }
 
     @Test func savesIntoTheFoldersOfACustomFormat() async throws {
@@ -159,7 +158,7 @@ struct AppModelTests {
         app.didSend([first, second], by: .email)
         #expect(app.path.isEmpty)
         #expect(app.toast == "2 scans emailed to me@example.com")
-        #expect(app.scans.map(\.sentBy) == [.email, .email])
+        #expect(app.scans.map(\.sent?.method) == [.email, .email])
     }
 
     @Test func listsTheFinishedScansNotSent() async throws {
@@ -206,7 +205,7 @@ struct AppModelTests {
 
         let error = #expect(throws: AppModel.ArchiveError.self) { try app.saveToArchive([ready, notReady]) }
         #expect(error?.saved == [ready.id])
-        #expect(ready.scan.sentBy == .files)
+        #expect(ready.scan.sent?.method == .files)
         #expect(notReady.scan.sent == nil)
         #expect(app.toast == "Saved to Paperwork")
     }

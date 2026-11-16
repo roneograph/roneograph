@@ -5,12 +5,6 @@ import Vision
 
 public enum PageLook: String, Codable, Sendable, CaseIterable {
     case gray, color
-
-    /// Pages saved with a look that no longer exists become gray when they were black and white, color otherwise.
-    public init(from decoder: Decoder) throws {
-        let raw = try decoder.singleValueContainer().decode(String.self)
-        self = Self(rawValue: raw) ?? (raw == "blackAndWhite" ? .gray : .color)
-    }
 }
 
 /// How a page should be turned to be upright.

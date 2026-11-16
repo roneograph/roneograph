@@ -65,40 +65,6 @@ public struct FileNameFormat: Equatable, Sendable, Codable {
         self.template = template
     }
 
-    private enum CodingKeys: String, CodingKey {
-        case datePosition, dateStyle, dateSource, separator, lowercase, isCustom, template, datePrefix
-    }
-
-    /// Missing, unknown or invalid values keep their default; the former "date first" switch becomes a date at the start.
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.init()
-        if let position = try? container.decode(DatePosition.self, forKey: .datePosition) {
-            datePosition = position
-        } else if (try? container.decode(Bool.self, forKey: .datePrefix)) == true {
-            datePosition = .start
-        }
-        dateStyle = (try? container.decode(DateStyle.self, forKey: .dateStyle)) ?? dateStyle
-        dateSource = (try? container.decode(DateSource.self, forKey: .dateSource)) ?? dateSource
-        separator = (try? container.decode(Separator.self, forKey: .separator)) ?? separator
-        lowercase = (try? container.decode(Bool.self, forKey: .lowercase)) ?? lowercase
-        if let template = try? container.decode(String.self, forKey: .template), (try? Template(template)) != nil {
-            self.template = template
-            isCustom = (try? container.decode(Bool.self, forKey: .isCustom)) ?? isCustom
-        }
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(datePosition, forKey: .datePosition)
-        try container.encode(dateStyle, forKey: .dateStyle)
-        try container.encode(dateSource, forKey: .dateSource)
-        try container.encode(separator, forKey: .separator)
-        try container.encode(lowercase, forKey: .lowercase)
-        try container.encode(isCustom, forKey: .isCustom)
-        try container.encode(template, forKey: .template)
-    }
-
     /// The file name, with folders separated by "/" when a custom format has them.
     /// `suggestedParts` is nil for a name the user typed: a custom format then keeps it as typed instead of leaving out what it already shows.
     public func fileName(name: String, details: DocumentDetails = .init(), scanDate: Date, suggestedParts: SuggestedParts? = nil) -> String {

@@ -30,19 +30,11 @@ struct ScanTests {
         #expect(cleaner.analyze(turned).orientation == .left)
     }
 
-    @Test func readsTheDocumentDateOfOlderScansAsADetail() throws {
-        let json = #"{"id":"9F1C2D3E-0000-4000-8000-000000000001","created":"2026-11-15T10:00:00Z","name":"Invoice","title":"Invoice","documentDate":"2026-11-12T12:00:00Z","isNamedByUser":false,"suggestions":["Invoice"],"pages":[],"isFinished":true}"#
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        let scan = try decoder.decode(Scan.self, from: Data(json.utf8))
-        #expect(scan.details == DocumentDetails(date: ISO8601DateFormatter().date(from: "2026-11-12T12:00:00Z")))
-        #expect(scan.suggestedParts == SuggestedParts())
-    }
-
     @Test func keepsWhatWasReadAndWhatIsRemembered() throws {
         var scan = Scan(name: "Invoice")
         scan.read = ReadDocument(details: DocumentDetails(category: .letter, issuer: "Lumen"), parts: SuggestedParts(type: "Invoice"))
         scan.remembered = [.name, .issuer]
+        scan.sent = Sent(date: Date(timeIntervalSince1970: 1_794_700_000), method: .files)
         let decoded = try JSONDecoder().decode(Scan.self, from: JSONEncoder().encode(scan))
         #expect(decoded == scan)
     }

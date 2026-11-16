@@ -48,18 +48,6 @@ public struct DocumentDetails: Equatable, Sendable, Codable {
         self.date = date
         self.number = number
     }
-
-    private enum CodingKeys: String, CodingKey {
-        case category, issuer, date, number
-    }
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        category = (try? container.decode(DocumentCategory.self, forKey: .category)) ?? .other
-        issuer = try? container.decode(String.self, forKey: .issuer)
-        date = try? container.decode(Date.self, forKey: .date)
-        number = try? container.decode(String.self, forKey: .number)
-    }
 }
 
 /// The words of the name suggestions that come from details, as printed on the page, so a format showing these details can leave them out of the name.

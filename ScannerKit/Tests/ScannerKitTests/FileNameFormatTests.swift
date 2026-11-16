@@ -64,14 +64,6 @@ struct FileNameFormatTests {
         #expect(name(FileNameFormat(separator: .dash), " ?! ") == "2026-11-12")
     }
 
-    @Test func turnsTheFormerDateFirstSwitchIntoADateAtTheStart() throws {
-        let decoder = JSONDecoder()
-        let legacy = try decoder.decode(FileNameFormat.self, from: Data(#"{"datePrefix":true,"separator":"dash","lowercase":true}"#.utf8))
-        #expect(legacy == FileNameFormat(datePosition: .start, separator: .dash, lowercase: true))
-        let format = FileNameFormat(datePosition: .end, dateStyle: .month, dateSource: .scan, separator: .underscore, lowercase: true)
-        #expect(try decoder.decode(FileNameFormat.self, from: JSONEncoder().encode(format)) == format)
-    }
-
     // MARK: Custom format
 
     let lumen = DocumentDetails(category: .invoice, issuer: "Lumen Energy", date: .day("2026-11-12"), number: "2026-0042")
@@ -147,13 +139,6 @@ struct FileNameFormatTests {
 
     @Test func anInvalidCustomFormatGivesTheSimpleFormat() {
         #expect(custom("{FOO} {NAME}").fileName(name: "Lumen Energy invoice", details: lumen, scanDate: scanDate) == "Lumen Energy invoice")
-    }
-
-    @Test func keepsTheCustomFormatAndDropsAnInvalidOne() throws {
-        let format = custom("{CATEGORY}/{NAME}", separator: .dash)
-        #expect(try JSONDecoder().decode(FileNameFormat.self, from: JSONEncoder().encode(format)) == format)
-        let invalid = try JSONDecoder().decode(FileNameFormat.self, from: Data(#"{"isCustom":true,"template":"{FOO}"}"#.utf8))
-        #expect(invalid == FileNameFormat())
     }
 
     // MARK: Segments

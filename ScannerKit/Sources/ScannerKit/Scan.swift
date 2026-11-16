@@ -62,6 +62,16 @@ public enum SendMethod: String, Equatable, Sendable, Codable {
     case email, files, share
 }
 
+public struct Sent: Equatable, Sendable, Codable {
+    public var date: Date
+    public var method: SendMethod
+
+    public init(date: Date, method: SendMethod) {
+        self.date = date
+        self.method = method
+    }
+}
+
 public struct Scan: Identifiable, Equatable, Sendable, Codable {
     public let id: UUID
     public var created: Date
@@ -85,8 +95,7 @@ public struct Scan: Identifiable, Equatable, Sendable, Codable {
     public var pages: [ScanPage] = []
     /// False while pages are being captured.
     public var isFinished = false
-    public var sent: Date?
-    public var sentBy: SendMethod?
+    public var sent: Sent?
 
     public init(id: UUID = UUID(), created: Date = .now, name: String, title: String? = nil) {
         self.id = id
@@ -98,51 +107,5 @@ public struct Scan: Identifiable, Equatable, Sendable, Codable {
     /// The file name of the PDF, without its folders: what Email, Share and the local copy use.
     public var fileName: String {
         name.split(separator: "/").last.map(String.init) ?? name
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case id, created, name, title, details, areDetailsEditedByUser, isNamedByUser, suggestions, suggestedParts, issuerKeys, read, remembered, pages, isFinished, sent, sentBy
-        case documentDate
-    }
-
-    /// Missing values keep their default, and the document date of older scans becomes a detail.
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(UUID.self, forKey: .id)
-        created = try container.decode(Date.self, forKey: .created)
-        name = try container.decode(String.self, forKey: .name)
-        title = try container.decode(String.self, forKey: .title)
-        details = try container.decodeIfPresent(DocumentDetails.self, forKey: .details) ?? DocumentDetails(date: container.decodeIfPresent(Date.self, forKey: .documentDate))
-        areDetailsEditedByUser = try container.decodeIfPresent(Bool.self, forKey: .areDetailsEditedByUser) ?? false
-        isNamedByUser = try container.decodeIfPresent(Bool.self, forKey: .isNamedByUser) ?? false
-        suggestions = try container.decodeIfPresent([String].self, forKey: .suggestions) ?? []
-        suggestedParts = try container.decodeIfPresent(SuggestedParts.self, forKey: .suggestedParts) ?? SuggestedParts()
-        issuerKeys = try container.decodeIfPresent([String].self, forKey: .issuerKeys) ?? []
-        read = try container.decodeIfPresent(ReadDocument.self, forKey: .read)
-        remembered = try container.decodeIfPresent(Set<RememberedValue>.self, forKey: .remembered) ?? []
-        pages = try container.decodeIfPresent([ScanPage].self, forKey: .pages) ?? []
-        isFinished = try container.decodeIfPresent(Bool.self, forKey: .isFinished) ?? false
-        sent = try container.decodeIfPresent(Date.self, forKey: .sent)
-        sentBy = try container.decodeIfPresent(SendMethod.self, forKey: .sentBy)
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(id, forKey: .id)
-        try container.encode(created, forKey: .created)
-        try container.encode(name, forKey: .name)
-        try container.encode(title, forKey: .title)
-        try container.encode(details, forKey: .details)
-        try container.encode(areDetailsEditedByUser, forKey: .areDetailsEditedByUser)
-        try container.encode(isNamedByUser, forKey: .isNamedByUser)
-        try container.encode(suggestions, forKey: .suggestions)
-        try container.encode(suggestedParts, forKey: .suggestedParts)
-        try container.encode(issuerKeys, forKey: .issuerKeys)
-        try container.encodeIfPresent(read, forKey: .read)
-        try container.encode(remembered, forKey: .remembered)
-        try container.encode(pages, forKey: .pages)
-        try container.encode(isFinished, forKey: .isFinished)
-        try container.encodeIfPresent(sent, forKey: .sent)
-        try container.encodeIfPresent(sentBy, forKey: .sentBy)
     }
 }

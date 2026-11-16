@@ -62,10 +62,9 @@ struct WordingTests {
         #expect(scan.status == "In progress · 1 page")
         scan.isFinished = true
         #expect(scan.status == "Not sent · now · 1 page")
-        scan.sent = Date()
-        scan.sentBy = .share
+        scan.sent = Sent(date: Date(), method: .share)
         #expect(scan.status == "Shared now · 1 page")
-        scan.sent = Date().addingTimeInterval(-3 * 86400)
+        scan.sent = Sent(date: Date().addingTimeInterval(-3 * 86400), method: .share)
         #expect(scan.status.hasPrefix("Shared "))
         #expect(!scan.status.contains("now"))
     }
@@ -106,8 +105,7 @@ struct WordingTests {
         var payslip = Scan(name: "payslip", title: "Payslip")
         let bill = Scan(name: "bill", title: "Water bill")
         #expect([bill].alreadySent == nil)
-        payslip.sent = Date()
-        payslip.sentBy = .files
+        payslip.sent = Sent(date: Date(), method: .files)
         #expect([bill, payslip].alreadySent == "“Payslip” was already saved")
         #expect([payslip, payslip].alreadySent == "2 were already sent")
     }

@@ -42,11 +42,6 @@ struct PageCleanerTests {
         #expect(r < 0.4)
     }
 
-    @Test func looksThatNoLongerExistDecodeAsTheClosestOne() throws {
-        let looks = try JSONDecoder().decode([PageLook].self, from: Data(#"["photo", "blackAndWhite", "gray", "color"]"#.utf8))
-        #expect(looks == [.color, .gray, .gray, .color])
-    }
-
     @Test(arguments: [(CGImagePropertyOrientation.down, PageOrientation.down), (.right, .left), (.left, .right)])
     func turnsAPageUpright(turned: CGImagePropertyOrientation, fix: PageOrientation) {
         #expect(cleaner.analyze(SyntheticPage().render().oriented(turned)).orientation == fix)

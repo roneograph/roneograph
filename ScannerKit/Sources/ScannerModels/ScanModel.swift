@@ -308,8 +308,7 @@ public final class ScanModel: Identifiable {
     }
 
     public func markSent(_ method: SendMethod) {
-        scan.sent = now()
-        scan.sentBy = method
+        scan.sent = Sent(date: now(), method: method)
         save()
     }
 

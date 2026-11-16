@@ -3,13 +3,6 @@ import ScannerKit
 import Testing
 
 struct ScannerSettingsTests {
-    @Test func keepsDefaultsForMissingOrUnknownValues() throws {
-        let settings = try JSONDecoder().decode(ScannerSettings.self, from: Data(#"{"email":"me@example.com","keepScans":"huge"}"#.utf8))
-        #expect(settings.email == "me@example.com")
-        #expect(settings.keepScans == .week)
-        #expect(settings.autoCapture)
-    }
-
     @Test(arguments: [(ScanRetention.day, "day"), (.week, "week"), (.month, "month"), (.forever, "forever")])
     func keepsTheRetentionAcrossARestart(retention: ScanRetention, stored: String) throws {
         var settings = ScannerSettings()

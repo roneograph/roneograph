@@ -94,7 +94,7 @@ extension Scan {
     public var status: String {
         let pages = pages.count.counted("page")
         if !isFinished { return "In progress · \(pages)" }
-        if let sent { return "\((sentBy ?? .email).pastTense) \(Self.relative(sent)) · \(pages)" }
+        if let sent { return "\(sent.method.pastTense) \(Self.relative(sent.date)) · \(pages)" }
         return "Not sent · \(Self.relative(created)) · \(pages)"
     }
 
@@ -146,8 +146,8 @@ extension Collection<Scan> {
     /// Warns before sending again what already went out: "“Payslip” was already emailed", "2 were already sent".
     public var alreadySent: String? {
         let sent = filter { $0.sent != nil }
-        guard let first = sent.first else { return nil }
+        guard let first = sent.first, let method = first.sent?.method else { return nil }
         if sent.count > 1 { return "\(sent.count) were already sent" }
-        return "“\(first.title)” was already \((first.sentBy ?? .email).pastTense.lowercased())"
+        return "“\(first.title)” was already \(method.pastTense.lowercased())"
     }
 }
