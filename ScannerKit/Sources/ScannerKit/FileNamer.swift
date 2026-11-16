@@ -8,7 +8,7 @@ public enum FileNamer {
     /// Replaces the characters file systems or mail apps reject by a dash, as the user types.
     public static func sanitize(_ name: String) -> String {
         var result = String(name.map { Self.forbidden.contains($0) || $0.isNewline ? "-" : $0 }.filter { !$0.unicodeScalars.allSatisfy(\.properties.isDefaultIgnorableCodePoint) })
-        while result.hasPrefix(".") { result.removeFirst() }
+        while let first = result.first, first == "." || first.isWhitespace { result.removeFirst() }
         return String(result.prefix(maximumLength))
     }
 
