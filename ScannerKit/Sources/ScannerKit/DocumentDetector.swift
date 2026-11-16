@@ -462,10 +462,14 @@ public struct DocumentDetector: Sendable {
         } || evidence.legalNames.contains { letters($0.name) == name }
     }
 
+    /// Articles start names as well as they end lines: "l'Assurance Maladie", "la Poste".
+    private static let articles: Set<String> = ["la", "le", "les", "the", "il", "l"]
+
     /// Whether the line starts with a lowercase "de" or "d'", so it ends a line above it instead of starting a name.
     private static func startsWithConnector(_ line: Line) -> Bool {
         guard let first = line.tokens.first, first.text.first?.isLowercase == true else { return false }
-        return smallWords.contains(String(first.text)) || elisions.contains { first.text.hasPrefix($0 + "'") || first.text.hasPrefix($0 + "’") }
+        return smallWords.subtracting(articles).contains(String(first.text))
+            || elisions.subtracting(articles).contains { first.text.hasPrefix($0 + "'") || first.text.hasPrefix($0 + "’") }
     }
 
     /// The most prominent candidate, strengthened by legal forms, domains and company identifiers, and by organization names when that is not enough.

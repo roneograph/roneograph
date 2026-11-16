@@ -171,6 +171,11 @@ struct DocumentDetectorTests {
         #expect(detector.detect(lines: [line("Garage Leroy et Cie.", y: 0.04, height: 0.03)]).details.issuer == "Garage Leroy et Cie.")
     }
 
+    @Test func takesANameStartingWithAnArticle() {
+        let lines = [line("l'Atelier Verdier", y: 0.04, height: 0.03), line("Lorem ipsum", y: 0.5)]
+        #expect(detector.detect(lines: lines).details.issuer == "l'Atelier Verdier")
+    }
+
     @Test func neverTakesALineStartingWithDeAsTheIssuer() {
         let lines = [line("Cabinet", y: 0.08, height: 0.02), line("de la Butte", y: 0.2, height: 0.03), line("Lorem ipsum", y: 0.5)]
         #expect(detector.detect(lines: lines).details.issuer == "Cabinet")
