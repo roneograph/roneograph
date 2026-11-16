@@ -12,9 +12,9 @@ public struct QuadEditor: Sendable {
     public static let handles: [Handle] = (0..<4).map(Handle.corner) + (0..<4).map(Handle.side)
 
     /// How close a corner must come to a target to snap onto it.
-    public var snapDistance: CGFloat = 0.025
+    private let snapDistance: CGFloat = 0.025
     /// Outlines smaller than this share of the image are refused.
-    public var minimumArea: CGFloat = 0.01
+    private let minimumArea: CGFloat = 0.01
 
     public init() {}
 

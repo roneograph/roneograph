@@ -6,20 +6,10 @@ import Vision
 
 /// Finds a page in an image and flattens it, with Vision and Core Image.
 public struct PageExtractor: @unchecked Sendable {
-    public struct Configuration: Sendable {
-        public var minimumSegmentationConfidence: Float = 0.5
-        public var minimumRectangleConfidence: Float = 0.5
-        public var minimumRectangleSize: Float = 0.2
-
-        public init() {}
-    }
-
-    public let configuration: Configuration
     private let context: CIContext
 
-    public init(context: CIContext, configuration: Configuration = .init()) {
+    public init(context: CIContext) {
         self.context = context
-        self.configuration = configuration
     }
 
     /// Detects a page in an upright image.
@@ -78,12 +68,12 @@ public struct PageExtractor: @unchecked Sendable {
         rectangles.maximumObservations = 1
         rectangles.minimumAspectRatio = 0.2
         rectangles.maximumAspectRatio = 1
-        rectangles.minimumSize = configuration.minimumRectangleSize
+        rectangles.minimumSize = 0.2
         rectangles.quadratureTolerance = 30
-        rectangles.minimumConfidence = configuration.minimumRectangleConfidence
+        rectangles.minimumConfidence = 0.5
 
         if (try? handler.perform([segmentation])) != nil,
-           let page = segmentation.results?.first, page.confidence >= configuration.minimumSegmentationConfidence {
+           let page = segmentation.results?.first, page.confidence >= 0.5 {
             return Quad(page)
         }
         if (try? handler.perform([rectangles])) != nil, let page = rectangles.results?.first {

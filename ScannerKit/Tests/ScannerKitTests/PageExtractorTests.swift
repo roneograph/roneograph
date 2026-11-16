@@ -32,7 +32,12 @@ struct PageExtractorTests {
         let other = SyntheticPhoto.render(page: tilted, contentAtTop: false)
         let reference = try #require(extractor.signature(of: photo, quad: tilted))
         #expect(try #require(extractor.signature(of: darker, quad: tilted)).distance(to: reference) < 0.03)
-        #expect(try #require(extractor.signature(of: other, quad: tilted)).distance(to: reference) > CaptureTrigger.Configuration().rearmContentDistance)
+
+        var trigger = CaptureTrigger()
+        _ = trigger.update(quad: tilted, signature: reference, at: 0)
+        #expect(trigger.update(quad: tilted, signature: reference, at: 0.5) == .capture(tilted))
+        #expect(trigger.update(quad: tilted, signature: extractor.signature(of: darker, quad: tilted), at: 0.6) == .waitingForNextPage)
+        #expect(trigger.update(quad: tilted, signature: extractor.signature(of: other, quad: tilted), at: 0.7) == .steadying(progress: 0))
     }
 
     @Test func encodesJPEG() throws {

@@ -9,8 +9,8 @@ public struct ScanProcessor: @unchecked Sendable {
     private let writer: PDFWriter
     private let reader: TextReader
     private let texts = PageTextCache()
-    public var detectionSize: CGFloat = 1600
-    public var previewSize: CGFloat = 1200
+    private let detectionSize: CGFloat = 1600
+    private let previewSize: CGFloat = 1200
     /// The paper of pages whose size is not clear from their proportions.
     public let paper: Paper
 

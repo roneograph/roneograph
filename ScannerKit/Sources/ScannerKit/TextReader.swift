@@ -17,7 +17,7 @@ public struct TextLine: Equatable, Sendable {
 
 /// Reads the lines of text of an upright page, to suggest a file name and to make the PDF searchable.
 public struct TextReader: Sendable {
-    public var longSide: CGFloat = 1600
+    private let longSide: CGFloat = 1600
 
     public init() {}
 

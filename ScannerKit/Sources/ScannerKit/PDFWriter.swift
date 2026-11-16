@@ -29,17 +29,13 @@ public enum PDFWriterError: Error {
 /// Writes one image per page, encoded for its look as a grayscale or color JPEG, under the invisible text of the page.
 public struct PDFWriter: @unchecked Sendable {
     private let context: CIContext
-    private let sizing: PageSizing
-    private let creator: String
-    private let dpi: CGFloat
-    private let jpegQuality: Double
+    private let sizing = PageSizing()
+    private let creator = "Roneograph"
+    private let dpi: CGFloat = 150
+    private let jpegQuality = 0.5
 
-    public init(context: CIContext, sizing: PageSizing = .init(), creator: String = "Roneograph", dpi: CGFloat = 150, jpegQuality: Double = 0.5) {
+    public init(context: CIContext) {
         self.context = context
-        self.sizing = sizing
-        self.creator = creator
-        self.dpi = dpi
-        self.jpegQuality = jpegQuality
     }
 
     public func data(pages: [PDFPageContent], title: String, defaultPaper: Paper) throws -> Data {
