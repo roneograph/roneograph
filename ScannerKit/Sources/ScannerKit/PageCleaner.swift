@@ -88,9 +88,9 @@ public struct PageCleaner: @unchecked Sendable {
         self.context = context
     }
 
-    public func analyze(_ page: CIImage) -> PageAnalysis {
+    public func analyze(_ page: CIImage) async -> PageAnalysis {
         let page = page.atOrigin
-        let (orientation, textLineHeight) = orientationAndTextLineHeight(of: page)
+        let (orientation, textLineHeight) = await VisionQueue.run { orientationAndTextLineHeight(of: page) }
         let upright = page.oriented(orientation.imageOrientation)
         let paper = background(of: upright)
         let normalized = divide(upright, by: paper)

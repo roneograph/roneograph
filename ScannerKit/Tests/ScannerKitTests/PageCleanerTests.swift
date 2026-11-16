@@ -12,85 +12,85 @@ struct PageCleanerTests {
     let context = CIContext()
     var cleaner: PageCleaner { PageCleaner(context: context) }
 
-    @Test func suggestsGrayForTextEvenOnTintedPaper() {
+    @Test func suggestsGrayForTextEvenOnTintedPaper() async {
         for page in [SyntheticPage(), SyntheticPage(shadedHeader: true), SyntheticPage(paper: (0.86, 0.8, 0.62))] {
-            let analysis = cleaner.analyze(page.render())
+            let analysis = await cleaner.analyze(page.render())
             #expect(analysis.suggestedLook == .gray)
             #expect(analysis.orientation == .up)
         }
     }
 
-    @Test func measuresTheTextLineHeight() throws {
-        let height = try #require(cleaner.analyze(SyntheticPage().render()).textLineHeight)
+    @Test func measuresTheTextLineHeight() async throws {
+        let height = try #require(await cleaner.analyze(SyntheticPage().render()).textLineHeight)
         #expect((0.012...0.018).contains(height))
     }
 
     @Test(arguments: [4, 6])
-    func measuresTheTextLineHeightOnlyWithEnoughLines(lines: Int) {
-        let height = cleaner.analyze(SyntheticPage(lines: lines).render()).textLineHeight
+    func measuresTheTextLineHeightOnlyWithEnoughLines(lines: Int) async {
+        let height = await cleaner.analyze(SyntheticPage(lines: lines).render()).textLineHeight
         #expect((height == nil) == (lines < 5))
     }
 
-    @Test func aColoredStampKeepsColor() {
-        #expect(cleaner.analyze(SyntheticPage(stamp: true).render()).suggestedLook == .color)
+    @Test func aColoredStampKeepsColor() async {
+        #expect(await cleaner.analyze(SyntheticPage(stamp: true).render()).suggestedLook == .color)
     }
 
-    @Test func aLargePictureStaysDark() {
+    @Test func aLargePictureStaysDark() async {
         let page = SyntheticPage(picture: true).render()
-        let analysis = cleaner.analyze(page)
+        let analysis = await cleaner.analyze(page)
         let (r, _, _) = color(of: cleaner.render(page, analysis: analysis, look: analysis.suggestedLook), at: CGPoint(x: 0.5, y: 0.55))
         #expect(r < 0.4)
     }
 
     @Test(arguments: [(CGImagePropertyOrientation.down, PageOrientation.down), (.right, .left), (.left, .right)])
-    func turnsAPageUpright(turned: CGImagePropertyOrientation, fix: PageOrientation) {
-        #expect(cleaner.analyze(SyntheticPage().render().oriented(turned)).orientation == fix)
+    func turnsAPageUpright(turned: CGImagePropertyOrientation, fix: PageOrientation) async {
+        #expect(await cleaner.analyze(SyntheticPage().render().oriented(turned)).orientation == fix)
     }
 
     @Test(arguments: [3.0, -2.0])
-    func measuresAndRemovesTheSkew(degrees: Double) {
+    func measuresAndRemovesTheSkew(degrees: Double) async {
         let page = SyntheticPage(rotation: degrees).render()
-        let analysis = cleaner.analyze(page)
+        let analysis = await cleaner.analyze(page)
         #expect(abs(analysis.skewDegrees - degrees) < 0.3)
 
         let straight = cleaner.render(page, analysis: analysis, look: .gray)
-        #expect(abs(cleaner.analyze(straight).skewDegrees) < 0.3)
+        #expect(abs(await cleaner.analyze(straight).skewDegrees) < 0.3)
     }
 
-    @Test func evensOutAShadowAndWhitensYellowPaper() {
+    @Test func evensOutAShadowAndWhitensYellowPaper() async {
         let page = SyntheticPage(paper: (0.86, 0.8, 0.62), shadow: true).render()
-        let clean = cleaner.render(page, analysis: cleaner.analyze(page), look: .color)
+        let clean = cleaner.render(page, analysis: await cleaner.analyze(page), look: .color)
         for point in [CGPoint(x: 0.05, y: 0.5), CGPoint(x: 0.95, y: 0.5), CGPoint(x: 0.5, y: 0.97)] {
             let (r, g, b) = color(of: clean, at: point)
             #expect(min(r, g, b) > 0.93, "paper at \(point) is \(r), \(g), \(b)")
         }
     }
 
-    @Test func removesASharpEdgedShadowWithoutAGhost() {
+    @Test func removesASharpEdgedShadowWithoutAGhost() async {
         let page = SyntheticPage(handShadow: true).render()
-        let clean = cleaner.render(page, analysis: cleaner.analyze(page), look: .gray)
+        let clean = cleaner.render(page, analysis: await cleaner.analyze(page), look: .gray)
         for x in stride(from: 0.30, through: 0.70, by: 0.02) {
             let (r, _, _) = color(of: clean, at: CGPoint(x: x, y: 0.07))
             #expect(r > 0.97, "paper at \(x) is \(r)")
         }
     }
 
-    @Test func whitensWhatTouchesTheSideOfThePageButKeepsWhatReachesIn() {
+    @Test func whitensWhatTouchesTheSideOfThePageButKeepsWhatReachesIn() async {
         let page = SyntheticPage().render()
         let width = page.extent.width, height = page.extent.height
         let sliver = CIImage(color: CIColor(red: 0.1, green: 0.1, blue: 0.1)).cropped(to: CGRect(x: 0, y: height * 0.7, width: width * 0.015, height: height * 0.2))
         let band = CIImage(color: CIColor(red: 0.15, green: 0.15, blue: 0.15)).cropped(to: CGRect(x: width * 0.985, y: height * 0.3, width: width * 0.015, height: height * 0.4))
             .composited(over: CIImage(color: CIColor(red: 0.15, green: 0.15, blue: 0.15)).cropped(to: CGRect(x: width * 0.85, y: height * 0.45, width: width * 0.15, height: height * 0.02)))
         let photo = sliver.composited(over: band).composited(over: page)
-        let clean = cleaner.render(photo, analysis: cleaner.analyze(photo), look: .gray)
+        let clean = cleaner.render(photo, analysis: await cleaner.analyze(photo), look: .gray)
         #expect(color(of: clean, at: CGPoint(x: 0.007, y: 0.2)).0 > 0.95)
         #expect(color(of: clean, at: CGPoint(x: 0.993, y: 0.5)).0 < 0.4)
         #expect(color(of: clean, at: CGPoint(x: 0.9, y: 0.54)).0 < 0.4)
     }
 
-    @Test func keepsTheInkBlack() {
+    @Test func keepsTheInkBlack() async {
         let page = SyntheticPage(paper: (0.86, 0.8, 0.62), shadow: true).render()
-        let clean = cleaner.render(page, analysis: cleaner.analyze(page), look: .gray)
+        let clean = cleaner.render(page, analysis: await cleaner.analyze(page), look: .gray)
         let (r, _, _) = color(of: clean, at: SyntheticPage.blockCenter)
         #expect(r < 0.2)
     }

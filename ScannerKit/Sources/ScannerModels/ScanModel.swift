@@ -93,7 +93,7 @@ public final class ScanModel: Identifiable {
             defer { processing -= 1 }
             do {
                 let page = try await Task.detached(priority: .userInitiated) {
-                    try processor.addPage(photo: data, liveQuad: liveQuad, scanID: scanID)
+                    try await processor.addPage(photo: data, liveQuad: liveQuad, scanID: scanID)
                 }.value
                 guard !isDeleted else { return }
                 scan.pages.append(page)
@@ -114,7 +114,7 @@ public final class ScanModel: Identifiable {
     private func suggestNames(from page: ScanPage) async {
         let processor = processor, scanID = scan.id, date = scan.created, ownLines = settings.ownLines
         guard var document = await Task.detached(priority: .userInitiated, operation: {
-            processor.detectDocument(on: page, scanID: scanID, ownLines: ownLines)
+            await processor.detectDocument(on: page, scanID: scanID, ownLines: ownLines)
         }).value, !isDeleted else { return }
         settings.recordHeaderLines(document.headerLines, issuerEvidence: document.issuerEvidence)
         scan.read = ReadDocument(details: document.details, parts: document.parts)
@@ -193,7 +193,7 @@ public final class ScanModel: Identifiable {
     /// Flattens the page again from its original photo, with a new outline or the whole photo.
     public func recrop(_ id: UUID, quad: Quad?) {
         update(id) { page, processor, scanID in
-            try processor.recrop(page, scanID: scanID, quad: quad)
+            try await processor.recrop(page, scanID: scanID, quad: quad)
         }
     }
 
@@ -208,14 +208,14 @@ public final class ScanModel: Identifiable {
     }
 
     /// Applies the change, off the main thread, to the page as it is when its turn comes, then publishes it with a new revision so its image reloads.
-    private func update(_ id: UUID, _ change: @escaping @Sendable (ScanPage, ScanProcessor, UUID) throws -> ScanPage) {
+    private func update(_ id: UUID, _ change: @escaping @Sendable (ScanPage, ScanProcessor, UUID) async throws -> ScanPage) {
         updating += 1
         let processor = processor, scanID = scan.id
         enqueue { [self] in
             defer { updating -= 1 }
             guard let page = scan.pages.first(where: { $0.id == id }) else { return }
             do {
-                var changed = try await Task.detached(priority: .userInitiated) { try change(page, processor, scanID) }.value
+                var changed = try await Task.detached(priority: .userInitiated) { try await change(page, processor, scanID) }.value
                 guard let index = scan.pages.firstIndex(where: { $0.id == id }) else { return }
                 changed.revision = scan.pages[index].revision + 1
                 scan.pages[index] = changed
@@ -353,7 +353,7 @@ public final class ScanModel: Identifiable {
         guard !Task.isCancelled else { return }
         let processor = processor, scan = scan, inputs = pdfInputs
         do {
-            let data = try await Task.detached(priority: .userInitiated) { try processor.pdfData(of: scan) }.value
+            let data = try await Task.detached(priority: .userInitiated) { try await processor.pdfData(of: scan) }.value
             guard !Task.isCancelled, !isDeleted else { return }
             let url = store.pdfURL(of: scan)
             try data.write(to: url, options: .atomic)

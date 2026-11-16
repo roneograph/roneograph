@@ -28,21 +28,21 @@ public struct ScanProcessor: @unchecked Sendable {
     }
 
     /// Finds the page again on the full photo (the live outline as a fallback), flattens and analyzes it, and saves the photo, the flat page and a preview.
-    public func addPage(photo data: Data, liveQuad: Quad?, scanID: UUID) throws -> ScanPage {
+    public func addPage(photo data: Data, liveQuad: Quad?, scanID: UUID) async throws -> ScanPage {
         guard let photo = CIImage(data: data, options: [.applyOrientationProperty: true]) else { throw ProcessingError.unreadablePhoto }
         let quad = extractor.detect(in: photo.scaled(by: photo.scale(toLongSide: detectionSize))) ?? liveQuad
         try FileManager.default.createDirectory(at: store.directory(of: scanID), withIntermediateDirectories: true)
-        let page = try flatten(photo, quad: quad, scanID: scanID) { ScanPage(quad: quad, analysis: $0) }
+        let page = try await flatten(photo, quad: quad, scanID: scanID) { ScanPage(quad: quad, analysis: $0) }
         try data.write(to: store.photoURL(scanID: scanID, pageID: page.id), options: .atomic)
         return page
     }
 
     /// Flattens the page again from the original photo with another outline, nil for the whole photo, and analyzes it again.
-    public func recrop(_ page: ScanPage, scanID: UUID, quad: Quad?) throws -> ScanPage {
+    public func recrop(_ page: ScanPage, scanID: UUID, quad: Quad?) async throws -> ScanPage {
         guard let photo = CIImage(contentsOf: store.photoURL(scanID: scanID, pageID: page.id), options: [.applyOrientationProperty: true]) else {
             throw ProcessingError.unreadablePhoto
         }
-        return try flatten(photo, quad: quad, scanID: scanID) { analysis in
+        return try await flatten(photo, quad: quad, scanID: scanID) { analysis in
             var updated = page
             updated.quad = quad
             updated.analysis = analysis
@@ -51,9 +51,9 @@ public struct ScanProcessor: @unchecked Sendable {
     }
 
     /// Cuts the page out of the photo, then saves the flat page and its preview for the page `makePage` builds from the analysis.
-    private func flatten(_ photo: CIImage, quad: Quad?, scanID: UUID, makePage: (PageAnalysis) -> ScanPage) throws -> ScanPage {
+    private func flatten(_ photo: CIImage, quad: Quad?, scanID: UUID, makePage: (PageAnalysis) -> ScanPage) async throws -> ScanPage {
         let flat = quad.map { extractor.correct(photo, quad: $0) } ?? photo
-        let page = makePage(cleaner.analyze(flat))
+        let page = makePage(await cleaner.analyze(flat))
         guard let data = extractor.jpegData(of: flat, quality: 0.9) else { throw ProcessingError.cannotEncode }
         try data.write(to: store.flatURL(scanID: scanID, pageID: page.id), options: .atomic)
         try writePreview(of: page, scanID: scanID, flat: flat)
@@ -69,16 +69,18 @@ public struct ScanProcessor: @unchecked Sendable {
     }
 
     /// The details of the document and the words to name it after, from the text of the page; `ownLines` are never taken as the issuer.
-    public func detectDocument(on page: ScanPage, scanID: UUID, ownLines: Set<String> = []) -> DetectedDocument? {
+    public func detectDocument(on page: ScanPage, scanID: UUID, ownLines: Set<String> = []) async -> DetectedDocument? {
         guard let preview = CIImage(contentsOf: store.previewURL(scanID: scanID, pageID: page.id)) else { return nil }
-        return DocumentDetector().detect(lines: reader.lines(in: preview), ownLines: ownLines, aspectRatio: preview.extent.width / preview.extent.height)
+        return DocumentDetector().detect(lines: await reader.lines(in: preview), ownLines: ownLines, aspectRatio: preview.extent.width / preview.extent.height)
     }
 
-    public func pdfData(of scan: Scan) throws -> Data {
-        let pages = try scan.pages.map { page in
+    public func pdfData(of scan: Scan) async throws -> Data {
+        var pages: [PDFPageContent] = []
+        for page in scan.pages {
             guard let flat = CIImage(contentsOf: store.flatURL(scanID: scan.id, pageID: page.id)) else { throw ProcessingError.unreadablePage }
             let image = cleaner.render(flat, analysis: page.analysis, look: page.look)
-            return PDFPageContent(image: image, look: page.look, textLineHeight: page.analysis.textLineHeight, text: texts.lines(of: page) { reader.lines(in: image) })
+            let text = await texts.lines(of: page) { await reader.lines(in: image) }
+            pages.append(PDFPageContent(image: image, look: page.look, textLineHeight: page.analysis.textLineHeight, text: text))
         }
         return try writer.data(pages: pages, title: scan.title, defaultPaper: paper)
     }
