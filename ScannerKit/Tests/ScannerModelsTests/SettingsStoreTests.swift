@@ -126,6 +126,18 @@ struct SettingsStoreTests {
         #expect(SettingsStore(defaults: fixture.defaults).value.owners.map(\.name) == ["Personal", "Fernwood Holding"])
     }
 
+    @Test func renamesOwnersOnlyToANameNoOtherOwnerHas() throws {
+        let fixture = try Fixture()
+        let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
+        #expect(!fixture.settings.renameOwner(holding.id, to: "  "))
+        #expect(!fixture.settings.renameOwner(holding.id, to: " personal "))
+        #expect(fixture.settings.value.owner(holding.id).name == "Fernwood Holding")
+        #expect(fixture.settings.renameOwner(holding.id, to: " fernwood holding "))
+        #expect(fixture.settings.value.owner(holding.id).name == "fernwood holding")
+        #expect(fixture.settings.renameOwner(holding.id, to: "Fernwood"))
+        #expect(fixture.settings.value.owner(holding.id).name == "Fernwood")
+    }
+
     @Test func asksForTheEmailOfEachOwner() throws {
         let fixture = try Fixture()
         let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))

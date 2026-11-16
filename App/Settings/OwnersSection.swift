@@ -64,6 +64,7 @@ struct OwnerView: View {
     @Bindable var settings: SettingsStore
     let ownerID: UUID
     @State private var deleting = false
+    @State private var name = ""
     @Environment(\.dismiss) private var dismiss
 
     private var owner: Binding<Owner> { settings.binding(for: ownerID) }
@@ -72,7 +73,8 @@ struct OwnerView: View {
     var body: some View {
         Form {
             Section {
-                TextField("Name", text: owner.name)
+                TextField("Name", text: $name)
+                    .onSubmit(rename)
                 Picker("Symbol", selection: owner.symbol) {
                     ForEach(Owner.Symbol.allCases, id: \.self) { symbol in
                         Image(systemName: symbol.systemImage).tag(symbol)
@@ -103,6 +105,8 @@ struct OwnerView: View {
         }
         .navigationTitle(owner.wrappedValue.name)
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear { name = owner.wrappedValue.name }
+        .onDisappear(perform: rename)
         .confirmationDialog("Delete \(owner.wrappedValue.name)?", isPresented: $deleting, titleVisibility: .visible) {
             let scans = app.scans(of: ownerID)
             if scans.isEmpty {
@@ -119,6 +123,11 @@ struct OwnerView: View {
                 ? "Its email address, folder and file name format are forgotten."
                 : "\(count.counted("scan")) on this iPhone belong to it: move them to another owner, or delete them. PDFs already sent or saved stay where they are.")
         }
+    }
+
+    /// An empty name or another owner's puts the name back.
+    private func rename() {
+        if !settings.renameOwner(ownerID, to: name) { name = owner.wrappedValue.name }
     }
 
     private func delete(movingScansTo newOwner: UUID?) {

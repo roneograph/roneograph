@@ -49,10 +49,25 @@ public final class SettingsStore {
     public func addOwner(_ name: String, symbol: Owner.Symbol = .building) -> Owner? {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return nil }
-        if let existing = value.owners.first(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame }) { return existing }
+        if let existing = owner(named: name) { return existing }
         let owner = Owner(name: name, symbol: symbol, fileNameFormat: value.defaultOwner.fileNameFormat)
         value.addOwner(owner)
         return owner
+    }
+
+    /// Renames an owner as typed, trimmed; returns false, keeping its name, when the name is empty or another owner's.
+    @discardableResult
+    public func renameOwner(_ id: UUID, to name: String) -> Bool {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, value.hasOwner(id), owner(named: name).map({ $0.id == id }) ?? true else { return false }
+        var owner = value.owner(id)
+        owner.name = name
+        value.updateOwner(owner)
+        return true
+    }
+
+    private func owner(named name: String) -> Owner? {
+        value.owners.first { $0.name.caseInsensitiveCompare(name) == .orderedSame }
     }
 
     /// Removes an owner, never the default one. Its issuers and lines go to the owner its scans moved to;
