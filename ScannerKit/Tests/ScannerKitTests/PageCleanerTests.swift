@@ -12,8 +12,8 @@ struct PageCleanerTests {
     let context = CIContext()
     var cleaner: PageCleaner { PageCleaner(context: context) }
 
-    @Test func textIsGrayNeverBlackAndWhite() {
-        for page in [SyntheticPage(), SyntheticPage(shadedHeader: true)] {
+    @Test func suggestsGrayForTextEvenOnTintedPaper() {
+        for page in [SyntheticPage(), SyntheticPage(shadedHeader: true), SyntheticPage(paper: (0.86, 0.8, 0.62))] {
             let analysis = cleaner.analyze(page.render())
             #expect(analysis.suggestedLook == .gray)
             #expect(analysis.orientation == .up)
