@@ -17,8 +17,11 @@ struct DocumentCard: View {
     @State private var addingCategory = false
     @State private var newCategory = ""
     @State private var pickingDate = false
+    @State private var forgetting = false
 
     private var details: DocumentDetails { scan.scan.details }
+    private var remembered: Set<RememberedValue> { scan.scan.remembered }
+    private var issuerName: String { details.issuer ?? "this issuer" }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -31,6 +34,10 @@ struct DocumentCard: View {
             dateRow
             Divider().padding(.leading, 50)
             textRow(.number, title: "Number", systemImage: "number", value: details.number)
+            if !remembered.isEmpty {
+                Divider()
+                legend
+            }
         }
         .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 18))
         .alert("New Category", isPresented: $addingCategory) {
@@ -56,12 +63,13 @@ struct DocumentCard: View {
                     }
                     Spacer(minLength: 0)
                     chevron
+                    mark(.name)
                 }
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Name, \(scan.scan.title)")
+            .accessibilityLabel("Name, \(scan.scan.title)\(remembered.contains(.name) ? ", remembered" : "")")
             .accessibilityHint("Renames the PDF")
             .accessibilityAddTraits(.isButton)
             HStack(spacing: 14) {
@@ -88,7 +96,7 @@ struct DocumentCard: View {
             Divider()
             Button("New Category…", systemImage: "plus") { addingCategory = true }
         } label: {
-            row(title: "Category", systemImage: "square.grid.2x2") {
+            row(title: "Category", systemImage: "square.grid.2x2", remembered: .category) {
                 HStack(spacing: 4) {
                     Text(details.category.rawValue)
                     Image(systemName: "chevron.up.chevron.down").font(.caption2.bold())
@@ -132,7 +140,7 @@ struct DocumentCard: View {
 
     private func textRow(_ field: DocumentField, title: String, systemImage: String, value: String?) -> some View {
         Button { edit(field) } label: {
-            row(title: title, systemImage: systemImage) {
+            row(title: title, systemImage: systemImage, remembered: field == .issuer ? .issuer : nil) {
                 HStack(spacing: 8) {
                     if let value {
                         Text(value).foregroundStyle(.secondary).lineLimit(1)
@@ -146,16 +154,53 @@ struct DocumentCard: View {
         .buttonStyle(.plain)
     }
 
-    private func row(title: String, systemImage: String, @ViewBuilder value: () -> some View) -> some View {
+    private func row(title: String, systemImage: String, remembered value: RememberedValue? = nil, @ViewBuilder value content: () -> some View) -> some View {
         HStack(spacing: 14) {
             icon(systemImage)
             Text(title)
             Spacer(minLength: 12)
-            value()
+            content()
+            mark(value)
         }
         .padding(.horizontal, 14)
         .frame(minHeight: 46)
         .contentShape(Rectangle())
+    }
+
+    /// A column at the trailing edge, so remembered values line up; absent when nothing is remembered.
+    @ViewBuilder
+    private func mark(_ value: RememberedValue?) -> some View {
+        if !remembered.isEmpty {
+            Group {
+                if let value, remembered.contains(value) { RememberedMark() } else { Color.clear }
+            }
+            .frame(width: 18)
+            .padding(.leading, -6)
+        }
+    }
+
+    /// Says what the marks mean and how to undo them.
+    private var legend: some View {
+        HStack(spacing: 10) {
+            RememberedMark().accessibilityHidden(true)
+            Text("\(remembered.listed) remembered for \(issuerName)")
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 8)
+            Button("Forget") { forgetting = true }
+                .fontWeight(.semibold)
+        }
+        .font(.footnote)
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .confirmationDialog("Remembered for \(issuerName)", isPresented: $forgetting, titleVisibility: .visible) {
+            ForEach(remembered.sorted(), id: \.self) { value in
+                Button("Forget the \(value.rawValue.capitalized)", role: .destructive) { scan.forget([value]) }
+            }
+            if remembered.count > 1 {
+                Button(remembered.count == 2 ? "Forget Both" : "Forget All", role: .destructive) { scan.forget(remembered) }
+            }
+        } message: {
+            Text("This scan goes back to what was read on the page, and so will the next documents from \(issuerName).")
+        }
     }
 
     private func icon(_ systemImage: String) -> some View {

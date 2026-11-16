@@ -23,8 +23,30 @@ struct NameView: View {
                         .submitLabel(.done)
                         .onSubmit(save)
                 }
-                if !scan.scan.suggestions.isEmpty {
+                if !scan.scan.suggestions.isEmpty || rememberedName != nil {
                     Section("Suggestions") {
+                        if let rememberedName {
+                            HStack {
+                                Button { name = rememberedName } label: {
+                                    HStack {
+                                        Label {
+                                            VStack(alignment: .leading, spacing: 1) {
+                                                Text(rememberedName)
+                                                Text("Remembered for \(issuerName)").font(.caption).foregroundStyle(.secondary)
+                                            }
+                                        } icon: {
+                                            RememberedMark()
+                                        }
+                                        Spacer()
+                                        if rememberedName == name { Image(systemName: "checkmark").foregroundStyle(.tint) }
+                                    }
+                                    .contentShape(Rectangle())
+                                }
+                                Button("Forget", role: .destructive) { scan.forget([.name]) }
+                                    .font(.footnote.weight(.semibold))
+                            }
+                            .buttonStyle(.borderless)
+                        }
                         ForEach(scan.scan.suggestions, id: \.self) { suggestion in
                             Button {
                                 name = suggestion
@@ -91,13 +113,23 @@ struct NameView: View {
         scan.fileNameSegments(for: name.isEmpty ? scan.scan.suggestions.first ?? scan.fallbackTitle : name) + [FileNameSegment(".pdf", .text)]
     }
 
+    /// The name remembered for the issuer, while it is the name of the scan.
+    private var rememberedName: String? {
+        scan.scan.remembered.contains(.name) ? scan.scan.title : nil
+    }
+
+    private var issuerName: String { scan.scan.details.issuer ?? "this issuer" }
+
     /// What the next documents from the same issuer will be named, when the name is a correction that can be reused.
     private var learning: String? {
-        guard let pattern = scan.learnedPattern(for: name) else { return nil }
-        let issuer = scan.scan.details.issuer.map { "from \($0)" } ?? "from this issuer"
+        let replaces = rememberedName.map { $0 != name } ?? false
+        guard let pattern = scan.learnedPattern(for: name) else {
+            return replaces && !name.isEmpty ? "The name remembered for \(issuerName) will be forgotten." : nil
+        }
         let own = [pattern.follows.date ? "date" : nil, pattern.follows.number ? "number" : nil].compactMap { $0 }
         let with = own.isEmpty ? "" : ", with their own \(own.joined(separator: " and "))"
-        return "The next documents \(issuer) will be named the same way\(with)."
+        let next = "The next documents from \(issuerName) will be named the same way\(with)."
+        return replaces ? "Replaces the name remembered for \(issuerName). \(next)" : next
     }
 
     private var formatExplanation: String {
