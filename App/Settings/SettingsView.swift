@@ -41,7 +41,6 @@ struct SettingsView: View {
                 }
 
                 Section("Scanning") {
-                    Toggle("Auto capture", isOn: $settings.value.autoCapture)
                     Picker("Keep scans for", selection: $settings.value.keepDays) {
                         Text("1 day").tag(1)
                         Text("7 days").tag(7)
