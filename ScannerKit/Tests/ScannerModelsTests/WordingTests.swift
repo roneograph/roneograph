@@ -1,3 +1,4 @@
+import Foundation
 import ScannerKit
 import ScannerModels
 import Testing
@@ -17,5 +18,21 @@ struct WordingTests {
 
     @Test func labelsRetentions() {
         #expect(ScanRetention.allCases.map(\.label) == ["1 day", "7 days", "30 days", "Forever"])
+    }
+
+    @Test func namesTheMailAfterTheScanOrCountsTheDocuments() {
+        let bill = Scan(name: "bill", title: "Water bill")
+        #expect([bill].mailSubject == "Water bill")
+        #expect([bill, Scan(name: "letter", title: "Letter")].mailSubject == "2 documents")
+    }
+
+    @Test func warnsAboutScansAlreadySent() {
+        var payslip = Scan(name: "payslip", title: "Payslip")
+        let bill = Scan(name: "bill", title: "Water bill")
+        #expect([bill].alreadySent == nil)
+        payslip.sent = Date()
+        payslip.sentBy = .files
+        #expect([bill, payslip].alreadySent == "“Payslip” was already saved")
+        #expect([payslip, payslip].alreadySent == "2 were already sent")
     }
 }

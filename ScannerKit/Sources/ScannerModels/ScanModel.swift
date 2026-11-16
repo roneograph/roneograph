@@ -24,6 +24,8 @@ public final class ScanModel: Identifiable {
     /// Page edits not applied yet.
     public private(set) var updating = 0
     public private(set) var pdf = PDFState.idle
+    /// What the ready PDF was made from, to tell whether it is still current.
+    private var pdfMadeFrom: PDFInputs?
     public private(set) var failure: String?
     public let processor: ScanProcessor
     public let settings: SettingsStore
@@ -317,16 +319,29 @@ public final class ScanModel: Identifiable {
         pdf = .building
         try? await Task.sleep(for: delay)
         guard !Task.isCancelled else { return }
-        let processor = processor, scan = scan
+        let processor = processor, scan = scan, inputs = pdfInputs
         do {
             let data = try await Task.detached(priority: .userInitiated) { try processor.pdfData(of: scan) }.value
             guard !Task.isCancelled, !isDeleted else { return }
             let url = store.pdfURL(of: scan)
             try data.write(to: url, options: .atomic)
             pdf = .ready(url: url, size: data.count)
+            pdfMadeFrom = inputs
         } catch {
             pdf = .failed
         }
+    }
+
+    /// Whether the PDF is made, from the pages and name as they are now.
+    public var hasCurrentPDF: Bool {
+        if case .ready = pdf { !isBusy && pdfMadeFrom == pdfInputs } else { false }
+    }
+
+    /// Makes the PDF, unless the one already made is still current, for sending from Home.
+    public func preparePDF() async {
+        await waitUntilIdle()
+        if hasCurrentPDF { return }
+        await buildPDF(delay: .zero)
     }
 
     /// Deletes the scan; pages still being processed are dropped when they finish, then their files are deleted too.

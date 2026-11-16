@@ -71,23 +71,51 @@ public final class AppModel {
         if path.last != model.id { path = [model.id] }
     }
 
+    /// The finished scans not sent yet, which Home offers to select at once.
+    public var notSent: [Scan] {
+        scans.filter { $0.isFinished && $0.sent == nil }
+    }
+
     public func didSend(_ model: ScanModel, by method: SendMethod) {
-        model.markSent(method)
+        didSend([model], by: method)
+    }
+
+    public func didSend(_ models: [ScanModel], by method: SendMethod) {
+        guard !models.isEmpty else { return }
+        for model in models { model.markSent(method) }
         path = []
         let settings = settings.value
+        let done = models.count == 1 ? method.pastTense : "\(models.count) scans \(method.pastTense.lowercased())"
         switch method {
-        case .email where settings.hasValidEmail: showToast("\(method.pastTense) to \(settings.email)")
-        case .files: showToast("\(method.pastTense) to \(settings.archiveFolder?.name ?? "Files")")
-        default: showToast(method.pastTense)
+        case .email where settings.hasValidEmail: showToast("\(done) to \(settings.email)")
+        case .files: showToast("\(done) to \(settings.archiveFolder?.name ?? "Files")")
+        default: showToast(done)
         }
     }
 
-    /// Copies the PDF to the archive folder, then confirms it like any other sending.
+    /// Stops at the first PDF that cannot be saved; the ones saved before it are confirmed.
+    public struct ArchiveError: Error {
+        public let saved: [UUID]
+    }
+
     public func saveToArchive(_ model: ScanModel) throws {
-        guard var folder = settings.value.archiveFolder, case .ready(let url, _) = model.pdf else { throw ArchiveFolder.SaveError.unavailable }
-        try folder.save(url, as: model.scan.name, separator: settings.value.fileNameFormat.separator.character)
-        if folder != settings.value.archiveFolder { settings.value.archiveFolder = folder }
-        didSend(model, by: .files)
+        try saveToArchive([model])
+    }
+
+    /// Copies each PDF to the archive folder, in order, then confirms them like any other sending.
+    public func saveToArchive(_ models: [ScanModel]) throws {
+        var saved: [ScanModel] = []
+        defer { didSend(saved, by: .files) }
+        for model in models {
+            guard var folder = settings.value.archiveFolder, case .ready(let url, _) = model.pdf else { throw ArchiveError(saved: saved.map(\.id)) }
+            do {
+                try folder.save(url, as: model.scan.name, separator: settings.value.fileNameFormat.separator.character)
+            } catch {
+                throw ArchiveError(saved: saved.map(\.id))
+            }
+            if folder != settings.value.archiveFolder { settings.value.archiveFolder = folder }
+            saved.append(model)
+        }
     }
 
     public func delete(_ id: UUID) {

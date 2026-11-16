@@ -152,8 +152,70 @@ struct AppModelTests {
         let scan = await fixture.capturedScan(in: app)
         await scan.buildPDF(delay: .zero)
 
-        #expect(throws: ArchiveFolder.SaveError.self) { try app.saveToArchive(scan) }
+        #expect(throws: AppModel.ArchiveError.self) { try app.saveToArchive(scan) }
         #expect(scan.scan.sent == nil)
+    }
+
+    @Test func sendingSeveralScansMarksThemAllWithOneConfirmation() async throws {
+        let fixture = try Fixture()
+        fixture.settings.value.email = "me@example.com"
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+        let first = await fixture.capturedScan(in: app)
+        let second = await fixture.capturedScan(in: app)
+
+        app.didSend([first, second], by: .email)
+        #expect(app.path.isEmpty)
+        #expect(app.toast == "2 scans emailed to me@example.com")
+        #expect(app.scans.map(\.sentBy) == [.email, .email])
+    }
+
+    @Test func listsTheFinishedScansNotSent() async throws {
+        let fixture = try Fixture()
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+        let sent = await fixture.capturedScan(in: app)
+        let waiting = await fixture.capturedScan(in: app)
+        let inProgress = app.startScan()
+        inProgress.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
+        await inProgress.waitUntilIdle()
+        app.closeCamera()
+        app.didSend(sent, by: .share)
+
+        #expect(app.notSent.map(\.id) == [waiting.id])
+    }
+
+    @Test func savesSeveralScansToTheArchiveFolder() async throws {
+        let fixture = try Fixture()
+        let folder = fixture.root.appending(path: "Paperwork", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try fixture.settings.chooseArchiveFolder(folder)
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+        let first = await fixture.capturedScan(in: app)
+        let second = await fixture.capturedScan(in: app)
+        second.rename("Water bill")
+        await first.preparePDF()
+        await second.preparePDF()
+
+        try app.saveToArchive([first, second])
+        let saved = try FileManager.default.contentsOfDirectory(atPath: folder.path(percentEncoded: false)).sorted()
+        #expect(saved == ["\(first.scan.name).pdf", "\(second.scan.name).pdf"].sorted())
+        #expect(app.toast == "2 scans saved to Paperwork")
+    }
+
+    @Test func confirmsTheScansSavedBeforeOneFails() async throws {
+        let fixture = try Fixture()
+        let folder = fixture.root.appending(path: "Paperwork", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try fixture.settings.chooseArchiveFolder(folder)
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+        let ready = await fixture.capturedScan(in: app)
+        let notReady = await fixture.capturedScan(in: app)
+        await ready.preparePDF()
+
+        let error = #expect(throws: AppModel.ArchiveError.self) { try app.saveToArchive([ready, notReady]) }
+        #expect(error?.saved == [ready.id])
+        #expect(ready.scan.sentBy == .files)
+        #expect(notReady.scan.sent == nil)
+        #expect(app.toast == "Saved to Paperwork")
     }
 
     @Test func deletingAScanRemovesItEverywhere() async throws {

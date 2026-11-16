@@ -33,3 +33,18 @@ extension Collection<RememberedValue> {
         return text.prefix(1).uppercased() + text.dropFirst()
     }
 }
+
+extension Collection<Scan> {
+    /// The scan's name for one PDF, "3 documents" for several.
+    public var mailSubject: String {
+        count == 1 ? first!.title : count.counted("document")
+    }
+
+    /// Warns before sending again what already went out: "“Payslip” was already emailed", "2 were already sent".
+    public var alreadySent: String? {
+        let sent = filter { $0.sent != nil }
+        guard let first = sent.first else { return nil }
+        if sent.count > 1 { return "\(sent.count) were already sent" }
+        return "“\(first.title)” was already \((first.sentBy ?? .email).pastTense.lowercased())"
+    }
+}

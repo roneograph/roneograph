@@ -249,6 +249,30 @@ struct ScanModelTests {
         #expect(size > 1000)
     }
 
+    @Test func preparesThePDFOnlyWhenItIsNotCurrent() async throws {
+        let fixture = try Fixture()
+        let model = await fixture.scanModel(pages: 1)
+        await model.preparePDF()
+        guard case .ready(let url, let size) = model.pdf else {
+            Issue.record("PDF not ready: \(model.pdf)")
+            return
+        }
+        #expect(model.hasCurrentPDF)
+        try FileManager.default.removeItem(at: url)
+        await model.preparePDF()
+        #expect(!FileManager.default.fileExists(atPath: url.path(percentEncoded: false)))
+
+        model.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
+        #expect(!model.hasCurrentPDF)
+        await model.preparePDF()
+        guard case .ready(_, let grown) = model.pdf else {
+            Issue.record("PDF not ready: \(model.pdf)")
+            return
+        }
+        #expect(grown > size)
+        #expect(FileManager.default.fileExists(atPath: url.path(percentEncoded: false)))
+    }
+
     @Test func editedDetailsRenameTheFileWithACustomFormat() async throws {
         let fixture = try Fixture()
         fixture.settings.value.fileNameFormat = FileNameFormat(isCustom: true, template: "{CATEGORY}/{YYYY} {ISSUER} {NUMBER}")
