@@ -22,7 +22,8 @@ enum DocumentVocabulary {
             category: .invoice,
             titles: [
                 "invoice", "tax invoice", "credit note", "facture", "facture acquittée", "note d'honoraires", "rechnung", "*rechnung", "gutschrift",
-                "factura", "fattura", "fattura elettronica", "nota di credito", "nota de crédito",
+                "factura", "fattura", "fattura elettronica", "nota di credito", "nota de crédito", "appel de fonds", "avis d'appel de fonds",
+                "appel de charges", "appel de provisions", "service charge demand", "hausgeldabrechnung",
             ],
             weakTitles: ["bill", "your bill"],
             labels: [
@@ -31,7 +32,8 @@ enum DocumentVocabulary {
                 "conditions de paiement", "tva", "période de facturation", "rechnungsnummer", "rechnungsdatum", "zahlbar bis", "nettobetrag", "mwst",
                 "umsatzsteuer", "gesamtbetrag", "zahlungsziel", "lieferzeitraum", "abrechnungszeitraum", "fecha de factura", "número de factura",
                 "base imponible", "iva", "total a pagar", "vencimiento", "forma de pago", "periodo de facturación", "data fattura", "numero fattura",
-                "imponibile", "totale da pagare", "scadenza", "periodo di fatturazione",
+                "imponibile", "totale da pagare", "scadenza", "periodo di fatturazione", "quote part", "quote-part", "quotes-parts", "quote-parts",
+                "quotes parts", "tantièmes", "copropriété", "provisions sur charges", "charges de copropriété", "syndic", "hausgeld", "wohngeld",
             ],
             numberLabels: [
                 "invoice n°", "invoice number", "n° de facture", "numéro de facture", "facture n°", "rechnungsnummer", "rechnungs-nr", "rechnung n°",

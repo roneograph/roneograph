@@ -57,6 +57,17 @@ struct DocumentDetectorTests {
         #expect(detector.detect(lines: [line(title, y: 0.2, height: 0.02), line("Lorem ipsum", y: 0.3)]).details.category == category)
     }
 
+    @Test func aCallForFundsOfABuildingIsAnInvoiceNotAQuote() {
+        let lines = [
+            line("Syndic de copropriété Verdier", y: 0.05, height: 0.02),
+            line("Copropriété : 12 rue des Lilas", y: 0.25),
+            line("DÉTAIL DES QUOTES-PARTS", y: 0.33),
+            TextLine(text: "Quote part", frame: CGRect(x: 0.72, y: 0.36, width: 0.1, height: 0.016)),
+            line("Provisions sur charges 3e trimestre", y: 0.4),
+        ]
+        #expect(detector.detect(lines: lines).details.category == .invoice)
+    }
+
     @Test func aLetterLosesToACategoryWithEvidence() {
         let letter = [
             line("Objet : votre consommation", y: 0.3),
