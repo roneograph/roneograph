@@ -20,14 +20,10 @@ public enum Paper: String, Codable, Sendable, CaseIterable {
 /// Picks the PDF page size of a scanned page. A photo gives the proportions of a page, not its physical size,
 /// so the size comes from the proportions when they are those of a known format, or from the size of the text.
 public struct PageSizing: Sendable {
-    /// ID-1 cards: identity cards, bank cards, driving licenses.
-    public static let card = CGSize(width: 85.6 / 25.4 * 72, height: 53.98 / 25.4 * 72)
-
     /// How far the proportions may be from A4 or Letter and still snap to it.
     public var tolerance: CGFloat = 0.08
     /// When the proportions are this close to halfway between A4 and Letter, the default paper wins.
     public var ambiguity: CGFloat = 0.02
-    public var cardTolerance: CGFloat = 0.025
     /// Height of a line of printed text, as Vision measures it, in points: about 3.7 mm on letters and invoices.
     public var textLineHeight: CGFloat = 10.5
     /// Estimated sizes are never smaller than this on their long side, in points.
@@ -47,8 +43,6 @@ public struct PageSizing: Sendable {
         let portrait: CGSize
         if min(a4, letter) <= tolerance {
             portrait = abs(a4 - letter) < ambiguity ? defaultPaper.size : (a4 < letter ? Paper.a4 : Paper.letter).size
-        } else if abs(ratio / (Self.card.width / Self.card.height) - 1) <= cardTolerance {
-            portrait = CGSize(width: Self.card.height, height: Self.card.width)
         } else {
             let paper = defaultPaper.size
             let fitted = min(paper.width, paper.height / ratio)

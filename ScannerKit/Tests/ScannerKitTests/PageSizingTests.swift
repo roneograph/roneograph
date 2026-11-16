@@ -29,12 +29,6 @@ struct PageSizingTests {
         #expect(abs(receipt.width - Paper.a4.size.height / 3) < 0.01)
     }
 
-    @Test func givesCardsTheirRealSize() {
-        let card = sizing.pageSize(forImage: CGSize(width: 1859, height: 1165), defaultPaper: .a4)
-        #expect(abs(card.width / 72 * 25.4 - 85.6) < 0.1)
-        #expect(abs(card.height / 72 * 25.4 - 54) < 0.1)
-    }
-
     @Test func estimatesTheSizeOfOtherShapesFromTheirText() {
         // A receipt whose text lines are 1/50 of its height: about 185 mm tall.
         let receipt = sizing.pageSize(forImage: CGSize(width: 800, height: 2400), textLineHeight: 0.02, defaultPaper: .a4)

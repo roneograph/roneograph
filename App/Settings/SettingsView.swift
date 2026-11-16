@@ -49,7 +49,7 @@ struct SettingsView: View {
                 } header: {
                     Text("PDF")
                 } footer: {
-                    Text("Pages get the size of what was scanned: A4, Letter, a card. The default paper is used when it is not clear.")
+                    Text("Pages get the size of what was scanned, such as A4 or Letter. The default paper is used when it is not clear.")
                 }
 
                 Section("Scanning") {
