@@ -203,6 +203,19 @@ struct DocumentDetectorTests {
         #expect(detector.detect(lines: lines).details.issuer == "Northwind Power")
     }
 
+    @Test func takesAKnownIssuerOnTheRightAndNeverAStateEmblem() {
+        let lines = [
+            line("RÉPUBLIQUE", y: 0.05, height: 0.02),
+            line("FRANÇAISE", y: 0.071, height: 0.02),
+            line("Liberté", y: 0.092, height: 0.011),
+            line("Égalité", y: 0.104, height: 0.011),
+            TextLine(text: "FINANCES PUBLIQUES", frame: CGRect(x: 0.78, y: 0.07, width: 0.16, height: 0.013)),
+            line("Lorem ipsum", y: 0.5),
+            line("Dolor sit amet", y: 0.52),
+        ]
+        #expect(detector.detect(lines: lines).details.issuer == "Finances Publiques")
+    }
+
     @Test func neverTakesALineStartingWithDeAsTheIssuer() {
         let lines = [line("Cabinet", y: 0.08, height: 0.02), line("de la Butte", y: 0.2, height: 0.03), line("Lorem ipsum", y: 0.5)]
         #expect(detector.detect(lines: lines).details.issuer == "Cabinet")

@@ -283,6 +283,12 @@ enum DocumentVocabulary {
         "inc", "llc", "corp", "sl", "slu", "sau", "spa", "srl", "srls", "sapa", "bv", "nv",
     ]
 
+    /// What heads the letters of a state rather than names who sent them.
+    static let emblems = [
+        "république française", "liberté égalité fraternité", "liberté", "égalité", "fraternité", "repubblica italiana",
+        "bundesrepublik deutschland",
+    ]
+
     /// The first words of a recipient line: "Mme", "Herrn", "Sig.ra".
     static let recipientPrefixes: Set<String> = [
         "m", "mme", "mlle", "madame", "monsieur", "mr", "mrs", "ms", "miss", "herr", "herrn", "frau", "sr", "sra", "srta", "d", "dna", "don", "dona",

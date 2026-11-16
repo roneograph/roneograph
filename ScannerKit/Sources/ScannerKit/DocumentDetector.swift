@@ -403,12 +403,15 @@ public struct DocumentDetector: Sendable {
 
     /// Name-like lines in the header, own lines included so they can be learned.
     /// An uncertain reading, as of a logo, counts only when a web domain or a legal name on the page confirms it.
+    /// A known issuer such as "Finances publiques" counts anywhere in the header; a state emblem such as "République française" never does.
     static func issuerCandidates(in page: Page, clues: [[(range: Range<Int>, tag: Clue)]], evidence: IssuerEvidence) -> [Line] {
         joiningContinuations(of: page).filter { indices, line in
             let text = line.text.trimmingCharacters(in: .whitespaces)
             let letters = text.filter(\.isLetter).count
             let digits = text.filter(\.isNumber).count
-            let inHeader = (line.frame.minY < 0.3 && line.frame.minX < 0.5) || (line.frame.minY < 0.12 && page.isLarge(line))
+            let isKnownName = indices.contains { index in clues[index].contains { $0.tag.isInNames } }
+            if emblems.contains(Self.letters(text)) { return false }
+            let inHeader = (line.frame.minY < 0.3 && (line.frame.minX < 0.5 || isKnownName)) || (line.frame.minY < 0.12 && page.isLarge(line))
             guard inHeader, line.confidence > 0.5 || (line.confidence >= 0.5 && isConfirmed(line, by: evidence)), (3...60).contains(text.count), line.words.count <= 8, Double(letters) >= Double(text.count) * 0.6, digits <= 2,
                   !(text.first?.isNumber ?? false), !text.contains("@"), !text.contains(":"), !text.lowercased().contains("www."), IssuerEvidence.domains(in: text).isEmpty,
                   let first = line.words.first else { return false }
@@ -426,6 +429,8 @@ public struct DocumentDetector: Sendable {
             }
         }.map(\.line)
     }
+
+    private static let emblems = Set(DocumentVocabulary.emblems.map(letters))
 
     /// Each line with the lines right under it that start with "de" or "d'", as a name or a sentence wrapped on several lines,
     /// or that are as large as a short large line, as a name set on two lines in a logo; with the indices of the lines it joins.
