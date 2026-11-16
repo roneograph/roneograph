@@ -34,7 +34,7 @@ public final class AppModel {
         reload()
     }
 
-    func reload() {
+    private func reload() {
         scans = store.all()
     }
 

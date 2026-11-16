@@ -27,8 +27,8 @@ public final class ScanModel: Identifiable {
     /// What the ready PDF was made from, to tell whether it is still current.
     private var pdfMadeFrom: PDFInputs?
     public private(set) var failure: String?
-    public let processor: ScanProcessor
-    public let settings: SettingsStore
+    private let processor: ScanProcessor
+    private let settings: SettingsStore
     /// Called after every save, so the list of scans stays current.
     var didSave: (() -> Void)?
     private var queue: Task<Void, Never>?
@@ -44,14 +44,14 @@ public final class ScanModel: Identifiable {
         self.now = now
     }
 
-    public var store: ScanStore { processor.store }
+    private var store: ScanStore { processor.store }
     public var pdfInputs: PDFInputs { PDFInputs(name: scan.fileName, title: scan.title, pages: scan.pages) }
     public var fallbackTitle: String { namer.fallback(for: scan.created) }
     public var isBusy: Bool { processing > 0 || updating > 0 }
 
     /// The file name a name and details get with the format from the settings, before avoiding collisions.
     /// A name the user typed is kept as typed; a suggested one leaves out what a custom format already shows.
-    public func fileName(for title: String) -> String {
+    func fileName(for title: String) -> String {
         fileNameSegments(for: title).map(\.text).joined()
     }
 

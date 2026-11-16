@@ -22,7 +22,7 @@ public struct LiveFrame: Sendable {
     }
 }
 
-public enum FlashMode: Sendable, CaseIterable {
+public enum FlashMode: Sendable {
     case off, auto, on
 
     public var next: FlashMode {
@@ -88,9 +88,9 @@ public final class CameraModel {
     public private(set) var quad: Quad?
     public private(set) var imageSize = CGSize(width: 3, height: 4)
     public private(set) var state: CaptureTrigger.State = .searching
-    public private(set) var lowLight = false
-    public private(set) var smudged = false
-    public private(set) var captureFailed = false
+    private var lowLight = false
+    private var smudged = false
+    private var captureFailed = false
     /// Bumped on each capture, for the flash and the haptic.
     public private(set) var captures = 0
     /// Bumped when a page gets locked, for the haptic.
