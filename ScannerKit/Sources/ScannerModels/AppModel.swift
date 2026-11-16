@@ -99,6 +99,12 @@ public final class AppModel {
         reload()
     }
 
+    /// Deletes every scan and its PDF from this device; what was sent or saved elsewhere stays.
+    public func deleteAllScans() {
+        reload()
+        for scan in scans { delete(scan.id) }
+    }
+
     private func makeModel(_ scan: Scan) -> ScanModel {
         let model = ScanModel(scan: scan, processor: processor, settings: settings, now: now)
         model.didSave = { [weak self] in self?.reload() }

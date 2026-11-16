@@ -52,6 +52,13 @@ public struct ScanStore: Sendable {
         }
     }
 
+    /// The size of the scans and their PDFs, in bytes.
+    public func byteCount() -> Int {
+        let pdfs = all().map(pdfURL)
+        let files = FileManager.default.enumerator(at: scansDirectory, includingPropertiesForKeys: [.fileSizeKey])?.compactMap { $0 as? URL } ?? []
+        return (files + pdfs).reduce(0) { $0 + ((try? $1.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0) }
+    }
+
     /// Deletes the scans created before the cutoff, with their PDF.
     public func deleteScans(olderThan cutoff: Date) {
         for scan in all() where scan.created < cutoff {

@@ -25,6 +25,16 @@ final class ScanStoreTests {
         #expect(store.all().last?.pages == old.pages)
     }
 
+    @Test func countsTheBytesOfScansAndTheirPDFs() throws {
+        let scan = Scan(name: "Invoice")
+        try store.save(scan)
+        let json = store.byteCount()
+        #expect(json > 0)
+        try Data(count: 1000).write(to: store.pdfURL(of: scan))
+        try Data(count: 500).write(to: root.appending(path: "Documents/Other.pdf"))
+        #expect(store.byteCount() == json + 1000)
+    }
+
     @Test func deletesExpiredScansWithTheirPDF() throws {
         let old = Scan(created: Date(timeIntervalSinceNow: -8 * 86400), name: "Old")
         let recent = Scan(created: Date(timeIntervalSinceNow: -6 * 86400), name: "Recent")

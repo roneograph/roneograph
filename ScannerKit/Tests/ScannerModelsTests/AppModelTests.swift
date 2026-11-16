@@ -167,6 +167,19 @@ struct AppModelTests {
         #expect(fixture.store.all().isEmpty)
     }
 
+    @Test func deletesAllScans() async throws {
+        let fixture = try Fixture()
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+        let first = await fixture.capturedScan(in: app)
+        _ = await fixture.capturedScan(in: app)
+        await first.buildPDF(delay: .zero)
+        app.deleteAllScans()
+        #expect(app.scans.isEmpty)
+        #expect(fixture.store.all().isEmpty)
+        #expect(!fixture.pdfExists(first.scan.fileName))
+        #expect(fixture.store.byteCount() == 0)
+    }
+
     @Test func listsScansNewestFirstAndDropsExpiredOnes() throws {
         let fixture = try Fixture()
         let now = Date()
