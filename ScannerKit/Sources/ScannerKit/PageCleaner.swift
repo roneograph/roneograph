@@ -34,21 +34,9 @@ public enum PageOrientation: String, Codable, Sendable, CaseIterable {
 public struct CleanupSettings: Equatable, Codable, Sendable {
     /// Nil picks the look from the page content.
     public var look: PageLook?
-    public var removeShadows: Bool
-    public var whitePaper: Bool
-    public var straighten: Bool
-    /// From -1 to 1.
-    public var brightness: Double
-    /// From -1 to 1, black and white only: higher turns more faint ink black.
-    public var threshold: Double
 
-    public init(look: PageLook? = nil, removeShadows: Bool = true, whitePaper: Bool = true, straighten: Bool = true, brightness: Double = 0, threshold: Double = 0) {
+    public init(look: PageLook? = nil) {
         self.look = look
-        self.removeShadows = removeShadows
-        self.whitePaper = whitePaper
-        self.straighten = straighten
-        self.brightness = brightness
-        self.threshold = threshold
     }
 }
 
@@ -135,19 +123,13 @@ public struct PageCleaner: @unchecked Sendable {
 
     public func render(_ page: CIImage, analysis: PageAnalysis, settings: CleanupSettings = .init()) -> CIImage {
         var image = page.atOrigin.oriented(analysis.orientation.imageOrientation).atOrigin
-        if settings.straighten, abs(analysis.skewDegrees) >= configuration.minimumSkew {
+        if abs(analysis.skewDegrees) >= configuration.minimumSkew {
             image = rotated(image, degrees: -analysis.skewDegrees)
         }
 
         let look = settings.look ?? analysis.suggestedLook
         if look != .photo {
-            image = divide(image, by: settings.removeShadows ? background(of: image) : paperColor(of: image))
-            if settings.whitePaper {
-                image = whitePaper(image)
-            }
-        }
-        if settings.brightness != 0 {
-            image = image.applyingFilter("CIExposureAdjust", parameters: [kCIInputEVKey: settings.brightness])
+            image = whitePaper(divide(image, by: background(of: image)))
         }
 
         switch look {
@@ -156,9 +138,8 @@ public struct PageCleaner: @unchecked Sendable {
         case .gray:
             image = image.applyingFilter("CIColorControls", parameters: [kCIInputSaturationKey: 0])
         case .blackAndWhite:
-            let threshold = configuration.threshold * pow(2, settings.threshold)
             image = image.applyingFilter("CIColorControls", parameters: [kCIInputSaturationKey: 0])
-                .applyingFilter("CIColorThreshold", parameters: ["inputThreshold": threshold])
+                .applyingFilter("CIColorThreshold", parameters: ["inputThreshold": configuration.threshold])
         case .photo:
             break
         }
@@ -207,14 +188,6 @@ public struct PageCleaner: @unchecked Sendable {
         filter.inputImage = background
         filter.backgroundImage = image
         return (filter.outputImage ?? image).cropped(to: image.extent)
-    }
-
-    /// The paper color of the whole page, as a uniform image, when shadows are kept.
-    private func paperColor(of image: CIImage) -> CIImage {
-        let bitmap = Bitmap(image, longSide: configuration.statisticsSize, context: context)
-        let channels = (0..<3).map { c in (0..<bitmap.count).map { bitmap.pixels[$0 * 4 + c] } }
-        let paper = channels.map { CGFloat(max(0.05, Bitmap.percentile($0, 0.9))) }
-        return CIImage(color: CIColor(red: paper[0], green: paper[1], blue: paper[2], colorSpace: CGColorSpace(name: CGColorSpace.linearSRGB)!)!).cropped(to: image.extent)
     }
 
     /// Pushes everything above the knee to white and darkens the ink below it.
