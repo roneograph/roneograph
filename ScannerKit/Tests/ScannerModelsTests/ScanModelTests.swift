@@ -179,7 +179,7 @@ struct ScanModelTests {
 
     @Test func reusesACorrectedNameWhenTheSameSuggestionComesBack() async throws {
         let fixture = try Fixture()
-        let photo = try #require(PageExtractor(context: CIContext()).jpegData(of: SyntheticPage().render(), quality: 0.9))
+        let photo = try #require(PageExtractor(context: CIContext()).jpegData(of: SyntheticPage(title: "INVOICE").render(), quality: 0.9))
         let first = fixture.scanModel()
         first.addPhoto(photo, liveQuad: nil)
         await first.waitUntilIdle()

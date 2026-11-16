@@ -58,6 +58,222 @@ public enum DocumentCorpus {
 
     public static let documents: [CorpusDocument] = invoices + receipts + quotes + contracts + payslips + statements + taxNotices + insurance + medical + certificates + letters + others
 
+    /// Documents written after the rules were tuned on `documents`, to measure how well they carry over.
+    public static let holdout: [CorpusDocument] = [
+        CorpusDocument("hold-invoice-en", .invoice, issuer: "Pinecrest Plumbing", date: "2026-03-04", number: "5521", monthFirst: true, """
+        8 4 T Pinecrest Plumbing LLC
+        8 8 S 410 Cedar Ave, Fairview, OR 97035 · (503) 555-0142
+        60 4 H INVOICE
+        60 9 B Invoice # 5521
+        60 11 B Invoice Date 03/04/2026
+        60 13 B Due Date 04/03/2026
+        8 18 B Bill To
+        8 20 B Jordan Ellery
+        8 22 B 2250 Larkspur Lane
+        8 30 B Description
+        70 30 B Amount
+        8 33 B Replace kitchen faucet
+        70 33 B $185.00
+        8 35 B Labor 1.5 hours
+        70 35 B $142.50
+        60 42 B Total Due
+        80 42 B $327.50
+        8 50 B Make checks payable to Pinecrest Plumbing LLC. Thank you for your business!
+        """),
+        CorpusDocument("hold-bill-en", .invoice, issuer: "Northfield Power", date: "2026-02-20", number: "300 118 442", """
+        8 4 T northfield power
+        8 15 B Mr J Ellery
+        8 17 B 14 Willow Crescent
+        8 19 B Bramford BR4 7QT
+        60 15 B Bill date 20 February 2026
+        60 17 B Customer number 300 118 442
+        8 27 T Your electricity bill
+        8 32 B For the period 15 January 2026 to 14 February 2026
+        8 37 B Electricity used 412 kWh
+        75 37 B £98.88
+        8 39 B Standing charge 31 days
+        75 39 B £16.27
+        8 41 B VAT 5%
+        75 41 B £5.76
+        8 45 B Total to pay
+        75 45 B £120.91
+        8 50 B We'll collect this by Direct Debit on or after 6 March 2026.
+        8 93 S Northfield Power Ltd, registered office Lantern House, Bramford. www.northfieldpower.co.uk
+        """),
+        CorpusDocument("hold-certificate-en", .certificate, issuer: "Bramford Swimming Club", date: "2026-02-08", number: nil, """
+        25 8 H Bramford Swimming Club
+        20 20 T Certificate of Achievement
+        30 30 B Awarded to
+        30 34 H Jordan Ellery
+        20 40 B for swimming 1,500 metres freestyle
+        30 52 B 8 February 2026
+        """),
+        CorpusDocument("hold-payslip-fr", .payslip, issuer: "Boulangerie Ferlac", date: "2026-03-31", number: nil, """
+        8 4 H Boulangerie Ferlac SARL
+        8 7 S 4 place Bellecour 69002 Lyon · SIRET 321 654 987 00011
+        60 4 H BULLETIN DE SALAIRE
+        60 8 B Mois : mars 2026
+        60 10 B Payé le 31/03/2026 par virement
+        8 15 B Mme Camille Rouvière
+        8 17 B Vendeuse · Coefficient 160
+        8 24 B Salaire de base 151,67 h
+        75 24 B 1 823,03
+        8 26 B Heures supplémentaires
+        75 26 B 98,40
+        8 28 B Total cotisations et contributions salariales
+        75 28 B -420,11
+        8 33 H NET À PAYER
+        75 33 H 1 501,32
+        """),
+        CorpusDocument("hold-tax-fr", .taxNotice, issuer: "Direction Générale des Finances Publiques", date: "2026-08-29", number: nil, """
+        8 4 B DIRECTION GÉNÉRALE DES FINANCES PUBLIQUES
+        8 6 S impots.gouv.fr
+        55 15 B MME ROUVIÈRE CAMILLE
+        55 17 B 8 RUE DES GLYCINES
+        55 19 B 69007 LYON
+        10 25 T AVIS DE TAXE FONCIÈRE 2026
+        8 31 B Numéro fiscal : 00 00 000 000 000
+        8 33 B Date d'établissement : 29/08/2026
+        8 35 B Date limite de paiement : 15/10/2026
+        8 40 B Base d'imposition
+        75 40 B 1 812
+        8 42 B Montant de votre impôt
+        75 42 B 1 044 €
+        """),
+        CorpusDocument("hold-medical-fr", .medical, issuer: "Centre d'Imagerie Saint-Clair", date: "2026-03-18", number: nil, """
+        8 4 T Centre d'Imagerie Saint-Clair
+        8 8 S 30 rue Duguesclin 69006 Lyon
+        8 15 H COMPTE RENDU D'ÉCHOGRAPHIE ABDOMINALE
+        8 20 B Patiente : Mme Camille Rouvière, née le 12/06/1991
+        8 22 B Examen du 18/03/2026
+        8 26 B Indication : douleurs abdominales.
+        8 29 B Résultat : foie de taille normale, pas d'anomalie décelée.
+        8 34 B Conclusion : examen normal.
+        8 42 B Dr Paul Verdier, radiologue
+        """),
+        CorpusDocument("hold-quote-de", .quote, issuer: "Elektro Brandt", date: "2026-03-16", number: "KV-0193", """
+        10 4 T Elektro Brandt
+        10 8 S Elektro Brandt e.K. · Merseburger Straße 90 · 04177 Leipzig · info@elektro-brandt.de
+        10 16 B Frau Lena Brückner
+        10 18 B Lindenweg 12
+        10 20 B 04109 Leipzig
+        60 16 B Leipzig, 16.03.2026
+        10 28 H Kostenvoranschlag KV-0193
+        10 33 B Austausch Sicherungskasten inkl. Material
+        75 33 B 1.180,00 €
+        10 37 B Summe netto
+        75 37 B 1.180,00 €
+        10 39 B zzgl. 19 % MwSt.
+        75 39 B 224,20 €
+        10 44 B Der Kostenvoranschlag ist bis zum 15.04.2026 gültig.
+        """),
+        CorpusDocument("hold-insurance-de", .insurance, issuer: "Rheinauen Krankenversicherung", date: "2026-01-12", number: "K-77120-33", """
+        10 4 T Rheinauen Krankenversicherung
+        10 16 S Rheinauen Krankenversicherung a.G. · Postfach 50 · 50667 Köln
+        10 18 B Frau Lena Brückner
+        10 20 B Lindenweg 12
+        10 22 B 04109 Leipzig
+        60 18 B Köln, 12. Januar 2026
+        60 20 B Versicherungsnummer K-77120-33
+        10 30 H Versicherungsbestätigung
+        10 35 B Hiermit bestätigen wir, dass Frau Lena Brückner, geboren am 03.11.1992,
+        10 37 B seit dem 01.01.2026 bei uns krankenversichert ist.
+        10 42 B Mit freundlichen Grüßen
+        """),
+        CorpusDocument("hold-receipt-de", .receipt, issuer: "Drogerie Weißdorn", date: "2026-03-20", number: nil, aspectRatio: 0.38, """
+        20 3 H Drogerie Weißdorn
+        15 6 S Karl-Liebknecht-Str. 41 · 04275 Leipzig
+        10 11 B Zahnpasta
+        75 11 B 1,95
+        10 13 B Duschgel
+        75 13 B 2,45
+        10 18 H Gesamt EUR
+        70 18 H 4,40
+        10 21 B Kartenzahlung girocard
+        70 21 B 4,40
+        10 25 B 20.03.26 16:12
+        15 29 B Danke für Ihren Einkauf!
+        """),
+        CorpusDocument("hold-invoice-es", .invoice, issuer: "Telecomunicaciones Brisa", date: "2026-03-01", number: "BR26-0088123", """
+        8 4 T Telecomunicaciones Brisa
+        8 8 S Telecomunicaciones Brisa S.A.U. · NIF A11223344 · www.brisatel.es
+        55 15 B Lucía Ferrándiz Soler
+        55 17 B Calle del Olmo 23, 3º B
+        55 19 B 28014 Madrid
+        8 26 H Tu factura de marzo
+        8 30 B Número de factura: BR26-0088123
+        8 32 B Fecha de factura: 01/03/2026
+        8 34 B Nº de cliente: 4410-22
+        8 38 B Periodo de facturación: 01/02/2026 - 28/02/2026
+        8 43 B Fibra + móvil
+        70 43 B 41,32 €
+        60 49 B IVA (21%)
+        80 49 B 8,68 €
+        60 51 B Total
+        80 51 B 50,00 €
+        8 56 B Se cargará en tu cuenta el 05/03/2026.
+        """),
+        CorpusDocument("hold-contract-es", .contract, issuer: nil, date: "2026-02-25", number: nil, """
+        10 6 T CONTRATO DE ARRENDAMIENTO DE VIVIENDA
+        8 14 B En Madrid, a 25 de febrero de 2026
+        8 19 B REUNIDOS
+        8 22 B De una parte, D. Ernesto Valcárcel Ruiz, en calidad de arrendador.
+        8 25 B De otra parte, Dña. Lucía Ferrándiz Soler, en calidad de arrendataria.
+        8 30 B EXPONEN
+        8 33 B Que el arrendador es propietario de la vivienda sita en Calle del Olmo 23, 3º B.
+        8 38 B CLÁUSULAS
+        8 41 B Primera. Duración: un año a contar desde el 1 de marzo de 2026.
+        8 44 B Segunda. Renta: 950 euros mensuales.
+        """),
+        CorpusDocument("hold-receipt-es", .receipt, issuer: nil, date: "2026-03-01", number: nil, """
+        25 6 T RECIBO DE ALQUILER
+        8 16 B He recibido de Dña. Lucía Ferrándiz Soler la cantidad de 950,00 euros
+        8 18 B en concepto de renta del mes de marzo de 2026 de la vivienda sita en
+        8 20 B Calle del Olmo 23, 3º B, 28014 Madrid.
+        8 30 B Madrid, 1 de marzo de 2026
+        8 36 B Fdo.: Ernesto Valcárcel Ruiz
+        """),
+        CorpusDocument("hold-statement-it", .bankStatement, issuer: "Banca Valtorre", date: "2026-02-28", number: nil, """
+        8 4 T Banca Valtorre
+        55 15 B Giulia Fabbretti
+        55 17 B Via dei Gelsomini 9
+        55 19 B 40125 Bologna
+        8 26 H Estratto conto carta di credito
+        8 30 B Carta n. **** **** **** 4417
+        8 32 B Data estratto conto: 28/02/2026
+        8 34 B Addebito in conto il 15/03/2026
+        8 39 B 03/02/2026 Libreria del Portico
+        75 39 B 24,00
+        8 41 B 17/02/2026 Ristorante Da Nello
+        75 41 B 58,50
+        8 45 B Totale addebiti
+        75 45 B 82,50
+        8 93 S Banca Valtorre S.p.A. · www.bancavaltorre.it
+        """),
+        CorpusDocument("hold-medical-it", .medical, issuer: "Dott. Marco Ferretti", date: "2026-03-17", number: nil, """
+        8 4 H Dott. Marco Ferretti
+        8 7 B Medico Chirurgo · Specialista in Cardiologia
+        8 9 S Via Mazzini 12, 40137 Bologna
+        25 18 T CERTIFICATO MEDICO
+        8 25 B Si certifica che la Sig.ra Giulia Fabbretti, nata il 05/05/1990,
+        8 27 B è stata visitata in data odierna e risulta idonea all'attività sportiva non agonistica.
+        8 35 B Bologna, 17/03/2026
+        """),
+        CorpusDocument("hold-letter-it", .letter, issuer: "Condominio Le Querce", date: "2026-03-03", number: nil, """
+        8 4 H Condominio Le Querce
+        8 7 S Amministrazione: Studio Bertoni, Via Marconi 8, Bologna
+        55 15 B Gent.ma Sig.ra Giulia Fabbretti
+        55 17 B Via dei Gelsomini 9
+        55 19 B 40125 Bologna
+        8 26 B Bologna, 3 marzo 2026
+        8 30 B Oggetto: convocazione assemblea ordinaria
+        8 35 B Gentile condomina,
+        8 38 B l'assemblea ordinaria è convocata per il giorno 24 marzo 2026 alle ore 18.
+        8 43 B Distinti saluti
+        8 48 B L'amministratore
+        """),
+    ]
+
     static let invoices = [
         CorpusDocument("invoice-fr", .invoice, issuer: "Voltaria Énergie", date: "2026-03-14", number: "FA-2026-00417", """
         8 4 T VOLTARIA ÉNERGIE

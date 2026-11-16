@@ -41,7 +41,7 @@ public enum SyntheticPhoto {
     }
 }
 
-/// An A4 page at about 100 dpi with real text, optionally with a stamp, a shaded header, a picture, a shadow or a rotation.
+/// An A4 page at about 100 dpi with real text, optionally with a title, a stamp, a shaded header, a picture, a shadow or a rotation.
 public struct SyntheticPage {
     public static let size = CGSize(width: 840, height: 1188)
     public static let blockCenter = CGPoint(x: 0.5, y: 0.93)
@@ -54,9 +54,12 @@ public struct SyntheticPage {
     /// A shadow with sharp edges across the blank top margin, like a hand or a phone.
     public var handShadow = false
     public var rotation: Double = 0
+    /// Big text above the body text.
+    public var title: String?
 
-    public init(paper: (CGFloat, CGFloat, CGFloat) = (0.95, 0.95, 0.93), stamp: Bool = false, shadedHeader: Bool = false, picture: Bool = false, shadow: Bool = false, handShadow: Bool = false, rotation: Double = 0) {
+    public init(paper: (CGFloat, CGFloat, CGFloat) = (0.95, 0.95, 0.93), title: String? = nil, stamp: Bool = false, shadedHeader: Bool = false, picture: Bool = false, shadow: Bool = false, handShadow: Bool = false, rotation: Double = 0) {
         self.paper = paper
+        self.title = title
         self.stamp = stamp
         self.shadedHeader = shadedHeader
         self.picture = picture
@@ -83,6 +86,11 @@ public struct SyntheticPage {
             let text = (0..<9).map { String(words[(start + $0) % words.count]) }.joined(separator: " ")
             let attributed = NSAttributedString(string: text, attributes: [NSAttributedString.Key(kCTFontAttributeName as String): font, NSAttributedString.Key(kCTForegroundColorAttributeName as String): CGColor(gray: 0.08, alpha: 1)])
             context.textPosition = CGPoint(x: 70, y: size.height - 140 - CGFloat(line) * 30)
+            CTLineDraw(CTLineCreateWithAttributedString(attributed), context)
+        }
+        if let title {
+            let attributed = NSAttributedString(string: title, attributes: [NSAttributedString.Key(kCTFontAttributeName as String): CTFontCreateWithName("Helvetica-Bold" as CFString, 30, nil), NSAttributedString.Key(kCTForegroundColorAttributeName as String): CGColor(gray: 0.08, alpha: 1)])
+            context.textPosition = CGPoint(x: 70, y: size.height - 95)
             CTLineDraw(CTLineCreateWithAttributedString(attributed), context)
         }
         context.setFillColor(gray: 0.05, alpha: 1)

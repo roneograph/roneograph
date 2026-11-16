@@ -57,9 +57,9 @@ public struct FileNamer: Sendable {
         "Scan \(Self.isoDate(date))"
     }
 
-    /// Up to two names, best first, or the fallback name when the text says nothing useful.
-    public func suggestions(lines: [TextLine], date: Date, ownLines: Set<String> = []) -> NameSuggestions {
-        suggestions(for: DocumentDetector(monthFirst: monthFirst).detect(lines: lines, ownLines: ownLines), date: date)
+    /// Up to two names, best first, or the fallback name when the text says nothing useful; `aspectRatio` is the width over the height of the page.
+    public func suggestions(lines: [TextLine], date: Date, ownLines: Set<String> = [], aspectRatio: CGFloat? = nil) -> NameSuggestions {
+        suggestions(for: DocumentDetector(monthFirst: monthFirst).detect(lines: lines, ownLines: ownLines, aspectRatio: aspectRatio), date: date)
     }
 
     public func suggestions(for document: DetectedDocument, date: Date) -> NameSuggestions {

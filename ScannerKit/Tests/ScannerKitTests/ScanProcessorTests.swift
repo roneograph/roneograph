@@ -58,7 +58,7 @@ final class ScanProcessorTests {
         let scanID = UUID()
         let page = ScanPage(quad: nil, analysis: .sample)
         try FileManager.default.createDirectory(at: store.directory(of: scanID), withIntermediateDirectories: true)
-        try processor.writePreview(of: page, scanID: scanID, flat: SyntheticPage().render())
+        try processor.writePreview(of: page, scanID: scanID, flat: SyntheticPage(title: "INVOICE").render())
         let suggestions = try #require(processor.nameSuggestions(for: page, scanID: scanID, date: .now))
         #expect(suggestions.names.first?.hasPrefix("Invoice") == true)
     }
