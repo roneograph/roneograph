@@ -4,7 +4,7 @@
 
 # Roneograph
 
-A free, open source iPhone scanner for administrative paper: letters, invoices, contracts, payslips, statements. Point the camera at a page and get a clean, small PDF/A, ready to archive or send. No ads, no account, no tracking.
+A free, open source iPhone scanner for administrative paper: letters, invoices, contracts, payslips, statements. Point the camera at a page and get a clean, small, searchable PDF/A, ready to archive or send. No ads, no account, no tracking.
 
 The [manifesto](MANIFESTO.md) says what Roneograph is for and how features are chosen.
 

@@ -150,7 +150,7 @@ private struct WelcomeView: View {
             AppIcon(size: 120)
             VStack(spacing: 8) {
                 Text("Archive your paperwork").font(.title.bold())
-                Text("Hold your iPhone above a letter, an invoice or a payslip.\nIt is captured on its own and saved as a small PDF/A, ready to send.")
+                Text("Hold your iPhone above a letter, an invoice or a payslip.\nIt is captured on its own and saved as a small, searchable PDF/A.")
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.secondary)
             }
