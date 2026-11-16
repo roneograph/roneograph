@@ -21,6 +21,14 @@ extension ScannerSettings {
         hasSeveralOwners ? "Email \(owner(ownerID).name) scans to" : "Email scans to"
     }
 
+    /// What Forget Everything in Settings › Memory forgets.
+    public var forgetEverythingMessage: String {
+        let issuers = learnedIssuers.count.counted("issuer")
+        return hasSeveralOwners
+            ? "Corrections and owners remembered for \(issuers), which lines are your name and address, and which lines tell each owner. Scans, owners and settings stay."
+            : "Corrections for \(issuers), and which lines are your name and address. Scans and settings stay."
+    }
+
     /// In Settings › Memory › Issuers, before anything is remembered.
     public var nothingRemembered: String {
         "Correct the \(hasSeveralOwners ? "name, issuer, category or owner" : "name, issuer or category") of a scan, and it is reused for the next documents from the same issuer."

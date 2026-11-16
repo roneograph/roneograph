@@ -67,7 +67,7 @@ struct SettingsView: View {
                 .confirmationDialog("Forget everything Roneograph remembers?", isPresented: $forgettingEverything, titleVisibility: .visible) {
                     Button("Forget Everything", role: .destructive) { settings.forgetEverything() }
                 } message: {
-                    Text("Corrections for \(settings.value.learnedIssuers.count.counted("issuer")), and which lines are your name and address. Scans and settings stay.")
+                    Text(settings.value.forgetEverythingMessage)
                 }
 
                 Section {
