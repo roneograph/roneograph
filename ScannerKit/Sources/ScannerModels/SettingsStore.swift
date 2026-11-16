@@ -42,10 +42,12 @@ public final class SettingsStore {
     }
 
     /// Remembers a correction for the next documents from the same issuer, keeping the other corrections made for it.
-    public func learn(keys: [String], _ change: (inout LearnedIssuer) -> Void) {
+    /// `label` is the issuer of the corrected document, to show who this is.
+    public func learn(keys: [String], label: String? = nil, _ change: (inout LearnedIssuer) -> Void) {
         guard !keys.isEmpty else { return }
         var learned = learnedIssuer(for: keys) ?? LearnedIssuer(keys: keys)
         learned.keys = keys
+        if let label { learned.label = label }
         change(&learned)
         var issuers = value.learnedIssuers.filter { !$0.keys.contains(where: keys.contains) }
         if learned.issuer != nil || learned.category != nil || learned.name != nil { issuers.insert(learned, at: 0) }
@@ -72,11 +74,33 @@ public final class SettingsStore {
         value.headerLines = Array(lines.prefix(Self.headerLinesLimit))
     }
 
+    /// Forgets some of the corrections for an issuer, keeping the others.
+    public func forget(_ values: Set<RememberedValue>, keys: [String]) {
+        guard learnedIssuer(for: keys) != nil else { return }
+        learn(keys: keys) { learned in
+            if values.contains(.name) { learned.name = nil }
+            if values.contains(.category) { learned.category = nil }
+            if values.contains(.issuer) { learned.issuer = nil }
+        }
+    }
+
+    public func forget(_ issuer: LearnedIssuer) {
+        value.learnedIssuers.removeAll { $0.keys == issuer.keys }
+    }
+
+    public func forgetAllIssuers() {
+        value.learnedIssuers = []
+    }
+
+    /// Whether some lines are known to be the user's own name and address.
+    public var recognizesOwnLines: Bool { !ownLines.isEmpty }
+
     public var hasLearned: Bool {
         !value.learnedIssuers.isEmpty || !value.headerLines.isEmpty
     }
 
-    public func forgetLearned() {
+    /// Forgets the corrections for every issuer and which lines are the user's own.
+    public func forgetEverything() {
         value.learnedIssuers = []
         value.headerLines = []
     }

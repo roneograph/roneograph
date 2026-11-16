@@ -39,6 +39,14 @@ struct ScanTests {
         #expect(scan.suggestedParts == SuggestedParts())
     }
 
+    @Test func keepsWhatWasReadAndWhatIsRemembered() throws {
+        var scan = Scan(name: "Invoice")
+        scan.read = ReadDocument(details: DocumentDetails(category: .letter, issuer: "Lumen"), parts: SuggestedParts(type: "Invoice"))
+        scan.remembered = [.name, .issuer]
+        let decoded = try JSONDecoder().decode(Scan.self, from: JSONEncoder().encode(scan))
+        #expect(decoded == scan)
+    }
+
     @Test func theFileNameLeavesTheFoldersOut() {
         #expect(Scan(name: "Invoice/2026 Lumen").fileName == "2026 Lumen")
         #expect(Scan(name: "Lumen").fileName == "Lumen")

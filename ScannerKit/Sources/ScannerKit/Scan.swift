@@ -29,6 +29,26 @@ public struct ScanPage: Identifiable, Equatable, Sendable, Codable {
     }
 }
 
+/// A value of a scan that can come from what the user corrected on a past document from the same issuer.
+public enum RememberedValue: String, CaseIterable, Comparable, Sendable, Codable {
+    case name, category, issuer
+
+    public static func < (lhs: Self, rhs: Self) -> Bool {
+        allCases.firstIndex(of: lhs)! < allCases.firstIndex(of: rhs)!
+    }
+}
+
+/// What was read on the first page, before what the user corrected for the same issuer was applied.
+public struct ReadDocument: Equatable, Sendable, Codable {
+    public var details: DocumentDetails
+    public var parts: SuggestedParts
+
+    public init(details: DocumentDetails, parts: SuggestedParts) {
+        self.details = details
+        self.parts = parts
+    }
+}
+
 public enum SendMethod: String, Equatable, Sendable, Codable {
     case email, files, share
 }
@@ -49,6 +69,10 @@ public struct Scan: Identifiable, Equatable, Sendable, Codable {
     public var suggestedParts = SuggestedParts()
     /// How to recognize the issuer on the next document, to reuse what the user corrected.
     public var issuerKeys: [String] = []
+    /// Nil until the first page is read, and for scans made before it was kept.
+    public var read: ReadDocument?
+    /// The values that come from what the user corrected on a past document, until changed.
+    public var remembered: Set<RememberedValue> = []
     public var pages: [ScanPage] = []
     /// False while pages are being captured.
     public var isFinished = false
@@ -68,7 +92,7 @@ public struct Scan: Identifiable, Equatable, Sendable, Codable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, created, name, title, details, areDetailsEditedByUser, isNamedByUser, suggestions, suggestedParts, issuerKeys, pages, isFinished, sent, sentBy
+        case id, created, name, title, details, areDetailsEditedByUser, isNamedByUser, suggestions, suggestedParts, issuerKeys, read, remembered, pages, isFinished, sent, sentBy
         case documentDate
     }
 
@@ -85,6 +109,8 @@ public struct Scan: Identifiable, Equatable, Sendable, Codable {
         suggestions = try container.decodeIfPresent([String].self, forKey: .suggestions) ?? []
         suggestedParts = try container.decodeIfPresent(SuggestedParts.self, forKey: .suggestedParts) ?? SuggestedParts()
         issuerKeys = try container.decodeIfPresent([String].self, forKey: .issuerKeys) ?? []
+        read = try container.decodeIfPresent(ReadDocument.self, forKey: .read)
+        remembered = try container.decodeIfPresent(Set<RememberedValue>.self, forKey: .remembered) ?? []
         pages = try container.decodeIfPresent([ScanPage].self, forKey: .pages) ?? []
         isFinished = try container.decodeIfPresent(Bool.self, forKey: .isFinished) ?? false
         sent = try container.decodeIfPresent(Date.self, forKey: .sent)
@@ -103,6 +129,8 @@ public struct Scan: Identifiable, Equatable, Sendable, Codable {
         try container.encode(suggestions, forKey: .suggestions)
         try container.encode(suggestedParts, forKey: .suggestedParts)
         try container.encode(issuerKeys, forKey: .issuerKeys)
+        try container.encodeIfPresent(read, forKey: .read)
+        try container.encode(remembered, forKey: .remembered)
         try container.encode(pages, forKey: .pages)
         try container.encode(isFinished, forKey: .isFinished)
         try container.encodeIfPresent(sent, forKey: .sent)

@@ -108,20 +108,33 @@ public final class ScanModel: Identifiable {
         }).value, !isDeleted else { return }
         var document = read.document
         settings.recordHeaderLines(document.headerLines, issuerEvidence: document.issuerEvidence)
+        scan.read = ReadDocument(details: document.details, parts: document.parts)
         let learned = settings.learnedIssuer(for: document.issuerKeys)
+        var remembered = Set<RememberedValue>()
         if let issuer = learned?.issuer {
+            if issuer != document.details.issuer { remembered.insert(.issuer) }
             document.details.issuer = issuer
             document.parts.issuer = issuer
         }
-        if let category = learned?.category { document.details.category = category }
+        if let category = learned?.category {
+            if category != document.details.category { remembered.insert(.category) }
+            document.details.category = category
+        }
         let suggestions = namer.suggestions(for: document, date: date)
         scan.suggestions = suggestions.names
         scan.suggestedParts = document.parts
         scan.issuerKeys = document.issuerKeys
-        if !scan.areDetailsEditedByUser { scan.details = document.details }
-        if !scan.isNamedByUser, let first = suggestions.names.first {
-            scan.title = learned?.name.map { namer.finalName($0.name(details: document.details, date: document.details.date ?? date), fallback: first) } ?? first
+        if scan.areDetailsEditedByUser {
+            remembered = []
+        } else {
+            scan.details = document.details
         }
+        if !scan.isNamedByUser, let first = suggestions.names.first {
+            let learnedName = learned?.name.map { namer.finalName($0.name(details: document.details, date: document.details.date ?? date), fallback: first) }
+            scan.title = learnedName ?? first
+            if let learnedName, learnedName != first { remembered.insert(.name) }
+        }
+        scan.remembered = remembered
         applyFileName()
     }
 
@@ -200,8 +213,33 @@ public final class ScanModel: Identifiable {
     public func rename(_ title: String) {
         scan.title = namer.finalName(title, fallback: scan.suggestions.first ?? fallbackTitle)
         scan.isNamedByUser = true
+        scan.remembered.remove(.name)
         let pattern = learnedPattern(for: scan.title)
-        settings.learn(keys: scan.issuerKeys) { $0.name = pattern }
+        settings.learn(keys: scan.issuerKeys, label: scan.details.issuer) { $0.name = pattern }
+        applyFileName()
+    }
+
+    /// Forgets what was remembered for the issuer, and puts back what was read on the page for this scan; the name follows when it was the remembered one or a suggestion.
+    public func forget(_ values: Set<RememberedValue>) {
+        settings.forget(values, keys: scan.issuerKeys)
+        let restored = values.intersection(scan.remembered)
+        guard !restored.isEmpty else { return }
+        var details = scan.details
+        var parts = scan.suggestedParts
+        if let read = scan.read {
+            if restored.contains(.issuer) {
+                details.issuer = read.details.issuer
+                parts.issuer = read.parts.issuer
+            }
+            if restored.contains(.category) { details.category = read.details.category }
+        }
+        let followsSuggestion = restored.contains(.name) || (!scan.isNamedByUser && scan.title == scan.suggestions.first)
+        let names = namer.suggestions(for: DetectedDocument(details: details, parts: parts), date: scan.created).names
+        scan.details = details
+        scan.suggestedParts = parts
+        scan.suggestions = names
+        if followsSuggestion, let first = names.first { scan.title = first }
+        scan.remembered.subtract(restored)
         applyFileName()
     }
 
@@ -230,11 +268,13 @@ public final class ScanModel: Identifiable {
         guard details != scan.details else { return }
         let old = scan.details
         if details.issuer != old.issuer || details.category != old.category {
-            settings.learn(keys: scan.issuerKeys) { learned in
+            settings.learn(keys: scan.issuerKeys, label: details.issuer) { learned in
                 if details.issuer != old.issuer { learned.issuer = details.issuer }
                 if details.category != old.category { learned.category = details.category }
             }
         }
+        if details.issuer != old.issuer { scan.remembered.remove(.issuer) }
+        if details.category != old.category { scan.remembered.remove(.category) }
         resuggestNames(from: old, to: details)
         scan.details = details
         scan.areDetailsEditedByUser = true

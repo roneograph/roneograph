@@ -17,3 +17,12 @@ extension SendMethod {
         }
     }
 }
+
+extension Collection<RememberedValue> {
+    /// "Name and category", in a fixed order, for the line that says what is remembered.
+    public var listed: String {
+        let words = sorted().map(\.rawValue)
+        let text = words.count <= 1 ? words.joined() : words.dropLast().joined(separator: ", ") + " and " + words.last!
+        return text.prefix(1).uppercased() + text.dropFirst()
+    }
+}

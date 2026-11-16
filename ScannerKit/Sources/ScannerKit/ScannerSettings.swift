@@ -59,15 +59,28 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
 /// What the user corrected on documents from one issuer, recognized by any of its keys; nil when not corrected.
 public struct LearnedIssuer: Equatable, Sendable, Codable {
     public var keys: [String]
+    /// The issuer of the last corrected document, to show who this is.
+    public var label: String?
     public var issuer: String?
     public var category: DocumentCategory?
     public var name: NamePattern?
 
-    public init(keys: [String], issuer: String? = nil, category: DocumentCategory? = nil, name: NamePattern? = nil) {
+    public init(keys: [String], label: String? = nil, issuer: String? = nil, category: DocumentCategory? = nil, name: NamePattern? = nil) {
         self.keys = keys
+        self.label = label
         self.issuer = issuer
         self.category = category
         self.name = name
+    }
+
+    /// Who this is: the corrected issuer, the issuer of the last document, or how it is recognized.
+    public var title: String {
+        issuer ?? label ?? recognizedBy ?? keys.first ?? ""
+    }
+
+    /// The web domain or company number the issuer is recognized by, when there is one.
+    public var recognizedBy: String? {
+        keys.first { $0.contains(".") || $0.contains(where: \.isNumber) }
     }
 }
 

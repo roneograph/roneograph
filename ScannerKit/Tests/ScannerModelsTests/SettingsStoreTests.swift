@@ -81,12 +81,38 @@ struct SettingsStoreTests {
         #expect(fixture.settings.ownLines.isEmpty)
     }
 
+    @Test func forgetsSomeCorrectionsOfAnIssuerAndKeepsTheOthers() throws {
+        let fixture = try Fixture()
+        fixture.settings.learn(keys: ["lumen"], label: "Lumen") { $0.category = .invoice; $0.issuer = "Lumen Energy" }
+        fixture.settings.forget([.issuer], keys: ["lumen"])
+        #expect(fixture.settings.learnedIssuer(for: ["lumen"]) == LearnedIssuer(keys: ["lumen"], label: "Lumen", category: .invoice))
+        fixture.settings.forget([.category], keys: ["lumen"])
+        #expect(fixture.settings.learnedIssuer(for: ["lumen"]) == nil)
+    }
+
+    @Test func forgetsOneIssuer() throws {
+        let fixture = try Fixture()
+        fixture.settings.learn(keys: ["lumen"]) { $0.category = .invoice }
+        fixture.settings.learn(keys: ["northwind"]) { $0.category = .insurance }
+        fixture.settings.forget(try #require(fixture.settings.learnedIssuer(for: ["lumen"])))
+        #expect(fixture.settings.value.learnedIssuers.map(\.keys) == [["northwind"]])
+    }
+
+    @Test(arguments: [
+        (LearnedIssuer(keys: ["lumen.example", "lumen"], issuer: "Lumen Energy"), "Lumen Energy"),
+        (LearnedIssuer(keys: ["lumen.example", "lumen"], label: "Lumen"), "Lumen"),
+        (LearnedIssuer(keys: ["lumen", "FR12123456789"]), "FR12123456789"),
+    ])
+    func namesALearnedIssuer(issuer: LearnedIssuer, title: String) {
+        #expect(issuer.title == title)
+    }
+
     @Test func forgetsEverythingLearned() throws {
         let fixture = try Fixture()
         fixture.settings.learn(keys: ["lumen"]) { $0.category = .invoice }
         fixture.settings.recordHeaderLines(["me"], issuerEvidence: [])
         #expect(fixture.settings.hasLearned)
-        fixture.settings.forgetLearned()
+        fixture.settings.forgetEverything()
         #expect(!fixture.settings.hasLearned)
     }
 

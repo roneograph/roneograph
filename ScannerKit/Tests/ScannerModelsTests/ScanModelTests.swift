@@ -313,6 +313,61 @@ struct ScanModelTests {
         #expect(model.scan.title == "Avis de passage")
     }
 
+    @Test func marksTheValuesThatComeFromCorrections() async throws {
+        let fixture = try Fixture()
+        let photo = try #require(PageExtractor(context: CIContext()).jpegData(of: SyntheticPage(title: "LUMEN ENERGY SAS").render(), quality: 0.9))
+        let first = fixture.scanModel()
+        first.addPhoto(photo, liveQuad: nil)
+        await first.waitUntilIdle()
+        #expect(first.scan.remembered.isEmpty)
+        let read = try #require(first.scan.read)
+        first.setDetails(DocumentDetails(category: .medical, issuer: "Quick Garage", date: first.scan.details.date))
+        first.rename("Garage bill")
+
+        let second = fixture.scanModel()
+        second.addPhoto(photo, liveQuad: nil)
+        await second.waitUntilIdle()
+        #expect(second.scan.remembered == [.name, .category, .issuer])
+        #expect(second.scan.read == read)
+        #expect(fixture.settings.learnedIssuer(for: second.scan.issuerKeys)?.label == "Quick Garage")
+
+        second.setDetails(DocumentDetails(category: .invoice, issuer: "Quick Garage", date: second.scan.details.date))
+        second.rename("Repair")
+        #expect(second.scan.remembered == [.issuer])
+    }
+
+    private func rememberedScan() -> Scan {
+        var scan = Scan(name: "Scan", title: "Garage bill")
+        scan.read = ReadDocument(details: DocumentDetails(category: .invoice, issuer: "Lumen Energy"), parts: SuggestedParts(type: "Facture", issuer: "Lumen Energy"))
+        scan.details = DocumentDetails(category: .medical, issuer: "Quick Garage")
+        scan.suggestedParts = SuggestedParts(type: "Facture", issuer: "Quick Garage")
+        scan.suggestions = ["Facture Quick Garage"]
+        scan.issuerKeys = ["lumen"]
+        scan.remembered = [.name, .category, .issuer]
+        return scan
+    }
+
+    @Test func forgettingPutsBackWhatWasRead() throws {
+        let fixture = try Fixture()
+        fixture.settings.learn(keys: ["lumen"]) { $0.issuer = "Quick Garage"; $0.category = .medical; $0.name = NamePattern(name: "Garage bill", details: .init(), date: .now) }
+        let model = ScanModel(scan: rememberedScan(), processor: fixture.processor, settings: fixture.settings)
+
+        model.forget([.issuer, .category])
+        #expect(model.scan.details.issuer == "Lumen Energy")
+        #expect(model.scan.details.category == .invoice)
+        #expect(model.scan.suggestions == ["Facture Lumen Energy"])
+        #expect(model.scan.title == "Garage bill")
+        #expect(model.scan.remembered == [.name])
+        #expect(fixture.settings.learnedIssuer(for: ["lumen"])?.issuer == nil)
+        #expect(fixture.settings.learnedIssuer(for: ["lumen"])?.name != nil)
+
+        model.forget([.name])
+        #expect(model.scan.title == "Facture Lumen Energy")
+        #expect(model.scan.name == "Facture Lumen Energy")
+        #expect(model.scan.remembered.isEmpty)
+        #expect(fixture.settings.learnedIssuer(for: ["lumen"]) == nil)
+    }
+
     @Test func reusesTheIssuerAndCategoryCorrectedForTheSameIssuer() async throws {
         let fixture = try Fixture()
         let photo = try #require(PageExtractor(context: CIContext()).jpegData(of: SyntheticPage(title: "LUMEN ENERGY SAS").render(), quality: 0.9))
