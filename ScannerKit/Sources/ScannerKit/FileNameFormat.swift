@@ -102,16 +102,22 @@ public struct FileNameFormat: Equatable, Sendable, Codable {
     /// The file name, with folders separated by "/" when a custom format has them.
     /// `suggestedParts` is nil for a name the user typed: a custom format then keeps it as typed instead of leaving out what it already shows.
     public func fileName(name: String, details: DocumentDetails = .init(), scanDate: Date, suggestedParts: SuggestedParts? = nil) -> String {
+        segments(name: name, details: details, scanDate: scanDate, suggestedParts: suggestedParts).map(\.text).joined()
+    }
+
+    /// The file name split by where each part comes from, to show how it is built.
+    /// A custom format whose name adds nothing keeps an empty name segment where the name would go.
+    public func segments(name: String, details: DocumentDetails = .init(), scanDate: Date, suggestedParts: SuggestedParts? = nil) -> [FileNameSegment] {
         let date = dateSource == .document ? details.date ?? scanDate : scanDate
         if isCustom, let template = try? Template(template) {
             return template.render(name: name, details: details, date: date, scanDate: scanDate, suggestedParts: suggestedParts, format: self)
         }
-        return simpleFileName(name: name, date: date)
+        return simpleSegments(name: name, date: date)
     }
 
     /// With dashes or underscores, any run of characters other than letters and digits becomes one separator.
     /// A name that already starts or ends with the date does not get it twice; without a date in the format, it stays where it is.
-    private func simpleFileName(name: String, date: Date) -> String {
+    private func simpleSegments(name: String, date: Date) -> [FileNameSegment] {
         let stamp = dateStyle.format(date)
         var rest = name.trimmingCharacters(in: .whitespaces)
         var position = datePosition
@@ -124,13 +130,16 @@ public struct FileNameFormat: Equatable, Sendable, Codable {
                 if position == .none { position = .end }
             }
         }
-        var words = self.words(rest)
-        switch position {
-        case .none: break
-        case .start: words.insert(stamp, at: 0)
-        case .end: words.append(stamp)
+        let name = FileNameSegment(words(rest).joined(separator: separator.character), .name)
+        let dated = FileNameSegment(stamp, .date)
+        let separator = FileNameSegment(separator.character, .text)
+        guard !name.text.isEmpty else { return [dated] }
+        let segments = switch position {
+        case .none: [name]
+        case .start: [dated, separator, name]
+        case .end: [name, separator, dated]
         }
-        return FileNamer().finalName(words.joined(separator: separator.character), fallback: stamp)
+        return FileNameSegment.finalized(segments, fallback: stamp)
     }
 
     fileprivate func words(_ text: String) -> [String] {
@@ -155,6 +164,16 @@ extension FileNameFormat {
             case number = "NUMBER"
 
             public var placeholder: String { "{\(rawValue)}" }
+
+            var source: FileNameSegment.Source {
+                switch self {
+                case .name: .name
+                case .year, .shortYear, .month, .day: .date
+                case .category: .category
+                case .issuer: .issuer
+                case .number: .number
+                }
+            }
         }
 
         public enum Token: Equatable, Sendable {
@@ -221,7 +240,7 @@ extension FileNameFormat {
             return tokens
         }
 
-        func render(name: String, details: DocumentDetails, date: Date, scanDate: Date, suggestedParts: SuggestedParts?, format: FileNameFormat) -> String {
+        func render(name: String, details: DocumentDetails, date: Date, scanDate: Date, suggestedParts: SuggestedParts?, format: FileNameFormat) -> [FileNameSegment] {
             let iso = FileNamer.isoDate(date)
             let namer = FileNamer()
             let values: [Variable: String] = [
@@ -236,23 +255,29 @@ extension FileNameFormat {
             ].mapValues { format.words(namer.sanitize($0)).joined(separator: format.separator.character) }
 
             let rendered = components.map { component in
-                var pieces = component.map { token -> String? in
+                var pieces = component.map { token -> (text: String?, source: FileNameSegment.Source) in
                     switch token {
-                    case .text(let text): format.separator == .space ? text : text.replacing(/\s+/, with: format.separator.character)
-                    case .variable(let variable): values[variable].flatMap { $0.isEmpty ? nil : $0 }
+                    case .text(let text): (format.separator == .space ? text : text.replacing(/\s+/, with: format.separator.character), .text)
+                    case .variable(let variable): (values[variable].flatMap { $0.isEmpty ? nil : $0 }, variable.source)
                     }
                 }
-                for index in pieces.indices where pieces[index] == nil {
-                    if index > 0, let previous = pieces[index - 1], Self.endsWithSeparator(previous) {
-                        pieces[index - 1] = previous.replacing(/[\s\-_.]+$/, with: "")
-                    } else if index + 1 < pieces.count, let next = pieces[index + 1] {
-                        pieces[index + 1] = next.replacing(/^[\s\-_.]+/, with: "")
+                for index in pieces.indices where pieces[index].text == nil {
+                    if index > 0, let previous = pieces[index - 1].text, Self.endsWithSeparator(previous) {
+                        pieces[index - 1].text = previous.replacing(/[\s\-_.]+$/, with: "")
+                    } else if index + 1 < pieces.count, let next = pieces[index + 1].text {
+                        pieces[index + 1].text = next.replacing(/^[\s\-_.]+/, with: "")
                     }
                 }
-                return namer.finalName(pieces.compactMap { $0 }.joined(), fallback: "")
+                let segments = pieces.compactMap { piece -> FileNameSegment? in
+                    guard let text = piece.text, !text.isEmpty else { return piece.source == .name ? FileNameSegment("", .name) : nil }
+                    return FileNameSegment(text, piece.source)
+                }
+                return FileNameSegment.finalized(segments, fallback: "")
             }
-            let folders = rendered.dropLast().filter { !$0.isEmpty }
-            return (folders + [namer.finalName(rendered.last ?? "", fallback: iso)]).joined(separator: "/")
+            var file = rendered.last ?? []
+            if file.allSatisfy(\.text.isEmpty) { file = [FileNameSegment(iso, .date)] + file.filter { $0.source == .name } }
+            let folders = rendered.dropLast().filter { !$0.allSatisfy(\.text.isEmpty) }
+            return (folders + [file]).flatMap { $0 + [FileNameSegment("/", .folderSeparator)] }.dropLast()
         }
 
         private static func endsWithSeparator(_ text: String) -> Bool {
@@ -273,5 +298,34 @@ extension FileNameFormat {
             }
             return result.split(whereSeparator: \.isWhitespace).joined(separator: " ").trimmingCharacters(in: .punctuationCharacters.union(.whitespaces))
         }
+    }
+}
+
+/// A part of a file name and where it comes from.
+public struct FileNameSegment: Equatable, Sendable {
+    public enum Source: Equatable, Sendable {
+        case text, folderSeparator, name, date, category, issuer, number
+    }
+
+    public var text: String
+    public var source: Source
+
+    public init(_ text: String, _ source: Source) {
+        self.text = text
+        self.source = source
+    }
+
+    /// Trims the ends as final file names are; anything else the file name rules change makes one plain segment of the final name.
+    static func finalized(_ segments: [FileNameSegment], fallback: String) -> [FileNameSegment] {
+        var segments = segments
+        if let first = segments.firstIndex(where: { !$0.text.isEmpty }) {
+            segments[first].text = String(segments[first].text.drop(while: \.isWhitespace))
+        }
+        if let last = segments.lastIndex(where: { !$0.text.isEmpty }) {
+            segments[last].text = String(segments[last].text.reversed().drop(while: \.isWhitespace).reversed())
+        }
+        let joined = segments.map(\.text).joined()
+        let final = FileNamer().finalName(joined, fallback: fallback)
+        return final == joined ? segments : [FileNameSegment(final, .text)]
     }
 }

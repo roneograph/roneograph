@@ -143,4 +143,31 @@ struct FileNameFormatTests {
         let invalid = try JSONDecoder().decode(FileNameFormat.self, from: Data(#"{"isCustom":true,"template":"{FOO}"}"#.utf8))
         #expect(invalid == FileNameFormat())
     }
+
+    // MARK: Segments
+
+    @Test func tellsWhereEachPartOfASimpleFileNameComesFrom() {
+        let format = FileNameFormat(datePosition: .start, separator: .dash, lowercase: true)
+        #expect(format.segments(name: "Lumen Energy invoice", details: DocumentDetails(date: date), scanDate: scanDate) == [
+            FileNameSegment("2026-11-12", .date), FileNameSegment("-", .text), FileNameSegment("lumen-energy-invoice", .name),
+        ])
+        #expect(FileNameFormat().segments(name: " ", scanDate: scanDate) == [FileNameSegment("2026-11-16", .date)])
+    }
+
+    @Test func tellsWhereEachPartOfACustomFileNameComesFrom() {
+        let format = custom("{CATEGORY}/{YYYY}-{MM} {ISSUER} {NAME}")
+        #expect(format.segments(name: "October", details: lumen, scanDate: scanDate) == [
+            FileNameSegment("Invoice", .category), FileNameSegment("/", .folderSeparator),
+            FileNameSegment("2026", .date), FileNameSegment("-", .text), FileNameSegment("11", .date), FileNameSegment(" ", .text),
+            FileNameSegment("Lumen Energy", .issuer), FileNameSegment(" ", .text), FileNameSegment("October", .name),
+        ])
+    }
+
+    @Test func keepsAnEmptyNameSegmentWhereTheNameWouldGo() {
+        let format = custom("{CATEGORY} {ISSUER} {NAME}")
+        let parts = SuggestedParts(type: "Facture", issuer: "Lumen Energy")
+        let segments = format.segments(name: "Facture Lumen Energy", details: lumen, scanDate: scanDate, suggestedParts: parts)
+        #expect(segments == [FileNameSegment("Invoice", .category), FileNameSegment(" ", .text), FileNameSegment("Lumen Energy", .issuer), FileNameSegment("", .name)])
+        #expect(segments.map(\.text).joined() == "Invoice Lumen Energy")
+    }
 }
