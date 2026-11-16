@@ -29,13 +29,13 @@ public enum Paper: String, Codable, Sendable, CaseIterable {
 /// so the size comes from the proportions when they are those of a known format, or from the size of the text.
 public struct PageSizing: Sendable {
     /// How far the proportions may be from A4 or Letter and still snap to it.
-    public var tolerance: CGFloat = 0.08
+    private let tolerance: CGFloat = 0.08
     /// When the proportions are this close to halfway between A4 and Letter, the default paper wins.
-    public var ambiguity: CGFloat = 0.02
+    private let ambiguity: CGFloat = 0.02
     /// Height of a line of printed text, as Vision measures it, in points: about 3.7 mm on letters and invoices.
-    public var textLineHeight: CGFloat = 10.5
+    private let textLineHeight: CGFloat = 10.5
     /// Estimated sizes are never smaller than this on their long side, in points.
-    public var minimumLongSide: CGFloat = 50 / 25.4 * 72
+    private let minimumLongSide: CGFloat = 50 / 25.4 * 72
 
     public init() {}
 
