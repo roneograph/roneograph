@@ -51,9 +51,9 @@ public struct PDFWriter: @unchecked Sendable {
         for page in pages {
             let image = page.image.atOrigin
             var box = CGRect(origin: .zero, size: sizing.pageSize(forImage: image.extent.size, textLineHeight: page.textLineHeight, defaultPaper: defaultPaper))
-            let encoded = try encode(image, look: page.look, pageSize: box.size)
+            let resized = resample(image, to: CGSize(width: box.width / 72 * dpi, height: box.height / 72 * dpi))
+            let encoded = try jpeg(resized, gray: page.look == .gray)
             pdf.beginPDFPage([kCGPDFContextMediaBox: Data(bytes: &box, count: MemoryLayout<CGRect>.size)] as CFDictionary)
-            pdf.interpolationQuality = .high
             pdf.draw(encoded, in: box)
             drawInvisibly(page.text, in: pdf, pageSize: box.size)
             pdf.endPDFPage()
@@ -83,11 +83,6 @@ public struct PDFWriter: @unchecked Sendable {
             pdf.restoreGState()
         }
         pdf.restoreGState()
-    }
-
-    private func encode(_ image: CIImage, look: PageLook, pageSize: CGSize) throws -> CGImage {
-        let resized = resample(image, to: CGSize(width: pageSize.width / 72 * dpi, height: pageSize.height / 72 * dpi))
-        return try jpeg(resized, gray: look == .gray)
     }
 
     /// Resamples to the target pixel size, or to the page proportions at the image's own resolution when it has fewer pixels.
