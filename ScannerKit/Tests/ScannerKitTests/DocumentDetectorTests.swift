@@ -16,12 +16,15 @@ struct DocumentDetectorTests {
         print("First scans:\n\(report.table)\n\(report.misses.joined(separator: "\n"))")
         print("With the user's own lines learned:\n\(learned.table)")
         print("Holdout:\n\(holdout.table)\n\(holdout.misses.joined(separator: "\n"))")
-        #expect(report.rate("issuer") >= 0.9)
-        #expect(report.rate("date") >= 0.95)
-        #expect(report.rate("number") >= 0.95)
-        #expect(holdout.rate("issuer") >= 0.8)
-        #expect(holdout.rate("date") >= 0.8)
-        #expect(holdout.rate("number") >= 0.8)
+        #expect(report.misses == [
+            "other-fr issuer: got Fête des voisins",
+            "other-fr2 issuer: got Liste des pièces à fournir",
+            "other-de issuer: got Speiseplan",
+            "other-es issuer: got Horario de clases",
+            "other-it issuer: got Gita sociale ai colli",
+        ])
+        #expect(learned.misses == report.misses)
+        #expect(holdout.misses.isEmpty)
     }
 
     @Test(arguments: DocumentCorpus.documents + DocumentCorpus.holdout)
@@ -531,11 +534,6 @@ struct CorpusReport {
                 if !hit { misses.append("\(document.name) \(detail): got \(value)") }
             }
         }
-    }
-
-    func rate(_ detail: String, _ language: String = "all") -> Double {
-        let tally = tallies[detail]?[language] ?? Tally()
-        return tally.total == 0 ? 0 : Double(tally.hits) / Double(tally.total)
     }
 
     var table: String {
