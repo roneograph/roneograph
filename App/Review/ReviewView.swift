@@ -29,7 +29,6 @@ struct ReviewView: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .task(id: scan.pdfInputs) { await scan.buildPDF() }
-        .onChange(of: settings.fileNameFormat) { scan.applyFileName() }
         .task {
             if settings.askForName, !scan.scan.isNamedByUser, !askedForName {
                 askedForName = true
