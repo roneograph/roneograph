@@ -299,6 +299,11 @@ struct DocumentDetectorTests {
         #expect(detected.issuerKeys == ["maison-ferlac.fr", "maison ferlac"])
     }
 
+    @Test func keepsTheSecondLevelOfADomain() {
+        let lines = [line("Harbour Tea", y: 0.04, height: 0.02), line("Lorem ipsum", y: 0.5), line("www.shop.harbourtea.co.uk · orders@harbourtea.co.uk", y: 0.95)]
+        #expect(detector.detect(lines: lines).issuerKeys == ["harbourtea.co.uk", "harbour tea"])
+    }
+
     @Test func ignoresMailProviders() {
         let lines = ["jo@gmail.com", "info@orange.fr", "a.b@web.de", "x@hotmail.co.uk", "y@yahoo.it", "z@icloud.com", "w@free.fr", "v@laposte.net", "u@gmx.de", "t@outlook.es"]
             .enumerated().map { line($1, y: 0.05 + Double($0) * 0.02) }

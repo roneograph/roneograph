@@ -9,6 +9,7 @@ struct FileNamerTests {
         #expect(FileNamer.sanitize("Invoice 12/2026: \"final\"?") == "Invoice 12-2026- -final--")
         #expect(FileNamer.sanitize("..hidden") == "hidden")
         #expect(FileNamer.sanitize("line\nbreak") == "line-break")
+        #expect(FileNamer.sanitize("Lumen\u{200B} Energy\u{FEFF}") == "Lumen Energy")
     }
 
     @Test func finalNameIsTrimmedAndNeverEmpty() {

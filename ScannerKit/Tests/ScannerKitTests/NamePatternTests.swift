@@ -25,6 +25,20 @@ struct NamePatternTests {
         #expect(next("Luz noviembre", from: "2026-11-12", to: "2026-12-10") == "Luz diciembre")
     }
 
+    @Test func followsShortMonthNamesWithoutTheirDot() {
+        #expect(next("Lumen Nov. 2026", from: "2026-11-12", to: "2027-11-10") == "Lumen Nov 2027")
+        #expect(next("Strom Okt. 2026", from: "2026-10-12", to: "2026-11-10") == "Strom Nov 2026")
+    }
+
+    @Test func tellsWhatFollowsTheNextDocument() {
+        let typed = NamePattern(name: "Lumen bill", details: DocumentDetails(number: "2026-1142"), date: date("2026-11-12"))
+        #expect(!typed.follows.date && !typed.follows.number)
+        let dated = NamePattern(name: "Lumen November", details: DocumentDetails(number: "2026-1142"), date: date("2026-11-12"))
+        #expect(dated.follows.date && !dated.follows.number)
+        let numbered = NamePattern(name: "Lumen 2026-1142", details: DocumentDetails(number: "2026-1142"), date: date("2026-11-12"))
+        #expect(!numbered.follows.date && numbered.follows.number)
+    }
+
     @Test func followsNumericDates() {
         #expect(next("2026-11-12 Lumen", from: "2026-11-12", to: "2026-12-10") == "2026-12-10 Lumen")
         #expect(next("Lumen 2026-10", from: "2026-11-12", to: "2026-12-10") == "Lumen 2026-11")
