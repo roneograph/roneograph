@@ -486,7 +486,7 @@ public struct DocumentDetector: Sendable {
 
     private static func continues(_ line: Line, after previous: Line, on page: Page) -> Bool {
         guard isRightUnder(line, previous) else { return false }
-        if startsWithConnector(line) || endsWithSmallWord(previous) { return true }
+        if startsWithConnector(line) || endsWithSmallWord(previous) || (isCapitals(previous) && isCapitals(line) && startsWithConnector(line, inCapitals: true)) { return true }
         let sameSize = max(line.frame.height, previous.frame.height) < min(line.frame.height, previous.frame.height) * 1.3
         let isShort = previous.words.count <= 2 && line.words.count <= 2
         return page.isLarge(line) && page.isLarge(previous) && sameSize && isShort && line.text.first?.isUppercase == true
@@ -525,11 +525,18 @@ public struct DocumentDetector: Sendable {
         return smallWords.contains(String(last.text))
     }
 
-    /// Whether the line starts with a lowercase "de" or "d'", so it ends a line above it instead of starting a name.
-    private static func startsWithConnector(_ line: Line) -> Bool {
-        guard let first = line.tokens.first, first.text.first?.isLowercase == true else { return false }
-        return smallWords.subtracting(articles).contains(String(first.text))
-            || elisions.subtracting(articles).contains { first.text.hasPrefix($0 + "'") || first.text.hasPrefix($0 + "’") }
+    /// Whether the line starts with a lowercase "de" or "d'", so it ends a line above it instead of starting a name;
+    /// `inCapitals` also takes "DE" or "D'", as in a name written in capitals.
+    private static func startsWithConnector(_ line: Line, inCapitals: Bool = false) -> Bool {
+        guard let first = line.tokens.first, first.text.first?.isLowercase == true || inCapitals else { return false }
+        let word = inCapitals ? first.text.lowercased() : String(first.text)
+        return smallWords.subtracting(articles).contains(word)
+            || elisions.subtracting(articles).contains { word.hasPrefix($0 + "'") || word.hasPrefix($0 + "’") }
+    }
+
+    private static func isCapitals(_ line: Line) -> Bool {
+        let letters = line.text.filter(\.isLetter)
+        return letters.count >= 2 && letters.allSatisfy(\.isUppercase)
     }
 
     /// The most prominent candidate, strengthened by legal forms, domains and company identifiers, and by organization names when that is not enough.

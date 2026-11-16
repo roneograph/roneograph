@@ -170,6 +170,18 @@ struct DocumentDetectorTests {
         #expect(detector.detect(lines: lines).details.issuer == "Maison d'Horlogerie de Vence")
     }
 
+    @Test func readsANameInCapitalsWrappedBeforeItsConnectorAsOne() {
+        let lines = [
+            TextLine(text: "BOULANGERIE", frame: CGRect(x: 0.45, y: 0.05, width: 0.11, height: 0.012)),
+            TextLine(text: "DES ALOUETTES", frame: CGRect(x: 0.44, y: 0.066, width: 0.13, height: 0.012)),
+            TextLine(text: "3 place du Marché", frame: CGRect(x: 0.42, y: 0.087, width: 0.16, height: 0.012)),
+            line("Lorem ipsum", y: 0.2, height: 0.009),
+            line("Dolor sit amet", y: 0.22, height: 0.009),
+            line("Consectetur", y: 0.24, height: 0.009),
+        ]
+        #expect(detector.detect(lines: lines).details.issuer == "Boulangerie des Alouettes")
+    }
+
     @Test func takesALogoReadUncertainlyWhenTheWebDomainConfirmsIt() {
         let lines = [
             TextLine(text: "VeRDaLiS", frame: CGRect(x: 0.08, y: 0.03, width: 0.2, height: 0.03), confidence: 0.5),
