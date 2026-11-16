@@ -93,6 +93,10 @@ public struct PageCleaner: @unchecked Sendable {
         public var pictureFractionForPaperColor: Double = 0.15
         public var minimumSkew: Double = 0.15
         public var minimumLinesForSize = 5
+        public var edgeSize: CGFloat = 600
+        /// How far in from each side dark areas touching the side are taken for the table or a shadow around the sheet, as a share of the short side.
+        public var edgeBand: Double = 0.04
+        public var edgeDarkness: Float = 0.85
 
         public init() {}
     }
@@ -125,6 +129,7 @@ public struct PageCleaner: @unchecked Sendable {
 
         let paper = analysis.pictureFraction >= configuration.pictureFractionForPaperColor ? paperColor(of: image) : background(of: image)
         image = whitePaper(divide(image, by: paper))
+        image = whiteningEdges(of: image)
         switch settings.look ?? analysis.suggestedLook {
         case .color:
             break
@@ -197,6 +202,56 @@ public struct PageCleaner: @unchecked Sendable {
         return (filter.outputImage ?? image)
             .applyingFilter("CIColorClamp")
             .applyingFilter("CIGammaAdjust", parameters: ["inputPower": configuration.inkGamma])
+    }
+
+    // MARK: Edges
+
+    /// Turns white the dark areas that touch a side of the page and stay close to it: the table, the next sheet or a shadow left by the crop.
+    /// What reaches further in, such as a full-bleed header or picture, is kept whole.
+    func whiteningEdges(of image: CIImage) -> CIImage {
+        let bitmap = Bitmap(image, longSide: configuration.edgeSize, context: context)
+        let (width, height) = (bitmap.width, bitmap.height)
+        let band = max(2, Int(Double(min(width, height)) * configuration.edgeBand))
+        let isDark = (0..<bitmap.count).map { bitmap.luminance($0) < configuration.edgeDarkness }
+        var area = [Int32](repeating: 0, count: bitmap.count)
+        var mask = [UInt8](repeating: 0, count: bitmap.count)
+        var label: Int32 = 0
+        let rows: [Int] = (0..<width).flatMap { x -> [Int] in [x, (height - 1) * width + x] }
+        let columns: [Int] = (0..<height).flatMap { y -> [Int] in [y * width, y * width + width - 1] }
+        let borders = rows + columns
+        for seed in borders where isDark[seed] && area[seed] == 0 {
+            label += 1
+            var stack = [seed]
+            var members: [Int] = []
+            var escapes = false
+            area[seed] = label
+            while let i = stack.popLast() {
+                members.append(i)
+                let (x, y) = (i % width, i / width)
+                if min(x, y, width - 1 - x, height - 1 - y) >= band { escapes = true }
+                for (nx, ny) in [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)] where nx >= 0 && ny >= 0 && nx < width && ny < height {
+                    let n = ny * width + nx
+                    if isDark[n] && area[n] == 0 {
+                        area[n] = label
+                        stack.append(n)
+                    }
+                }
+            }
+            if !escapes { for i in members { mask[i] = 255 } }
+        }
+        guard mask.contains(255), let provider = CGDataProvider(data: Data(mask) as CFData),
+              let cgMask = CGImage(width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 8, bytesPerRow: width, space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue), provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)
+        else { return image }
+        let extent = image.extent
+        let scaledMask = CIImage(cgImage: cgMask)
+            .applyingFilter("CIMorphologyMaximum", parameters: [kCIInputRadiusKey: 1.5])
+            .cropped(to: CGRect(x: 0, y: 0, width: width, height: height))
+            .clampedToExtent()
+            .transformed(by: CGAffineTransform(scaleX: extent.width / CGFloat(width), y: extent.height / CGFloat(height)))
+            .transformed(by: CGAffineTransform(translationX: extent.minX, y: extent.minY))
+            .cropped(to: extent)
+        let white = CIImage(color: .white).cropped(to: extent)
+        return white.applyingFilter("CIBlendWithMask", parameters: [kCIInputBackgroundImageKey: image, kCIInputMaskImageKey: scaledMask]).cropped(to: extent)
     }
 
     // MARK: Content

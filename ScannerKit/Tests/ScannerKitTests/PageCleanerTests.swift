@@ -73,6 +73,19 @@ struct PageCleanerTests {
         }
     }
 
+    @Test func whitensWhatTouchesTheSideOfThePageButKeepsWhatReachesIn() {
+        let page = SyntheticPage().render()
+        let width = page.extent.width, height = page.extent.height
+        let sliver = CIImage(color: CIColor(red: 0.1, green: 0.1, blue: 0.1)).cropped(to: CGRect(x: 0, y: height * 0.3, width: width * 0.015, height: height * 0.4))
+        let band = CIImage(color: CIColor(red: 0.15, green: 0.15, blue: 0.15)).cropped(to: CGRect(x: width * 0.985, y: height * 0.3, width: width * 0.015, height: height * 0.4))
+            .composited(over: CIImage(color: CIColor(red: 0.15, green: 0.15, blue: 0.15)).cropped(to: CGRect(x: width * 0.85, y: height * 0.45, width: width * 0.15, height: height * 0.02)))
+        let photo = sliver.composited(over: band).composited(over: page)
+        let clean = cleaner.render(photo, analysis: cleaner.analyze(photo), settings: CleanupSettings(look: .gray))
+        #expect(color(of: clean, at: CGPoint(x: 0.007, y: 0.5)).0 > 0.95)
+        #expect(color(of: clean, at: CGPoint(x: 0.993, y: 0.5)).0 < 0.4)
+        #expect(color(of: clean, at: CGPoint(x: 0.9, y: 0.54)).0 < 0.4)
+    }
+
     @Test func keepsTheInkBlack() {
         let page = SyntheticPage(paper: (0.86, 0.8, 0.62), shadow: true).render()
         let clean = cleaner.render(page, analysis: cleaner.analyze(page), settings: CleanupSettings(look: .gray))
