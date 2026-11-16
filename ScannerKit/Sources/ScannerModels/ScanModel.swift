@@ -299,7 +299,7 @@ public final class ScanModel: Identifiable {
         if followsSuggestion, let first = names.first { scan.title = first }
     }
 
-    /// Derives the file name from the name and details, after a change of either or of the format in Settings.
+    /// Derives the file name from the name and details, after a change of either.
     public func applyFileName() {
         let old = scan.fileName
         scan.name = store.availableName(fileName(for: scan.title), for: scan, separator: settings.value.fileNameFormat.separator.character)
