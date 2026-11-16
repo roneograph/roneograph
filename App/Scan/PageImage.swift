@@ -1,3 +1,4 @@
+import ImageIO
 import ScannerKit
 import SwiftUI
 import UIKit
@@ -22,11 +23,17 @@ struct PageImage: View {
         }
     }
 
+    /// The image at most `maximumSize` pixels on its long side, turned upright, downsampled while decoding.
     static func load(_ url: URL, maximumSize: CGFloat) async -> UIImage? {
         await Task.detached(priority: .userInitiated) { () -> UIImage? in
-            guard let image = UIImage(contentsOfFile: url.path(percentEncoded: false)) else { return nil }
-            let scale = min(1, maximumSize / max(image.size.width, image.size.height))
-            return await image.byPreparingThumbnail(ofSize: CGSize(width: image.size.width * scale, height: image.size.height * scale))
+            guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+                  let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                      kCGImageSourceCreateThumbnailFromImageAlways: true,
+                      kCGImageSourceCreateThumbnailWithTransform: true,
+                      kCGImageSourceShouldCacheImmediately: true,
+                      kCGImageSourceThumbnailMaxPixelSize: Int(maximumSize),
+                  ] as CFDictionary) else { return nil }
+            return UIImage(cgImage: image)
         }.value
     }
 

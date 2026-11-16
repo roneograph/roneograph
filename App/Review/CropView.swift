@@ -1,4 +1,3 @@
-import ImageIO
 import ScannerKit
 import ScannerModels
 import SwiftUI
@@ -51,8 +50,7 @@ struct CropView: View {
         }
         .preferredColorScheme(.dark)
         .task {
-            let url = scan.photoURL(of: page)
-            photo = await Task.detached(priority: .userInitiated) { UIImage.downsampled(url, maximumPixels: 2400) }.value
+            photo = await PageImage.load(scan.photoURL(of: page), maximumSize: 2400)
         }
     }
 
@@ -198,18 +196,5 @@ private struct Loupe: View {
         .clipShape(Circle())
         .overlay(Circle().stroke(.white, lineWidth: 3))
         .shadow(radius: 8)
-    }
-}
-
-extension UIImage {
-    /// The image at most `maximumPixels` on its long side, turned upright.
-    static func downsampled(_ url: URL, maximumPixels: Int) -> UIImage? {
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
-              let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
-                  kCGImageSourceCreateThumbnailFromImageAlways: true,
-                  kCGImageSourceCreateThumbnailWithTransform: true,
-                  kCGImageSourceThumbnailMaxPixelSize: maximumPixels,
-              ] as CFDictionary) else { return nil }
-        return UIImage(cgImage: image)
     }
 }
