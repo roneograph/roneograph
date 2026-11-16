@@ -235,9 +235,24 @@ public final class ScanModel: Identifiable {
                 if details.category != old.category { learned.category = details.category }
             }
         }
+        resuggestNames(from: old, to: details)
         scan.details = details
         scan.areDetailsEditedByUser = true
         applyFileName()
+    }
+
+    /// Suggested names follow a corrected issuer or number, and so does the name while it is the first suggestion.
+    /// An issuer joins the suggestions only when they had the one read, or none was read.
+    private func resuggestNames(from old: DocumentDetails, to details: DocumentDetails) {
+        var parts = scan.suggestedParts
+        if details.issuer != old.issuer, parts.issuer != nil || old.issuer == nil { parts.issuer = details.issuer }
+        if details.number != old.number { parts.number = details.number }
+        guard parts != scan.suggestedParts else { return }
+        let followsSuggestion = !scan.isNamedByUser && scan.title == scan.suggestions.first
+        let names = namer.suggestions(for: DetectedDocument(details: details, parts: parts), date: scan.created).names
+        scan.suggestedParts = parts
+        scan.suggestions = names
+        if followsSuggestion, let first = names.first { scan.title = first }
     }
 
     /// Derives the file name from the name and details, after a change of either or of the format in Settings.

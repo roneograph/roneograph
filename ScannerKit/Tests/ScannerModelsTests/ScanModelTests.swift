@@ -276,6 +276,43 @@ struct ScanModelTests {
         #expect(model.scan.name == "Invoice Lumen Energy")
     }
 
+    private func suggestedScan(title: String, parts: SuggestedParts, issuer: String?, namedByUser: Bool = false) -> Scan {
+        var scan = Scan(name: "Scan", title: title)
+        scan.suggestions = [title]
+        scan.suggestedParts = parts
+        scan.details = DocumentDetails(category: .invoice, issuer: issuer)
+        scan.isNamedByUser = namedByUser
+        return scan
+    }
+
+    @Test func aSuggestedNameFollowsTheCorrectedIssuer() throws {
+        let fixture = try Fixture()
+        let scan = suggestedScan(title: "Facture Lumen Energy", parts: SuggestedParts(type: "Facture", issuer: "Lumen Energy"), issuer: "Lumen Energy")
+        let model = ScanModel(scan: scan, processor: fixture.processor, settings: fixture.settings)
+        model.setDetails(DocumentDetails(category: .invoice, issuer: "Northwind Power"))
+        #expect(model.scan.title == "Facture Northwind Power")
+        #expect(model.scan.suggestions == ["Facture Northwind Power"])
+        #expect(model.scan.name == "Facture Northwind Power")
+        #expect(!model.scan.isNamedByUser)
+    }
+
+    @Test func aTypedNameStaysWhenTheIssuerIsCorrected() throws {
+        let fixture = try Fixture()
+        let scan = suggestedScan(title: "Electricity", parts: SuggestedParts(type: "Facture", issuer: "Lumen Energy"), issuer: "Lumen Energy", namedByUser: true)
+        let model = ScanModel(scan: scan, processor: fixture.processor, settings: fixture.settings)
+        model.setDetails(DocumentDetails(category: .invoice, issuer: "Northwind Power"))
+        #expect(model.scan.title == "Electricity")
+        #expect(model.scan.suggestions == ["Facture Northwind Power"])
+    }
+
+    @Test func aHeadingNameDoesNotTakeTheCorrectedIssuer() throws {
+        let fixture = try Fixture()
+        let scan = suggestedScan(title: "Avis de passage", parts: SuggestedParts(type: "Avis de passage"), issuer: "Lumen Energy")
+        let model = ScanModel(scan: scan, processor: fixture.processor, settings: fixture.settings)
+        model.setDetails(DocumentDetails(category: .invoice, issuer: "Northwind Power"))
+        #expect(model.scan.title == "Avis de passage")
+    }
+
     @Test func reusesTheIssuerAndCategoryCorrectedForTheSameIssuer() async throws {
         let fixture = try Fixture()
         let photo = try #require(PageExtractor(context: CIContext()).jpegData(of: SyntheticPage(title: "LUMEN ENERGY SAS").render(), quality: 0.9))
