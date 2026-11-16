@@ -13,13 +13,13 @@ public struct PageExtractor: @unchecked Sendable {
     }
 
     /// Detects a page in an upright image.
-    public func detect(in image: CIImage) -> Quad? {
-        detect(with: VNImageRequestHandler(ciImage: image))
+    public func detect(in image: CIImage) async -> Quad? {
+        await detect(with: ImageRequestHandler(image))
     }
 
     /// Detects a page in a camera frame; the quad is relative to the frame once rotated by `orientation`.
-    public func detect(in pixelBuffer: CVPixelBuffer, orientation: CGImagePropertyOrientation) -> Quad? {
-        detect(with: VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: orientation))
+    public func detect(in pixelBuffer: CVPixelBuffer, orientation: CGImagePropertyOrientation) async -> Quad? {
+        await detect(with: ImageRequestHandler(pixelBuffer, orientation: orientation))
     }
 
     /// Removes the perspective: the four corners become the corners of the output image, whose origin is zero.
@@ -62,21 +62,18 @@ public struct PageExtractor: @unchecked Sendable {
         context.jpegRepresentation(of: image, colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!, options: [kCGImageDestinationLossyCompressionQuality as CIImageRepresentationOption: quality])
     }
 
-    private func detect(with handler: VNImageRequestHandler) -> Quad? {
-        let segmentation = VNDetectDocumentSegmentationRequest()
-        let rectangles = VNDetectRectanglesRequest()
+    private func detect(with handler: ImageRequestHandler) async -> Quad? {
+        if let page = try? await handler.perform(DetectDocumentSegmentationRequest()), page.confidence >= 0.5 {
+            return Quad(page)
+        }
+        var rectangles = DetectRectanglesRequest()
         rectangles.maximumObservations = 1
         rectangles.minimumAspectRatio = 0.2
         rectangles.maximumAspectRatio = 1
         rectangles.minimumSize = 0.2
-        rectangles.quadratureTolerance = 30
+        rectangles.quadratureToleranceDegrees = 30
         rectangles.minimumConfidence = 0.5
-
-        if (try? handler.perform([segmentation])) != nil,
-           let page = segmentation.results?.first, page.confidence >= 0.5 {
-            return Quad(page)
-        }
-        if (try? handler.perform([rectangles])) != nil, let page = rectangles.results?.first {
+        if let page = try? await handler.perform(rectangles).first {
             return Quad(page)
         }
         return nil
@@ -84,7 +81,7 @@ public struct PageExtractor: @unchecked Sendable {
 }
 
 private extension Quad {
-    init(_ observation: VNRectangleObservation) {
-        self.init(lowerLeftOriginTopLeft: observation.topLeft, topRight: observation.topRight, bottomRight: observation.bottomRight, bottomLeft: observation.bottomLeft)
+    init(_ observation: some QuadrilateralProviding) {
+        self.init(lowerLeftOriginTopLeft: observation.topLeft.cgPoint, topRight: observation.topRight.cgPoint, bottomRight: observation.bottomRight.cgPoint, bottomLeft: observation.bottomLeft.cgPoint)
     }
 }

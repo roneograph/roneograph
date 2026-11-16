@@ -2,6 +2,7 @@
 import CoreImage
 import ScannerKit
 import ScannerModels
+import Synchronization
 import Vision
 
 enum CameraError: Error {
@@ -38,6 +39,7 @@ final class CameraService: NSObject, CameraDevice, @unchecked Sendable {
     private let smudgeInterval: TimeInterval = 3
     private var lastFrameTime: TimeInterval = 0
     private var lastSmudgeCheck: TimeInterval = 0
+    private let isDetecting = Atomic(false)
     private var device: AVCaptureDevice?
     private var inFlight: [Int64: PhotoDelegate] = [:]
     private var configured = false
@@ -131,19 +133,24 @@ final class CameraService: NSObject, CameraDevice, @unchecked Sendable {
 extension CameraService: AVCaptureVideoDataOutputSampleBufferDelegate {
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         let time = CMSampleBufferGetPresentationTimeStamp(sampleBuffer).seconds
-        guard time - lastFrameTime >= minimumFrameInterval, let buffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        guard time - lastFrameTime >= minimumFrameInterval, let buffer = CMSampleBufferGetImageBuffer(sampleBuffer),
+              isDetecting.compareExchange(expected: false, desired: true, ordering: .acquiring).exchanged else { return }
         lastFrameTime = time
 
-        // Frames come in the sensor's landscape orientation; .right makes them portrait.
-        let quad = extractor.detect(in: buffer, orientation: .right)
-        let image = CIImage(cvPixelBuffer: buffer).oriented(.right)
-        let signature = quad.flatMap { extractor.signature(of: image, quad: $0) }
+        let frame = FrameBox(buffer: buffer)
         let lowLight = device.map { $0.iso >= $0.activeFormat.maxISO * 0.7 } ?? false
-        onFrame?(LiveFrame(quad: quad, signature: signature, imageSize: image.extent.size, time: time, lowLight: lowLight))
+        let onFrame = onFrame
+        Task { [self] in
+            defer { isDetecting.store(false, ordering: .releasing) }
+            // Frames come in the sensor's landscape orientation; .right makes them portrait.
+            let quad = await extractor.detect(in: frame.buffer, orientation: .right)
+            let image = CIImage(cvPixelBuffer: frame.buffer).oriented(.right)
+            let signature = quad.flatMap { extractor.signature(of: image, quad: $0) }
+            onFrame?(LiveFrame(quad: quad, signature: signature, imageSize: image.extent.size, time: time, lowLight: lowLight))
+        }
 
         if time - lastSmudgeCheck >= smudgeInterval, let onSmudge {
             lastSmudgeCheck = time
-            let frame = FrameBox(buffer: buffer)
             Task.detached(priority: .utility) {
                 if let observation = try? await DetectLensSmudgeRequest().perform(on: frame.buffer, orientation: .right) {
                     onSmudge(observation.confidence)
