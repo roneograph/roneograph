@@ -132,10 +132,11 @@ enum DocumentVocabulary {
             category: .taxNotice,
             titles: [
                 "avis d'impôt", "avis d'imposition", "avis de taxe foncière", "avis de taxe d'habitation", "taxe foncière", "steuerbescheid",
-                "*steuerbescheid", "bescheid für", "bescheid über", "notice of assessment", "tax assessment", "tax notice", "tax bill", "council tax bill",
+                "*steuerbescheid", "notice of assessment", "tax assessment", "tax notice", "tax bill", "council tax bill",
                 "property tax", "liquidación provisional", "notificación de liquidación", "avviso di accertamento", "cartella di pagamento",
                 "comunicazione di irregolarità", "avviso di pagamento",
             ],
+            weakTitles: ["bescheid"],
             nameWords: [
                 "finances publiques", "impots.gouv.fr", "council tax", "hm revenue & customs", "internal revenue service", "finanzamt",
                 "agencia tributaria", "agenzia delle entrate",

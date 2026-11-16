@@ -303,10 +303,10 @@ public struct DocumentDetector: Sendable {
 
     private static let smallWords: Set<String> = ["de", "du", "des", "la", "le", "les", "et", "of", "the", "and", "for", "von", "der", "und", "di", "del", "della", "delle", "y", "il"]
 
-    /// Calms down text in capitals: "OFFICE DU TOURISME" becomes "Office du Tourisme", or "Office du tourisme" without `capitalizeAll`.
+    /// Calms down text in capitals: "OFFICE DU TOURISME" becomes "Office du Tourisme", or "Office du tourisme" without `capitalizeAll`; text in lowercase gets capitals too.
     static func titleCased(_ words: [String], capitalizeAll: Bool = true) -> String {
-        let shouting = words.joined().filter(\.isLetter).allSatisfy(\.isUppercase)
-        guard shouting else { return words.joined(separator: " ") }
+        let letters = words.joined().filter(\.isLetter)
+        guard letters.allSatisfy(\.isUppercase) || letters.allSatisfy(\.isLowercase) else { return words.joined(separator: " ") }
         return words.enumerated().map { index, word in
             let lower = word.lowercased()
             let capitalize = index == 0 || (capitalizeAll && !smallWords.contains(lower))

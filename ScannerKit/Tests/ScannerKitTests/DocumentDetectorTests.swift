@@ -95,6 +95,11 @@ struct DocumentDetectorTests {
         #expect(detector.detect(lines: lines).details.issuer == "Lumen Énergie")
     }
 
+    @Test func capitalizesNamesWrittenInOneCase() {
+        #expect(detector.detect(lines: [line("northfield power", y: 0.04, height: 0.03)]).details.issuer == "Northfield Power")
+        #expect(detector.detect(lines: [line("CAISSE DES ÉCOLES DE LYON", y: 0.04, height: 0.03)]).details.issuer == "Caisse des Écoles de Lyon")
+    }
+
     @Test func prefersTheNameOfTheWebDomain() {
         let lines = [line("Atelier Nord", y: 0.04), line("Maison Ferlac", y: 0.06), line("Lorem ipsum", y: 0.5), line("www.maison-ferlac.fr · contact@gmail.com", y: 0.95)]
         let detected = detector.detect(lines: lines)
