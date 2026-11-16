@@ -217,6 +217,19 @@ struct ScanModelTests {
         #expect(size > 1000)
     }
 
+    @Test func editedDetailsRenameTheFileWithACustomFormat() async throws {
+        let fixture = try Fixture()
+        fixture.settings.value.fileNameFormat = FileNameFormat(isCustom: true, template: "{CATEGORY}/{YYYY} {ISSUER} {NUMBER}")
+        let model = await fixture.scanModel(pages: 1)
+        let year = String(FileNamer.isoDate(model.scan.created).prefix(4))
+        await model.buildPDF(delay: .zero)
+        model.setDetails(DocumentDetails(category: .insurance, issuer: "Acme Mutual", number: "P-1234"))
+        #expect(model.scan.areDetailsEditedByUser)
+        #expect(model.scan.name == "Insurance/\(year) Acme Mutual P-1234")
+        #expect(fixture.pdfExists("\(year) Acme Mutual P-1234"))
+        #expect(fixture.store.all().first?.details.issuer == "Acme Mutual")
+    }
+
     @Test func aSuggestedNameLeavesOutTheDetailsTheFormatShows() throws {
         let fixture = try Fixture()
         fixture.settings.value.fileNameFormat = FileNameFormat(isCustom: true, template: "{CATEGORY} {ISSUER} {NAME}")
@@ -229,5 +242,34 @@ struct ScanModelTests {
         #expect(model.fileName(for: "December") == "Invoice Lumen Energy December")
         model.rename("Facture Lumen Energy")
         #expect(model.scan.name == "Invoice Lumen Energy")
+    }
+
+    @Test func reusesTheIssuerAndCategoryCorrectedForTheSameIssuer() async throws {
+        let fixture = try Fixture()
+        let photo = try #require(PageExtractor(context: CIContext()).jpegData(of: SyntheticPage().render(), quality: 0.9))
+        let first = fixture.scanModel()
+        first.addPhoto(photo, liveQuad: nil)
+        await first.waitUntilIdle()
+        try #require(!first.scan.issuerKeys.isEmpty)
+        let car = try #require(fixture.settings.addCategory("Car"))
+        first.setDetails(DocumentDetails(category: car, issuer: "Quick Garage", date: first.scan.details.date))
+
+        let second = fixture.scanModel()
+        second.addPhoto(photo, liveQuad: nil)
+        await second.waitUntilIdle()
+        #expect(second.scan.details.category == car)
+        #expect(second.scan.details.issuer == "Quick Garage")
+        #expect(!second.scan.areDetailsEditedByUser)
+    }
+
+    @Test func editingOnlyTheDateLearnsNothing() async throws {
+        let fixture = try Fixture()
+        var scan = Scan(name: "Scan")
+        scan.issuerKeys = ["lumen"]
+        let model = ScanModel(scan: scan, processor: fixture.processor, settings: fixture.settings)
+        model.setDetails(DocumentDetails(date: .now))
+        #expect(fixture.settings.value.learnedIssuers.isEmpty)
+        model.setDetails(DocumentDetails(category: .invoice, date: .now))
+        #expect(fixture.settings.learnedIssuer(for: ["lumen"])?.category == .invoice)
     }
 }

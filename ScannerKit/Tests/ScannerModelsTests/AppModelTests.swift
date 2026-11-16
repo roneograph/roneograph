@@ -117,6 +117,22 @@ struct AppModelTests {
         #expect(app.scans.first?.sentBy == .files)
     }
 
+    @Test func savesIntoTheFoldersOfACustomFormat() async throws {
+        let fixture = try Fixture()
+        let folder = fixture.root.appending(path: "Paperwork", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try fixture.settings.chooseArchiveFolder(folder)
+        fixture.settings.value.fileNameFormat = FileNameFormat(isCustom: true, template: "{CATEGORY}/{ISSUER}")
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+        let scan = await fixture.capturedScan(in: app)
+        scan.setDetails(DocumentDetails(category: .payslip, issuer: "Acme"))
+        await scan.buildPDF(delay: .zero)
+
+        try app.saveToArchive(scan)
+        #expect(FileManager.default.fileExists(atPath: folder.appending(path: "Payslip/Acme.pdf").path(percentEncoded: false)))
+        #expect(fixture.pdfExists("Acme"))
+    }
+
     @Test func savingWithoutAnArchiveFolderFails() async throws {
         let fixture = try Fixture()
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)

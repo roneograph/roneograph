@@ -101,14 +101,24 @@ public final class ScanModel: Identifiable {
         save()
     }
 
+    /// Reads the details and names on the first page; what the user corrected for the same issuer before wins over what was read.
     private func suggestNames(from page: ScanPage) async {
-        let processor = processor, scanID = scan.id, date = scan.created
-        guard let suggestions = await Task.detached(priority: .userInitiated, operation: {
-            processor.nameSuggestions(for: page, scanID: scanID, date: date)
+        let processor = processor, scanID = scan.id, date = scan.created, ownLines = settings.ownLines
+        guard let read = await Task.detached(priority: .userInitiated, operation: {
+            processor.nameSuggestions(for: page, scanID: scanID, date: date, ownLines: ownLines)
         }).value, !isDeleted else { return }
+        var document = read.document
+        settings.recordHeaderLines(document.headerLines, issuerEvidence: document.issuerEvidence)
+        if let learned = settings.learnedIssuer(for: document.issuerKeys) {
+            document.details.issuer = learned.issuer
+            document.details.category = learned.category
+            document.parts.issuer = learned.issuer
+        }
+        let suggestions = namer.suggestions(for: document, date: date)
         scan.suggestions = suggestions.names
-        scan.suggestedParts = suggestions.document.parts
-        scan.details.date = suggestions.date
+        scan.suggestedParts = document.parts
+        scan.issuerKeys = document.issuerKeys
+        if !scan.areDetailsEditedByUser { scan.details = document.details }
         if !scan.isNamedByUser, let first = suggestions.names.first {
             scan.title = settings.learnedName(for: first) ?? first
         }
@@ -184,6 +194,17 @@ public final class ScanModel: Identifiable {
         if let suggestion = scan.suggestions.first, suggestion != fallbackTitle {
             settings.learn(scan.title, for: suggestion)
         }
+        applyFileName()
+    }
+
+    /// Changes the details; a new issuer or category is learned for the next document from the same issuer.
+    public func setDetails(_ details: DocumentDetails) {
+        guard details != scan.details else { return }
+        if details.issuer != scan.details.issuer || details.category != scan.details.category {
+            settings.learnIssuer(details.issuer, category: details.category, keys: scan.issuerKeys)
+        }
+        scan.details = details
+        scan.areDetailsEditedByUser = true
         applyFileName()
     }
 

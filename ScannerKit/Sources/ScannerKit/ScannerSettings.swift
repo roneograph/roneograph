@@ -15,9 +15,20 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
     public var fileNameFormat = FileNameFormat()
     /// Names the user gave instead of a suggestion, most recent first.
     public var learnedNames: [LearnedName] = []
+    /// Categories the user added to the built-in ones.
+    public var categories: [DocumentCategory] = []
+    /// The issuer and category the user gave to documents from an issuer, most recent first.
+    public var learnedIssuers: [LearnedIssuer] = []
+    /// Header lines seen on past scans, to recognize the user's own name and address.
+    public var headerLines: [HeaderLine] = []
     public var keepDays = 7
 
     public init() {}
+
+    /// The built-in categories, then the user's, Other last.
+    public var allCategories: [DocumentCategory] {
+        DocumentCategory.builtIn.dropLast() + categories.sorted() + [.other]
+    }
 
     public var hasValidEmail: Bool { Self.isValidEmail(email) }
 
@@ -26,7 +37,7 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case email, archiveFolder, askedForEmail, dismissedPageTip, autoCapture, askForName, fileNameFormat, learnedNames, keepDays
+        case email, archiveFolder, askedForEmail, dismissedPageTip, autoCapture, askForName, fileNameFormat, learnedNames, categories, learnedIssuers, headerLines, keepDays
     }
 
     /// Missing or unknown values keep their default, so settings survive app updates.
@@ -41,6 +52,9 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
         askForName = (try? container.decode(Bool.self, forKey: .askForName)) ?? defaults.askForName
         fileNameFormat = (try? container.decode(FileNameFormat.self, forKey: .fileNameFormat)) ?? defaults.fileNameFormat
         learnedNames = (try? container.decode([LearnedName].self, forKey: .learnedNames)) ?? defaults.learnedNames
+        categories = (try? container.decode([DocumentCategory].self, forKey: .categories)) ?? defaults.categories
+        learnedIssuers = (try? container.decode([LearnedIssuer].self, forKey: .learnedIssuers)) ?? defaults.learnedIssuers
+        headerLines = (try? container.decode([HeaderLine].self, forKey: .headerLines)) ?? defaults.headerLines
         keepDays = (try? container.decode(Int.self, forKey: .keepDays)) ?? defaults.keepDays
     }
 }
@@ -53,5 +67,32 @@ public struct LearnedName: Equatable, Sendable, Codable {
     public init(suggestion: String, name: String) {
         self.suggestion = suggestion
         self.name = name
+    }
+}
+
+/// What the user set for documents from one issuer, recognized by any of its keys.
+public struct LearnedIssuer: Equatable, Sendable, Codable {
+    public var keys: [String]
+    public var issuer: String?
+    public var category: DocumentCategory
+
+    public init(keys: [String], issuer: String?, category: DocumentCategory) {
+        self.keys = keys
+        self.issuer = issuer
+        self.category = category
+    }
+}
+
+/// A header line seen on past scans, kept as a fingerprint, with the issuers it was seen with.
+public struct HeaderLine: Equatable, Sendable, Codable {
+    public var fingerprint: String
+    public var scans: Int
+    /// Fingerprints of the domains and company identifiers of the documents it was on.
+    public var issuers: [String]
+
+    public init(fingerprint: String, scans: Int = 0, issuers: [String] = []) {
+        self.fingerprint = fingerprint
+        self.scans = scans
+        self.issuers = issuers
     }
 }
