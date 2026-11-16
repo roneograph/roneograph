@@ -81,7 +81,7 @@ struct RootView: View {
             CameraView(camera: camera, session: session, scan: scan, close: app.closeCamera) { app.finishCapture(scan) }
         }
         .sheet(isPresented: $app.showingSettings) {
-            SettingsView(settings: app.settings)
+            SettingsView(app: app, settings: app.settings)
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { app.refresh() }
