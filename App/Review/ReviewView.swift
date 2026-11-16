@@ -195,7 +195,7 @@ private struct PageGrid: View {
     let addPages: () -> Void
 
     var body: some View {
-        LazyVGrid(columns: [GridItem(.flexible(), spacing: 18), GridItem(.flexible(), spacing: 18)], spacing: 16) {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 18, alignment: .top), count: 2), spacing: 16) {
             ForEach(Array(scan.scan.pages.enumerated()), id: \.element.id) { index, page in
                 Button { open(page) } label: {
                     VStack(spacing: 5) {
