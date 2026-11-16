@@ -36,11 +36,13 @@ final class CameraModelTests {
     let fixture: Fixture
     let device = FakeCamera()
     let camera: CameraModel
+    let scan: ScanModel
 
     init() async throws {
         fixture = try Fixture()
         camera = CameraModel(device: device, settings: fixture.settings)
-        await camera.start(scan: fixture.scanModel())
+        scan = fixture.scanModel()
+        await camera.start(scan: scan)
     }
 
     @Test func capturesAPageHeldStill() async {
@@ -78,6 +80,20 @@ final class CameraModelTests {
         await camera.waitUntilIdle()
         #expect(device.photos == 2)
         #expect(camera.hint == .added(1))
+    }
+
+    @Test func countsThePagesStillBeingTakenOrProcessed() async {
+        camera.shutter()
+        camera.shutter()
+        #expect(camera.pageCount == 2)
+        await camera.waitUntilIdle()
+        #expect(camera.pageCount == 2)
+
+        scan.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
+        #expect(camera.pageCount == 3)
+        await camera.waitUntilIdle()
+        #expect(camera.pageCount == 3)
+        #expect(scan.scan.pages.count == 3)
     }
 
     @Test func retakeCapturesThePageInViewAgain() async {

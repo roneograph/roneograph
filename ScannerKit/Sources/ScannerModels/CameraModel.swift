@@ -102,8 +102,7 @@ public final class CameraModel {
     private let settings: SettingsStore
     private var trigger = CaptureTrigger()
     private var signature: PageSignature?
-    private var pendingPhotos = 0
-    private var photoTasks: [Task<Void, Never>] = []
+    private var photoTasks: [UUID: Task<Void, Never>] = [:]
     private weak var scan: ScanModel?
 
     public init(device: CameraDevice, settings: SettingsStore) {
@@ -138,7 +137,7 @@ public final class CameraModel {
 
     /// Pages of the scan, including those still being taken or processed.
     public var pageCount: Int {
-        (scan?.scan.pages.count ?? 0) + (scan?.processing ?? 0) + pendingPhotos
+        (scan?.scan.pages.count ?? 0) + (scan?.processing ?? 0) + photoTasks.count
     }
 
     public var progress: Double {
@@ -176,11 +175,7 @@ public final class CameraModel {
 
     /// Waits until every photo taken is added to the scan and processed.
     public func waitUntilIdle() async {
-        while !photoTasks.isEmpty {
-            let tasks = photoTasks
-            photoTasks = []
-            for task in tasks { await task.value }
-        }
+        while let task = photoTasks.values.first { await task.value }
         await scan?.waitUntilIdle()
     }
 
@@ -203,10 +198,10 @@ public final class CameraModel {
         guard let scan else { return }
         let quad = quad, flash = flash, device = device
         captures += 1
-        pendingPhotos += 1
         captureFailed = false
-        photoTasks.append(Task {
-            defer { pendingPhotos -= 1 }
+        let id = UUID()
+        photoTasks[id] = Task {
+            defer { photoTasks[id] = nil }
             do {
                 scan.addPhoto(try await device.capturePhoto(flash: flash), liveQuad: quad)
             } catch {
@@ -214,6 +209,6 @@ public final class CameraModel {
                 trigger.reset()
                 state = .searching
             }
-        })
+        }
     }
 }
