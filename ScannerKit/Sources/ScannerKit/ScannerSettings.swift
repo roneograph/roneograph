@@ -35,8 +35,7 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case email, archiveFolder, askedForEmail, dismissedPageTip, autoCapture, askForName, fileNameFormat, categories, learnedIssuers, headerLines
-        case keepScans = "keepDays"
+        case email, archiveFolder, askedForEmail, dismissedPageTip, autoCapture, askForName, fileNameFormat, categories, learnedIssuers, headerLines, keepScans
     }
 
     /// Missing or unknown values keep their default, so settings survive app updates.
@@ -58,14 +57,18 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
 }
 
 /// How long scans stay on the device before they are deleted, sent or not.
-public enum ScanRetention: Int, CaseIterable, Sendable, Codable {
-    case day = 1
-    case week = 7
-    case month = 30
-    case forever = 0
+public enum ScanRetention: String, CaseIterable, Sendable, Codable {
+    case day, week, month, forever
 
     /// Nil when scans are never deleted.
-    public var days: Int? { self == .forever ? nil : rawValue }
+    public var days: Int? {
+        switch self {
+        case .day: 1
+        case .week: 7
+        case .month: 30
+        case .forever: nil
+        }
+    }
 }
 
 /// What the user corrected on documents from one issuer, recognized by any of its keys; nil when not corrected.
