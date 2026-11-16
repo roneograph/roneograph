@@ -73,7 +73,19 @@ public final class AppModel {
         model.markSent(method)
         path = []
         let settings = settings.value
-        showToast(method == .email && settings.hasValidEmail ? "\(method.pastTense) to \(settings.email)" : method.pastTense)
+        switch method {
+        case .email where settings.hasValidEmail: showToast("\(method.pastTense) to \(settings.email)")
+        case .files: showToast("\(method.pastTense) to \(settings.archiveFolder?.name ?? "Files")")
+        default: showToast(method.pastTense)
+        }
+    }
+
+    /// Copies the PDF to the archive folder, then confirms it like any other sending.
+    public func saveToArchive(_ model: ScanModel) throws {
+        guard var folder = settings.value.archiveFolder, case .ready(let url, _) = model.pdf else { throw ArchiveFolder.SaveError.unavailable }
+        try folder.save(url, as: model.scan.name, separator: settings.value.fileNameFormat.separator.character)
+        if folder != settings.value.archiveFolder { settings.value.archiveFolder = folder }
+        didSend(model, by: .files)
     }
 
     public func delete(_ id: UUID) {

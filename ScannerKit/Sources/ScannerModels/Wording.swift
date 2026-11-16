@@ -12,6 +12,7 @@ extension SendMethod {
     public var pastTense: String {
         switch self {
         case .email: "Emailed"
+        case .files: "Saved"
         case .share: "Shared"
         }
     }

@@ -30,7 +30,7 @@ public struct ScanPage: Identifiable, Equatable, Sendable, Codable {
 }
 
 public enum SendMethod: String, Equatable, Sendable, Codable {
-    case email, share
+    case email, files, share
 }
 
 public struct Scan: Identifiable, Equatable, Sendable, Codable {

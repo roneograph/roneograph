@@ -3,6 +3,8 @@ import Foundation
 public struct ScannerSettings: Equatable, Sendable, Codable {
     /// Recipient of the Email button; empty when not set.
     public var email = ""
+    /// Where the Save button puts PDFs; nil until a folder is picked.
+    public var archiveFolder: ArchiveFolder?
     /// Set once the first tap on Email asked for an address, answered or not.
     public var askedForEmail = false
     /// Set once the review screen tip about tapping pages was closed, or a page was opened.
@@ -22,7 +24,7 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case email, askedForEmail, dismissedPageTip, autoCapture, askForName, fileNameFormat, keepDays
+        case email, archiveFolder, askedForEmail, dismissedPageTip, autoCapture, askForName, fileNameFormat, keepDays
     }
 
     /// Missing or unknown values keep their default, so settings survive app updates.
@@ -30,6 +32,7 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let defaults = ScannerSettings()
         email = (try? container.decode(String.self, forKey: .email)) ?? defaults.email
+        archiveFolder = try? container.decode(ArchiveFolder.self, forKey: .archiveFolder)
         askedForEmail = (try? container.decode(Bool.self, forKey: .askedForEmail)) ?? defaults.askedForEmail
         dismissedPageTip = (try? container.decode(Bool.self, forKey: .dismissedPageTip)) ?? defaults.dismissedPageTip
         autoCapture = (try? container.decode(Bool.self, forKey: .autoCapture)) ?? defaults.autoCapture

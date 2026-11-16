@@ -4,6 +4,8 @@ import SwiftUI
 
 struct SettingsView: View {
     @Bindable var settings: SettingsStore
+    @State private var choosingFolder = false
+    @State private var folderFailed = false
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -19,6 +21,26 @@ struct SettingsView: View {
                     } else {
                         Text("Fills in the recipient of the Email button. Needs an account in the Mail app.")
                     }
+                }
+
+                Section {
+                    Button { choosingFolder = true } label: {
+                        LabeledContent("Folder", value: settings.value.archiveFolder?.name ?? "Choose…")
+                    }
+                    if settings.value.archiveFolder != nil {
+                        Button("Forget Folder", role: .destructive) { settings.value.archiveFolder = nil }
+                    }
+                } header: {
+                    Text("Save to Files")
+                } footer: {
+                    Text("The Save button puts PDFs in this folder without asking each time.")
+                }
+                .fileImporter(isPresented: $choosingFolder, allowedContentTypes: [.folder]) { result in
+                    guard case .success(let url) = result else { return }
+                    do { try settings.chooseArchiveFolder(url) } catch { folderFailed = true }
+                }
+                .alert("This folder cannot be used", isPresented: $folderFailed) {
+                    Button("OK") {}
                 }
 
                 Section {

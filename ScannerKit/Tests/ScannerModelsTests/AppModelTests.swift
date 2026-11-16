@@ -102,6 +102,31 @@ struct AppModelTests {
         #expect(app.scans.first?.sentBy == method)
     }
 
+    @Test func savesToTheArchiveFolderAndConfirmsIt() async throws {
+        let fixture = try Fixture()
+        let folder = fixture.root.appending(path: "Paperwork", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try fixture.settings.chooseArchiveFolder(folder)
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+        let scan = await fixture.capturedScan(in: app)
+        await scan.buildPDF(delay: .zero)
+
+        try app.saveToArchive(scan)
+        #expect(FileManager.default.fileExists(atPath: folder.appending(path: "\(scan.scan.name).pdf").path(percentEncoded: false)))
+        #expect(app.toast == "Saved to Paperwork")
+        #expect(app.scans.first?.sentBy == .files)
+    }
+
+    @Test func savingWithoutAnArchiveFolderFails() async throws {
+        let fixture = try Fixture()
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+        let scan = await fixture.capturedScan(in: app)
+        await scan.buildPDF(delay: .zero)
+
+        #expect(throws: ArchiveFolder.SaveError.self) { try app.saveToArchive(scan) }
+        #expect(scan.scan.sent == nil)
+    }
+
     @Test func deletingAScanRemovesItEverywhere() async throws {
         let fixture = try Fixture()
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)

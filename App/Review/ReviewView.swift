@@ -12,6 +12,8 @@ struct ReviewView: View {
     @State private var showingEmailQuestion = false
     @State private var mailAfterQuestion = false
     @State private var confirmingDelete = false
+    @State private var choosingFolder = false
+    @State private var savingFailed = false
     @State private var viewedPage: ScanPage?
     @State private var askedForName = false
     /// Set when the PDF went out, acted on once the mail or share sheet is gone.
@@ -79,6 +81,21 @@ struct ReviewView: View {
         .fullScreenCover(item: $viewedPage) { page in
             PageViewer(scan: scan, selection: page.id)
         }
+        .fileImporter(isPresented: $choosingFolder, allowedContentTypes: [.folder]) { result in
+            guard case .success(let url) = result else { return }
+            do {
+                try app.settings.chooseArchiveFolder(url)
+                saveToFiles()
+            } catch {
+                savingFailed = true
+            }
+        }
+        .alert("The folder cannot be reached", isPresented: $savingFailed) {
+            Button("Choose Folder") { choosingFolder = true }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Choose the folder for saved PDFs again.")
+        }
         .alert("Something went wrong", isPresented: Binding(get: { scan.failure != nil }, set: { if !$0 { scan.dismissFailure() } })) {
             Button("OK") {}
         } message: {
@@ -114,6 +131,9 @@ struct ReviewView: View {
             HStack(spacing: 10) {
                 Button("Email", systemImage: "envelope", action: email)
                     .buttonStyle(.glassProminent)
+                    .disabled(!isReady)
+                Button("Save to Files", systemImage: "folder", action: saveToFiles)
+                    .buttonStyle(.glass)
                     .disabled(!isReady)
                 Button("Share", systemImage: "square.and.arrow.up") { showingShare = true }
                     .buttonStyle(.glass)
@@ -163,6 +183,19 @@ struct ReviewView: View {
         if let sentBy {
             self.sentBy = nil
             app.didSend(scan, by: sentBy)
+        }
+    }
+
+    /// The first save asks for the folder; later ones go straight to it.
+    private func saveToFiles() {
+        guard settings.archiveFolder != nil else {
+            choosingFolder = true
+            return
+        }
+        do {
+            try app.saveToArchive(scan)
+        } catch {
+            savingFailed = true
         }
     }
 

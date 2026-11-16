@@ -26,6 +26,11 @@ public final class SettingsStore {
         value.askedForEmail = true
     }
 
+    /// Remembers the folder picked in Files for the Save button.
+    public func chooseArchiveFolder(_ url: URL) throws {
+        value.archiveFolder = try ArchiveFolder(url: url)
+    }
+
     public var showsPageTip: Bool { !value.dismissedPageTip }
 
     public func dismissPageTip() {
