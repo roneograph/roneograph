@@ -39,8 +39,7 @@ public final class AppModel {
     }
 
     public func model(for id: UUID) -> ScanModel? {
-        if let model = models[id] { return model }
-        return (scans.first { $0.id == id } ?? store.all().first { $0.id == id }).map(makeModel)
+        models[id] ?? scans.first { $0.id == id }.map(makeModel)
     }
 
     @discardableResult
