@@ -25,6 +25,35 @@ struct WordingTests {
         #expect(DocumentDetails().issuerName == "this issuer")
     }
 
+    @Test func explainsTheFileNameFormat() {
+        #expect(FileNameFormat().explanation(for: []) == "Format in Settings: no date, spaces.")
+        #expect(FileNameFormat(datePosition: .start, dateSource: .scan, separator: .dash, lowercase: true).explanation(for: []) == "Format in Settings: date of the scan first, dashes, lowercase.")
+        #expect(FileNameFormat(datePosition: .end, separator: .underscore).explanation(for: []) == "Format in Settings: date of the document last, underscores.")
+        #expect(FileNameFormat(isCustom: true, template: "{YYYY} {NAME}").explanation(for: []) == "Custom format in Settings: {YYYY} {NAME}")
+        #expect(FileNameFormat(isCustom: true).explanation(for: [FileNameSegment("Invoice", .category), FileNameSegment("", .name)]) == "The format already shows what the suggested name says. Type a name to add to it.")
+    }
+
+    @MainActor
+    @Test func saysWhatANameTeachesForTheIssuer() throws {
+        let fixture = try Fixture()
+        var scan = Scan(name: "Invoice Lumen Energy", title: "Invoice Lumen Energy")
+        scan.suggestions = ["Invoice Lumen Energy"]
+        scan.issuerKeys = ["lumen-energy.example"]
+        scan.details = DocumentDetails(issuer: "Lumen Energy", date: ISO8601DateFormatter().date(from: "2026-11-12T12:00:00Z"), number: "F-1234")
+        let model = ScanModel(scan: scan, processor: fixture.processor, settings: fixture.settings)
+        #expect(model.learning(forName: "Invoice Lumen Energy") == nil)
+        #expect(model.learning(forName: "Lumen bill") == "The next documents from Lumen Energy will be named the same way.")
+        #expect(model.learning(forName: "Lumen bill November 2026 F-1234") == "The next documents from Lumen Energy will be named the same way, with their own date and number.")
+
+        scan.title = "Lumen bill"
+        scan.remembered = [.name]
+        let remembered = ScanModel(scan: scan, processor: fixture.processor, settings: fixture.settings)
+        #expect(remembered.learning(forName: "Lumen bill") == "The next documents from Lumen Energy will be named the same way.")
+        #expect(remembered.learning(forName: "Lumen electricity") == "Replaces the name remembered for Lumen Energy. The next documents from Lumen Energy will be named the same way.")
+        #expect(remembered.learning(forName: "Invoice Lumen Energy") == "The name remembered for Lumen Energy will be forgotten.")
+        #expect(remembered.learning(forName: "") == nil)
+    }
+
     @Test func namesPageLooks() {
         #expect(PageLook.allCases.map(\.title) == ["Gray", "Color"])
     }

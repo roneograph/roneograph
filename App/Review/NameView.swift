@@ -23,9 +23,9 @@ struct NameView: View {
                         .submitLabel(.done)
                         .onSubmit(save)
                 }
-                if !scan.scan.suggestions.isEmpty || rememberedName != nil {
+                if !scan.scan.suggestions.isEmpty || scan.rememberedName != nil {
                     Section("Suggestions") {
-                        if let rememberedName {
+                        if let rememberedName = scan.rememberedName {
                             HStack {
                                 Button { name = rememberedName } label: {
                                     HStack {
@@ -66,9 +66,9 @@ struct NameView: View {
                 } header: {
                     Text("File name")
                 } footer: {
-                    Text(formatExplanation)
+                    Text(settings.value.fileNameFormat.explanation(for: segments))
                 }
-                if let learning {
+                if let learning = scan.learning(forName: name) {
                     Section {
                         Label(learning, systemImage: "lightbulb")
                             .font(.footnote)
@@ -111,42 +111,6 @@ struct NameView: View {
 
     private var segments: [FileNameSegment] {
         scan.fileNameSegments(for: name.isEmpty ? scan.scan.suggestions.first ?? scan.fallbackTitle : name) + [FileNameSegment(".pdf", .text)]
-    }
-
-    /// The name remembered for the issuer, while it is the name of the scan.
-    private var rememberedName: String? {
-        scan.scan.remembered.contains(.name) ? scan.scan.title : nil
-    }
-
-    /// What the next documents from the same issuer will be named, when the name is a correction that can be reused.
-    private var learning: String? {
-        let replaces = rememberedName.map { $0 != name } ?? false
-        guard let pattern = scan.learnedPattern(for: name) else {
-            return replaces && !name.isEmpty ? "The name remembered for \(scan.scan.details.issuerName) will be forgotten." : nil
-        }
-        let own = [pattern.follows.date ? "date" : nil, pattern.follows.number ? "number" : nil].compactMap { $0 }
-        let with = own.isEmpty ? "" : ", with their own \(own.joined(separator: " and "))"
-        let next = "The next documents from \(scan.scan.details.issuerName) will be named the same way\(with)."
-        return replaces ? "Replaces the name remembered for \(scan.scan.details.issuerName). \(next)" : next
-    }
-
-    private var formatExplanation: String {
-        let format = settings.value.fileNameFormat
-        if segments.contains(where: { $0.source == .name && $0.text.isEmpty }) {
-            return "The format already shows what the suggested name says. Type a name to add to it."
-        }
-        if format.isCustom { return "Custom format in Settings: \(format.template)" }
-        let date = switch format.datePosition {
-        case .none: "no date"
-        case .start: "date of the \(format.dateSource == .document ? "document" : "scan") first"
-        case .end: "date of the \(format.dateSource == .document ? "document" : "scan") last"
-        }
-        let separator = switch format.separator {
-        case .space: "spaces"
-        case .dash: "dashes"
-        case .underscore: "underscores"
-        }
-        return "Format in Settings: \([date, separator, format.lowercase ? "lowercase" : nil].compactMap { $0 }.joined(separator: ", "))."
     }
 
     private func save() {

@@ -48,6 +48,8 @@ public final class ScanModel: Identifiable {
     public var pdfInputs: PDFInputs { PDFInputs(name: scan.fileName, title: scan.title, pages: scan.pages) }
     public var fallbackTitle: String { namer.fallback(for: scan.created) }
     public var isBusy: Bool { processing > 0 || updating > 0 }
+    /// The name remembered for the issuer, while it is the name of the scan.
+    public var rememberedName: String? { scan.remembered.contains(.name) ? scan.title : nil }
 
     /// The file name a name and details get with the format from the settings, before avoiding collisions.
     /// A name the user typed is kept as typed; a suggested one leaves out what a custom format already shows.

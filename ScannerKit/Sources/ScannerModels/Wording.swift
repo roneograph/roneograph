@@ -21,6 +21,42 @@ extension DocumentDetails {
     }
 }
 
+extension FileNameFormat {
+    /// Under the file name preview: what the format in Settings does with the name.
+    public func explanation(for segments: [FileNameSegment]) -> String {
+        if segments.contains(where: { $0.source == .name && $0.text.isEmpty }) {
+            return "The format already shows what the suggested name says. Type a name to add to it."
+        }
+        if isCustom { return "Custom format in Settings: \(template)" }
+        let date = switch datePosition {
+        case .none: "no date"
+        case .start: "date of the \(dateSource == .document ? "document" : "scan") first"
+        case .end: "date of the \(dateSource == .document ? "document" : "scan") last"
+        }
+        let separator = switch self.separator {
+        case .space: "spaces"
+        case .dash: "dashes"
+        case .underscore: "underscores"
+        }
+        return "Format in Settings: \([date, separator, lowercase ? "lowercase" : nil].compactMap { $0 }.joined(separator: ", "))."
+    }
+}
+
+extension ScanModel {
+    /// What renaming the scan to the typed name changes for the next documents from the same issuer; nil when nothing.
+    public func learning(forName name: String) -> String? {
+        let issuer = scan.details.issuerName
+        let replaces = rememberedName.map { $0 != name } ?? false
+        guard let pattern = learnedPattern(for: name) else {
+            return replaces && !name.isEmpty ? "The name remembered for \(issuer) will be forgotten." : nil
+        }
+        let own = [pattern.follows.date ? "date" : nil, pattern.follows.number ? "number" : nil].compactMap { $0 }
+        let with = own.isEmpty ? "" : ", with their own \(own.joined(separator: " and "))"
+        let next = "The next documents from \(issuer) will be named the same way\(with)."
+        return replaces ? "Replaces the name remembered for \(issuer). \(next)" : next
+    }
+}
+
 extension PageLook {
     /// The look of a page, in Review and in the page viewer.
     public var title: String {
