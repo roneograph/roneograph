@@ -7,7 +7,7 @@ struct LookPicker: View {
     @Binding var look: PageLook?
 
     var body: some View {
-        Picker("Filter", selection: $look) {
+        Picker("Look", selection: $look) {
             Text("Auto").tag(PageLook?.none)
             ForEach(PageLook.allCases, id: \.self) { Text($0.title).tag(PageLook?.some($0)) }
         }
