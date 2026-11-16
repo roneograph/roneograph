@@ -152,6 +152,15 @@ struct DocumentDetectorTests {
         #expect(detector.detect(lines: lines).details.issuer == "Chambre des Métiers")
     }
 
+    @Test func leavesOutTheLoneLettersOfALogo() {
+        let lines = [
+            TextLine(text: "Q Verdalis Énergie", frame: CGRect(x: 0.08, y: 0.03, width: 0.3, height: 0.03), confidence: 0.5),
+            line("Lorem ipsum", y: 0.5),
+            line("www.verdalis-energie.fr", y: 0.95),
+        ]
+        #expect(detector.detect(lines: lines).details.issuer == "Verdalis Énergie")
+    }
+
     @Test func dropsAPeriodEndingTheIssuerButNotAnAbbreviation() {
         #expect(detector.detect(lines: [line("Caisse des Retraites.", y: 0.04, height: 0.03)]).details.issuer == "Caisse des Retraites")
         #expect(detector.detect(lines: [line("Garage Leroy et Cie.", y: 0.04, height: 0.03)]).details.issuer == "Garage Leroy et Cie.")

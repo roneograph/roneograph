@@ -500,11 +500,16 @@ public struct DocumentDetector: Sendable {
     }
 
     /// The name on a line, without the legal form or what follows a separator.
+    /// Lone letters around a logo read uncertainly are left out: they are usually its symbol or ornaments.
     static func issuerName(of line: Line) -> String {
         var words: [String] = []
         for token in line.tokens {
             if ["·", "|", "-", "–", "—", "("].contains(token.text) || token.text.hasPrefix("(") { break }
             words.append(String(token.text))
+        }
+        if line.confidence <= 0.5 {
+            while words.count > 1, let first = words.first, first.filter(\.isLetter).count <= 1 { words.removeFirst() }
+            while words.count > 1, let last = words.last, last.filter(\.isLetter).count <= 1 { words.removeLast() }
         }
         while let last = words.last, isLegalForm(Token(Substring(last))) || last.allSatisfy({ $0.isPunctuation }) {
             words.removeLast()
