@@ -213,26 +213,24 @@ public struct PageCleaner: @unchecked Sendable {
         let (width, height) = (bitmap.width, bitmap.height)
         let band = max(2, Int(Double(min(width, height)) * configuration.edgeBand))
         let isDark = (0..<bitmap.count).map { bitmap.luminance($0) < configuration.edgeDarkness }
-        var area = [Int32](repeating: 0, count: bitmap.count)
+        var visited = [Bool](repeating: false, count: bitmap.count)
         var mask = [UInt8](repeating: 0, count: bitmap.count)
-        var label: Int32 = 0
         let rows: [Int] = (0..<width).flatMap { x -> [Int] in [x, (height - 1) * width + x] }
         let columns: [Int] = (0..<height).flatMap { y -> [Int] in [y * width, y * width + width - 1] }
         let borders = rows + columns
-        for seed in borders where isDark[seed] && area[seed] == 0 {
-            label += 1
+        for seed in borders where isDark[seed] && !visited[seed] {
             var stack = [seed]
             var members: [Int] = []
             var escapes = false
-            area[seed] = label
+            visited[seed] = true
             while let i = stack.popLast() {
                 members.append(i)
                 let (x, y) = (i % width, i / width)
                 if min(x, y, width - 1 - x, height - 1 - y) >= band { escapes = true }
                 for (nx, ny) in [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)] where nx >= 0 && ny >= 0 && nx < width && ny < height {
                     let n = ny * width + nx
-                    if isDark[n] && area[n] == 0 {
-                        area[n] = label
+                    if isDark[n] && !visited[n] {
+                        visited[n] = true
                         stack.append(n)
                     }
                 }
