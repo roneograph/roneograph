@@ -44,31 +44,36 @@ struct DocumentCard: View {
     }
 
     private var nameRow: some View {
-        Button { edit(.name) } label: {
-            HStack(spacing: 14) {
-                icon("character.cursor.ibeam")
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Name").font(.caption).foregroundStyle(.secondary)
-                    Text(scan.scan.title)
-                        .font(.title3.bold())
-                        .multilineTextAlignment(.leading)
-                    Label(fileName, systemImage: "doc")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
+        VStack(alignment: .leading, spacing: 2) {
+            Button { edit(.name) } label: {
+                HStack(spacing: 14) {
+                    icon("character.cursor.ibeam")
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Name").font(.caption).foregroundStyle(.secondary)
+                        Text(scan.scan.title)
+                            .font(.title3.bold())
+                            .multilineTextAlignment(.leading)
+                    }
+                    Spacer(minLength: 0)
+                    chevron
                 }
-                Spacer(minLength: 0)
-                chevron
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, 14).padding(.vertical, 10)
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Name, \(scan.scan.title)")
+            .accessibilityHint("Renames the PDF")
+            .accessibilityAddTraits(.isButton)
+            HStack(spacing: 14) {
+                Image(systemName: "doc").frame(width: 22)
+                Text(fileName).lineLimit(2)
+            }
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("File name \(fileName)")
         }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Name, \(scan.scan.title)")
-        .accessibilityValue("File name \(fileName)")
-        .accessibilityHint("Renames the PDF")
-        .accessibilityAddTraits(.isButton)
+        .padding(.horizontal, 14).padding(.vertical, 10)
     }
 
     private var fileName: String {
