@@ -75,6 +75,20 @@ public struct DocumentDetector: Sendable {
         var words: [Token] { tokens.filter { !$0.key.isEmpty } }
     }
 
+    /// Lines read as one, as tall as the tallest so it is not more prominent than its parts.
+    private static func joined(_ lines: [Line]) -> Line {
+        let minX = lines.map(\.frame.minX).min() ?? 0
+        let maxX = lines.map(\.frame.maxX).max() ?? 0
+        return Line(
+            text: lines.map(\.text).joined(separator: " "),
+            frame: CGRect(x: minX, y: lines[0].frame.minY, width: maxX - minX, height: lines.map(\.frame.height).max() ?? 0),
+            confidence: lines.map(\.confidence).min() ?? 0,
+            tokens: lines.flatMap(\.tokens),
+            folded: lines.map(\.folded).joined(separator: " "),
+            isOwn: lines.contains(where: \.isOwn)
+        )
+    }
+
     struct Page {
         var lines: [Line]
         /// The usual height of a line of body text.
@@ -388,7 +402,7 @@ public struct DocumentDetector: Sendable {
 
     /// Name-like lines in the header, own lines included so they can be learned.
     static func issuerCandidates(in page: Page, clues: [[(range: Range<Int>, tag: Clue)]]) -> [Line] {
-        page.lines.enumerated().filter { index, line in
+        joiningContinuations(of: page).filter { indices, line in
             let text = line.text.trimmingCharacters(in: .whitespaces)
             let letters = text.filter(\.isLetter).count
             let digits = text.filter(\.isNumber).count
@@ -396,17 +410,45 @@ public struct DocumentDetector: Sendable {
             guard inHeader, line.confidence > 0.5, (3...60).contains(text.count), line.words.count <= 8, Double(letters) >= Double(text.count) * 0.6, digits <= 2,
                   !(text.first?.isNumber ?? false), !text.contains("@"), !text.contains(":"), !text.lowercased().contains("www."), IssuerEvidence.domains(in: text).isEmpty,
                   let first = line.words.first else { return false }
-            if DocumentVocabulary.recipientPrefixes.contains(first.key.replacing(".", with: "")) { return false }
+            if DocumentVocabulary.recipientPrefixes.contains(first.key.replacing(".", with: "")) || startsWithConnector(line) { return false }
             let isAddress = line.words.contains { DocumentVocabulary.streetWords.contains($0.key.replacing(".", with: "")) } || postcode.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
             if isAddress && !page.isLarge(line) { return false }
-            return !clues[index].contains { match in
-                switch match.tag.evidence {
-                case .title: !match.tag.isInNames
-                case .letter: true
-                case .label: match.range.count == line.words.count
+            return !indices.contains { index in
+                clues[index].contains { match in
+                    switch match.tag.evidence {
+                    case .title: !match.tag.isInNames
+                    case .letter: true
+                    case .label: match.range.count == page.lines[index].words.count
+                    }
                 }
             }
-        }.map(\.element)
+        }.map(\.line)
+    }
+
+    /// Each line with the lines right under it that start with "de" or "d'", as a name or a sentence wrapped on several lines, and the indices of the lines it joins.
+    private static func joiningContinuations(of page: Page) -> [(indices: [Int], line: Line)] {
+        var result: [(indices: [Int], line: Line)] = []
+        var continuations = Set<Int>()
+        for (index, line) in page.lines.enumerated() where !continuations.contains(index) {
+            var indices = [index]
+            while let last = indices.last, let next = page.lines.indices.first(where: { $0 > last && !continuations.contains($0) && continues(page.lines[$0], after: page.lines[last]) }) {
+                indices.append(next)
+                continuations.insert(next)
+            }
+            result.append((indices, indices.count == 1 ? line : joined(indices.map { page.lines[$0] })))
+        }
+        return result
+    }
+
+    private static func continues(_ line: Line, after previous: Line) -> Bool {
+        let gap = line.frame.minY - previous.frame.maxY
+        return startsWithConnector(line) && gap > -previous.frame.height * 0.3 && gap < min(line.frame.height, previous.frame.height) && abs(line.frame.minX - previous.frame.minX) < 0.02
+    }
+
+    /// Whether the line starts with a lowercase "de" or "d'", so it ends a line above it instead of starting a name.
+    private static func startsWithConnector(_ line: Line) -> Bool {
+        guard let first = line.tokens.first, first.text.first?.isLowercase == true else { return false }
+        return smallWords.contains(String(first.text)) || elisions.contains { first.text.hasPrefix($0 + "'") || first.text.hasPrefix($0 + "’") }
     }
 
     /// The most prominent candidate, strengthened by legal forms, domains and company identifiers, and by organization names when that is not enough.

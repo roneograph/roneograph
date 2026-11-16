@@ -100,6 +100,30 @@ struct DocumentDetectorTests {
         #expect(detector.detect(lines: [line("CAISSE DES ÉCOLES DE LYON", y: 0.04, height: 0.03)]).details.issuer == "Caisse des Écoles de Lyon")
     }
 
+    @Test func readsANameWrappedOnSeveralLinesAsOne() {
+        let lines = [
+            line("Cabinet", y: 0.08, height: 0.02),
+            line("d'Orthodontie", y: 0.101, height: 0.025),
+            line("de la Butte", y: 0.127, height: 0.02),
+            line("Lorem ipsum", y: 0.5),
+        ]
+        #expect(detector.detect(lines: lines).details.issuer == "Cabinet d'Orthodontie de la Butte")
+    }
+
+    @Test func neverTakesALineStartingWithDeAsTheIssuer() {
+        let lines = [line("Cabinet", y: 0.08, height: 0.02), line("de la Butte", y: 0.2, height: 0.03), line("Lorem ipsum", y: 0.5)]
+        #expect(detector.detect(lines: lines).details.issuer == "Cabinet")
+    }
+
+    @Test func neverTakesTheEndOfAWrappedSentenceAsTheIssuer() {
+        let lines = [
+            line("Objet : Relevé de vos consommations", y: 0.25, height: 0.012),
+            line("d'électricité.", y: 0.265, height: 0.01),
+            line("Madame,", y: 0.3),
+        ]
+        #expect(detector.detect(lines: lines).details.issuer == nil)
+    }
+
     @Test func prefersTheNameOfTheWebDomain() {
         let lines = [line("Atelier Nord", y: 0.04), line("Maison Ferlac", y: 0.06), line("Lorem ipsum", y: 0.5), line("www.maison-ferlac.fr · contact@gmail.com", y: 0.95)]
         let detected = detector.detect(lines: lines)
