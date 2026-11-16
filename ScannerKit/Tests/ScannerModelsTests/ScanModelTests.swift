@@ -135,7 +135,7 @@ struct ScanModelTests {
         model.rename("Lumen Energy invoice")
         #expect(model.scan.title == "Lumen Energy invoice")
         #expect(model.scan.isNamedByUser)
-        #expect(model.scan.name == "\(FileNamer.isoDate(model.scan.documentDate ?? model.scan.created))-lumen-energy-invoice")
+        #expect(model.scan.name == "\(FileNamer.isoDate(model.scan.details.date ?? model.scan.created))-lumen-energy-invoice")
         #expect(fixture.pdfExists(model.scan.name))
         #expect(!fixture.pdfExists(first))
     }

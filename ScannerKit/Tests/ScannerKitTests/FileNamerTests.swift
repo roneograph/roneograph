@@ -56,7 +56,7 @@ struct FileNamerTests {
     }
 
     @Test func fallsBackToTheDateWithoutText() {
-        #expect(namer.suggestions(lines: [], date: today) == NameSuggestions(names: ["Scan \(isoToday)"], date: nil))
+        #expect(namer.suggestions(lines: [], date: today) == NameSuggestions(names: ["Scan \(isoToday)"]))
     }
 
     @Test(arguments: [

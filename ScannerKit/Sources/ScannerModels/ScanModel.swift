@@ -48,7 +48,7 @@ public final class ScanModel: Identifiable {
 
     /// The file name a name gets with the format from the settings, before avoiding collisions.
     public func fileName(for title: String) -> String {
-        settings.value.fileNameFormat.fileName(name: title, documentDate: scan.documentDate, scanDate: scan.created)
+        settings.value.fileNameFormat.fileName(name: title, documentDate: scan.details.date, scanDate: scan.created)
     }
 
     public func previewURL(of page: ScanPage) -> URL { store.previewURL(scanID: scan.id, pageID: page.id) }
@@ -104,7 +104,7 @@ public final class ScanModel: Identifiable {
             processor.nameSuggestions(for: page, scanID: scanID, date: date)
         }).value, !isDeleted else { return }
         scan.suggestions = suggestions.names
-        scan.documentDate = suggestions.date
+        scan.details.date = suggestions.date
         if !scan.isNamedByUser, let first = suggestions.names.first {
             scan.title = settings.learnedName(for: first) ?? first
         }
