@@ -10,12 +10,13 @@ struct ScannerSettingsTests {
         #expect(settings.autoCapture)
     }
 
-    @Test(arguments: ScanRetention.allCases)
-    func keepsTheRetentionAcrossARestart(retention: ScanRetention) throws {
+    @Test(arguments: [(ScanRetention.day, "day"), (.week, "week"), (.month, "month"), (.forever, "forever")])
+    func keepsTheRetentionAcrossARestart(retention: ScanRetention, stored: String) throws {
         var settings = ScannerSettings()
         settings.keepScans = retention
-        let decoded = try JSONDecoder().decode(ScannerSettings.self, from: JSONEncoder().encode(settings))
-        #expect(decoded.keepScans == retention)
+        let json = try JSONEncoder().encode(settings)
+        #expect(String(decoding: json, as: UTF8.self).contains(#""keepScans":"\#(stored)""#))
+        #expect(try JSONDecoder().decode(ScannerSettings.self, from: json).keepScans == retention)
     }
 
     @Test func keepsTheCurrentCategoryEvenWhenRemoved() {
