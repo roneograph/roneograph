@@ -1,19 +1,4 @@
-import CoreGraphics
 import Foundation
-
-/// A line of text read on a page, with its frame normalized to the upright page, origin at the top left.
-public struct TextLine: Equatable, Sendable {
-    public var text: String
-    public var frame: CGRect
-    /// Recognition confidence, from 0 to 1.
-    public var confidence: Float
-
-    public init(text: String, frame: CGRect, confidence: Float = 1) {
-        self.text = text
-        self.frame = frame
-        self.confidence = confidence
-    }
-}
 
 /// Suggests file names from what was read on a page and keeps names valid for file systems and mail apps.
 public enum FileNamer {

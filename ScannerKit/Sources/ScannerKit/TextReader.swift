@@ -1,6 +1,20 @@
 import CoreImage
 import Vision
 
+/// A line of text read on a page, with its frame normalized to the upright page, origin at the top left.
+public struct TextLine: Equatable, Sendable {
+    public var text: String
+    public var frame: CGRect
+    /// Recognition confidence, from 0 to 1.
+    public var confidence: Float
+
+    public init(text: String, frame: CGRect, confidence: Float = 1) {
+        self.text = text
+        self.frame = frame
+        self.confidence = confidence
+    }
+}
+
 /// Reads the lines of text of an upright page, to suggest a file name and to make the PDF searchable.
 public struct TextReader: Sendable {
     public var longSide: CGFloat = 1600
