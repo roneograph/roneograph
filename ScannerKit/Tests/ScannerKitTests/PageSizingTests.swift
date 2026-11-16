@@ -1,4 +1,5 @@
 import CoreGraphics
+import Foundation
 import ScannerKit
 import Testing
 
@@ -45,6 +46,12 @@ struct PageSizingTests {
 
     @Test func ignoresTheTextOfA4Pages() {
         #expect(sizing.pageSize(forImage: CGSize(width: 1704, height: 2471), textLineHeight: 0.05, defaultPaper: .a4) == Paper.a4.size)
+    }
+
+    @Test(arguments: [(Locale.Region.unitedStates, Paper.letter), (.canada, .letter), (.france, .a4), (.unitedKingdom, .a4)])
+    func picksThePaperOfTheRegion(region: Locale.Region, paper: Paper) {
+        #expect(Paper(region: region) == paper)
+        #expect(Paper(region: nil) == .a4)
     }
 
     @Test func keepsLandscapePagesLandscape() {

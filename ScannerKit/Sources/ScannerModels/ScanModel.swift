@@ -14,7 +14,6 @@ public final class ScanModel: Identifiable {
     public struct PDFInputs: Equatable {
         var name: String
         var pages: [ScanPage]
-        var paper: Paper
     }
 
     public let id: UUID
@@ -43,7 +42,7 @@ public final class ScanModel: Identifiable {
     }
 
     public var store: ScanStore { processor.store }
-    public var pdfInputs: PDFInputs { PDFInputs(name: scan.name, pages: scan.pages, paper: settings.value.paper) }
+    public var pdfInputs: PDFInputs { PDFInputs(name: scan.name, pages: scan.pages) }
     public var fallbackTitle: String { namer.fallback(for: scan.created) }
     public var isBusy: Bool { processing > 0 || updating > 0 }
 
@@ -203,9 +202,9 @@ public final class ScanModel: Identifiable {
         pdf = .building
         try? await Task.sleep(for: delay)
         guard !Task.isCancelled else { return }
-        let processor = processor, scan = scan, paper = settings.value.paper
+        let processor = processor, scan = scan
         do {
-            let data = try await Task.detached(priority: .userInitiated) { try processor.pdfData(of: scan, paper: paper) }.value
+            let data = try await Task.detached(priority: .userInitiated) { try processor.pdfData(of: scan) }.value
             guard !Task.isCancelled, !isDeleted else { return }
             let url = store.pdfURL(of: scan)
             try data.write(to: url, options: .atomic)

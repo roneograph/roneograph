@@ -1,7 +1,15 @@
 import CoreGraphics
+import Foundation
 
 public enum Paper: String, Codable, Sendable, CaseIterable {
     case a4, letter
+
+    static let letterRegions: Set<Locale.Region> = [.unitedStates, .canada, .mexico, .philippines, .chile, .colombia, .puertoRico]
+
+    /// The paper sold in the region: Letter in North America and a few other countries, A4 elsewhere.
+    public init(region: Locale.Region?) {
+        self = region.map(Self.letterRegions.contains) == true ? .letter : .a4
+    }
 
     /// Portrait size in points.
     public var size: CGSize {

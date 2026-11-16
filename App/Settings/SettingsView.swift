@@ -40,18 +40,6 @@ struct SettingsView: View {
                     Text("The name is found in the text; the date is the one printed on the document, or the day of the scan.")
                 }
 
-                Section {
-                    Picker("Default paper", selection: $settings.value.paper) {
-                        Text("A4").tag(Paper.a4)
-                        Text("Letter").tag(Paper.letter)
-                    }
-                    .pickerStyle(.segmented)
-                } header: {
-                    Text("PDF")
-                } footer: {
-                    Text("Pages get the size of what was scanned, such as A4 or Letter. The default paper is used when it is not clear.")
-                }
-
                 Section("Scanning") {
                     Toggle("Auto capture", isOn: $settings.value.autoCapture)
                     Picker("Keep scans for", selection: $settings.value.keepDays) {

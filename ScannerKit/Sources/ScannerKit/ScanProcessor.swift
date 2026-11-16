@@ -10,9 +10,12 @@ public struct ScanProcessor: @unchecked Sendable {
     private let reader: TextReader
     public var detectionSize: CGFloat = 1600
     public var previewSize: CGFloat = 1200
+    /// The paper of pages whose size is not clear from their proportions.
+    public let paper: Paper
 
-    public init(store: ScanStore, context: CIContext) {
+    public init(store: ScanStore, context: CIContext, paper: Paper = Paper(region: Locale.current.region)) {
         self.store = store
+        self.paper = paper
         extractor = PageExtractor(context: context)
         cleaner = PageCleaner(context: context)
         writer = PDFWriter(context: context)
@@ -70,7 +73,7 @@ public struct ScanProcessor: @unchecked Sendable {
         return FileNamer().suggestions(lines: reader.lines(in: preview), date: date)
     }
 
-    public func pdfData(of scan: Scan, paper: Paper) throws -> Data {
+    public func pdfData(of scan: Scan) throws -> Data {
         let pages = try scan.pages.map { page in
             guard let flat = CIImage(contentsOf: store.flatURL(scanID: scan.id, pageID: page.id)) else { throw ProcessingError.unreadablePage }
             return PDFPageContent(image: cleaner.render(flat, analysis: page.analysis, settings: page.cleanup), look: page.look, textLineHeight: page.analysis.textLineHeight)

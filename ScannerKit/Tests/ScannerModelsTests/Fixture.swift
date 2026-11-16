@@ -21,7 +21,7 @@ final class Fixture {
         try FileManager.default.createDirectory(at: store.documentsDirectory, withIntermediateDirectories: true)
         defaults = UserDefaults(suiteName: suite)!
         settings = SettingsStore(defaults: defaults)
-        processor = ScanProcessor(store: store, context: CIContext())
+        processor = ScanProcessor(store: store, context: CIContext(), paper: .a4)
     }
 
     deinit {

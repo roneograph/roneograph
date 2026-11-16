@@ -8,7 +8,7 @@ import Testing
 final class ScanProcessorTests {
     let root = FileManager.default.temporaryDirectory.appending(path: "ScanProcessorTests-\(UUID().uuidString)")
     lazy var store = ScanStore(scansDirectory: root.appending(path: "Scans"), documentsDirectory: root.appending(path: "Documents"))
-    lazy var processor = ScanProcessor(store: store, context: CIContext())
+    lazy var processor = ScanProcessor(store: store, context: CIContext(), paper: .a4)
 
     deinit {
         try? FileManager.default.removeItem(at: root)
@@ -23,7 +23,7 @@ final class ScanProcessorTests {
         }
 
         scan.pages = [page, page]
-        let document = try #require(PDFDocument(data: try processor.pdfData(of: scan, paper: .a4)))
+        let document = try #require(PDFDocument(data: try processor.pdfData(of: scan)))
         #expect(document.pageCount == 2)
     }
 

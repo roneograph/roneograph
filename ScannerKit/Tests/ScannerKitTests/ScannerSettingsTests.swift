@@ -4,9 +4,9 @@ import Testing
 
 struct ScannerSettingsTests {
     @Test func keepsDefaultsForMissingOrUnknownValues() throws {
-        let settings = try JSONDecoder().decode(ScannerSettings.self, from: Data(#"{"email":"me@example.com","paper":"huge"}"#.utf8))
+        let settings = try JSONDecoder().decode(ScannerSettings.self, from: Data(#"{"email":"me@example.com","keepDays":"huge"}"#.utf8))
         #expect(settings.email == "me@example.com")
-        #expect(settings.paper == .a4)
+        #expect(settings.keepDays == 7)
         #expect(settings.autoCapture)
     }
 
