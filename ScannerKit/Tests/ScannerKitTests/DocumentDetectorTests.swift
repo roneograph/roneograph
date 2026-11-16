@@ -85,6 +85,18 @@ struct DocumentDetectorTests {
         #expect(detector.detect(lines: lines).details.category == .letter)
     }
 
+    @Test func theNameOverAnAddressIsNotTheTypeOfTheDocument() {
+        let lines = [
+            line("Northwind Mutual", y: 0.04, height: 0.03),
+            TextLine(text: "ASSURANCE SANTÉ DE LYON", frame: CGRect(x: 0.5, y: 0.12, width: 0.2, height: 0.012)),
+            TextLine(text: "69003 LYON CEDEX 03", frame: CGRect(x: 0.5, y: 0.133, width: 0.15, height: 0.011)),
+            line("Lorem ipsum", y: 0.5),
+        ]
+        let detected = detector.detect(lines: lines)
+        #expect(detected.details.category == .insurance)
+        #expect(detected.parts.type == nil)
+    }
+
     @Test func narrowPagesLeanTowardsReceipts() {
         let lines = [line("PAIN DE CAMPAGNE 3,20", y: 0.1), line("CB SANS CONTACT 3,20", y: 0.2)]
         #expect(detector.detect(lines: lines).details.category == .other)

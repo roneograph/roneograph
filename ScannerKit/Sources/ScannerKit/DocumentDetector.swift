@@ -279,6 +279,19 @@ public struct DocumentDetector: Sendable {
         return line.words.count <= 7 && !["-", "•", "–", "*", "·"].contains(first) && !isWrapped
     }
 
+    /// The name over an address names someone, even when it says what kind of sender it is: never the type of the document.
+    static func isOverAnAddress(_ line: Line, on page: Page) -> Bool {
+        page.lines.contains { isRightUnder($0, line) && isAddress($0) }
+    }
+
+    /// A street or a postcode and city: "12 rue des Lilas", "75011 PARIS", "Bramford BR4 7QT".
+    static func isAddress(_ line: Line) -> Bool {
+        let text = line.text
+        return line.words.contains { DocumentVocabulary.streetWords.contains($0.key.replacing(".", with: "")) }
+            || postcode.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
+            || text.wholeMatch(of: /(?:[A-Z]-?)?\d{4,5} \p{L}.*/) != nil
+    }
+
     // MARK: Type
 
     struct DocumentType {
@@ -289,7 +302,7 @@ public struct DocumentDetector: Sendable {
     /// The title that gave the category, or the whole heading it starts.
     static func type(in page: Page, kind: Kind) -> DocumentType? {
         var best: (type: DocumentType, weight: Double)?
-        for (line, clues) in zip(page.lines, kind.clues) where isTitleLike(line, on: page) {
+        for (line, clues) in zip(page.lines, kind.clues) where isTitleLike(line, on: page) && !isOverAnAddress(line, on: page) {
             for match in clues {
                 guard isTitle(match.tag, of: kind.category) else { continue }
                 let weight = match.tag.category == nil ? 1 : Self.weight(of: match.tag.evidence, on: line, page: page)
@@ -418,8 +431,7 @@ public struct DocumentDetector: Sendable {
                   !(text.first?.isNumber ?? false), !text.contains("@"), !text.contains(":"), !text.lowercased().contains("www."), IssuerEvidence.domains(in: text).isEmpty,
                   let first = line.words.first else { return false }
             if DocumentVocabulary.recipientPrefixes.contains(first.key.replacing(".", with: "")) || startsWithConnector(line) { return false }
-            let isAddress = line.words.contains { DocumentVocabulary.streetWords.contains($0.key.replacing(".", with: "")) } || postcode.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
-            if isAddress && !page.isLarge(line) { return false }
+            if isAddress(line) && !page.isLarge(line) { return false }
             return !indices.contains { index in
                 clues[index].contains { match in
                     switch match.tag.evidence {
