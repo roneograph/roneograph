@@ -96,7 +96,7 @@ public struct PageCleaner: @unchecked Sendable {
 
     public func analyze(_ page: CIImage) -> PageAnalysis {
         let page = page.atOrigin
-        let (orientation, textLineHeight) = detectOrientation(page)
+        let (orientation, textLineHeight) = orientationAndTextLineHeight(of: page)
         let upright = page.oriented(orientation.imageOrientation)
         let paper = background(of: upright)
         let normalized = divide(upright, by: paper)
@@ -259,8 +259,9 @@ public struct PageCleaner: @unchecked Sendable {
 
     // MARK: Text
 
-    /// The accurate recognizer reads text in any orientation; the direction of its lines says how the page is turned.
-    private func detectOrientation(_ page: CIImage) -> (PageOrientation, Double?) {
+    /// The accurate recognizer reads text in any orientation; the direction of its lines says how the page is turned,
+    /// and their median height, as a share of the page's long side, how big the text is.
+    private func orientationAndTextLineHeight(of page: CIImage) -> (PageOrientation, Double?) {
         let extent = page.extent
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = .accurate
