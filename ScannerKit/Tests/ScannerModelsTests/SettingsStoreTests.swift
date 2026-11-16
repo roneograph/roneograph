@@ -98,15 +98,6 @@ struct SettingsStoreTests {
         #expect(fixture.settings.value.learnedIssuers.map(\.keys) == [["northwind"]])
     }
 
-    @Test(arguments: [
-        (LearnedIssuer(keys: ["lumen.example", "lumen"], issuer: "Lumen Energy"), "Lumen Energy"),
-        (LearnedIssuer(keys: ["lumen.example", "lumen"], label: "Lumen"), "Lumen"),
-        (LearnedIssuer(keys: ["lumen", "FR12123456789"]), "FR12123456789"),
-    ])
-    func namesALearnedIssuer(issuer: LearnedIssuer, title: String) {
-        #expect(issuer.title == title)
-    }
-
     @Test func forgetsEverythingLearned() throws {
         let fixture = try Fixture()
         fixture.settings.learn(keys: ["lumen"]) { $0.category = .invoice }

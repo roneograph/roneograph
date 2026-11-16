@@ -30,4 +30,13 @@ struct ScannerSettingsTests {
     func validatesEmails(email: String, valid: Bool) {
         #expect(ScannerSettings.isValidEmail(email) == valid)
     }
+
+    @Test(arguments: [
+        (LearnedIssuer(keys: ["lumen.example", "lumen"], issuer: "Lumen Energy"), "Lumen Energy"),
+        (LearnedIssuer(keys: ["lumen.example", "lumen"], label: "Lumen"), "Lumen"),
+        (LearnedIssuer(keys: ["lumen", "FR12123456789"]), "FR12123456789"),
+    ])
+    func namesALearnedIssuer(issuer: LearnedIssuer, title: String) {
+        #expect(issuer.title == title)
+    }
 }

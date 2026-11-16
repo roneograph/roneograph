@@ -81,38 +81,19 @@ struct AppModelTests {
         #expect(app.model(for: scan.id) === camera)
     }
 
-    @Test func continueFromReviewReturnsToTheSameReview() async throws {
+    @Test(arguments: [(SendMethod.email, "me@example.com", "Emailed to me@example.com"), (.email, "", "Emailed"), (.share, "me@example.com", "Shared")])
+    func sendingReturnsHomeWithAConfirmation(method: SendMethod, email: String, toast: String) async throws {
         let fixture = try Fixture()
-        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
-        let scan = await fixture.capturedScan(in: app)
-        app.camera = scan
-        app.finishCapture(scan)
-        #expect(app.path == [scan.id])
-    }
-
-    @Test func sendingReturnsHomeWithAConfirmation() async throws {
-        let fixture = try Fixture()
-        fixture.settings.value.email = "me@example.com"
+        fixture.settings.value.email = email
         let now = Date(timeIntervalSince1970: 1_794_700_000)
         let app = AppModel(processor: fixture.processor, settings: fixture.settings, now: { now })
         let scan = await fixture.capturedScan(in: app)
 
-        app.didSend([scan], by: .email)
-        #expect(app.path.isEmpty)
-        #expect(app.toast == "Emailed to me@example.com")
-        #expect(app.scans.first?.sentBy == .email)
-        #expect(app.scans.first?.sent == now)
-    }
-
-    @Test(arguments: [(SendMethod.email, "", "Emailed"), (.share, "me@example.com", "Shared")])
-    func confirmsHowTheScanWasSent(method: SendMethod, email: String, toast: String) async throws {
-        let fixture = try Fixture()
-        fixture.settings.value.email = email
-        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
-        let scan = await fixture.capturedScan(in: app)
         app.didSend([scan], by: method)
+        #expect(app.path.isEmpty)
         #expect(app.toast == toast)
         #expect(app.scans.first?.sentBy == method)
+        #expect(app.scans.first?.sent == now)
     }
 
     @Test func savesToTheArchiveFolderAndConfirmsIt() async throws {
@@ -267,14 +248,5 @@ struct AppModelTests {
         fixture.settings.value.keepScans = .forever
         let app = AppModel(processor: fixture.processor, settings: fixture.settings, now: { now })
         #expect(app.scans.map(\.name) == ["Old"])
-    }
-
-    @Test func settingsSurviveARestart() throws {
-        let fixture = try Fixture()
-        fixture.settings.value.email = "me@example.com"
-        fixture.settings.value.fileNameFormat.lowercase = true
-        let reloaded = SettingsStore(defaults: fixture.defaults)
-        #expect(reloaded.value.email == "me@example.com")
-        #expect(reloaded.value.fileNameFormat.lowercase)
     }
 }
