@@ -1,7 +1,7 @@
 import CoreImage
 import Vision
 
-/// Reads the lines of text of an upright page, to suggest a file name. The text is never stored.
+/// Reads the lines of text of an upright page, to suggest a file name and to make the PDF searchable.
 public struct TextReader: Sendable {
     public var longSide: CGFloat = 1600
 

@@ -8,6 +8,7 @@ public struct ScanProcessor: @unchecked Sendable {
     private let cleaner: PageCleaner
     private let writer: PDFWriter
     private let reader: TextReader
+    private let texts = PageTextCache()
     public var detectionSize: CGFloat = 1600
     public var previewSize: CGFloat = 1200
     /// The paper of pages whose size is not clear from their proportions.
@@ -76,7 +77,8 @@ public struct ScanProcessor: @unchecked Sendable {
     public func pdfData(of scan: Scan) throws -> Data {
         let pages = try scan.pages.map { page in
             guard let flat = CIImage(contentsOf: store.flatURL(scanID: scan.id, pageID: page.id)) else { throw ProcessingError.unreadablePage }
-            return PDFPageContent(image: cleaner.render(flat, analysis: page.analysis, settings: page.cleanup), look: page.look, textLineHeight: page.analysis.textLineHeight)
+            let image = cleaner.render(flat, analysis: page.analysis, settings: page.cleanup)
+            return PDFPageContent(image: image, look: page.look, textLineHeight: page.analysis.textLineHeight, text: texts.lines(of: page) { reader.lines(in: image) })
         }
         return try writer.data(pages: pages, title: scan.title, defaultPaper: paper)
     }

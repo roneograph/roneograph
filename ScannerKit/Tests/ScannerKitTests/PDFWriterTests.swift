@@ -49,4 +49,37 @@ struct PDFWriterTests {
         let data = try PDFWriter(context: context).data(pages: [PDFPageContent(image: tiny, look: .gray)], title: "", defaultPaper: .a4)
         #expect(data.range(of: Data("/Width 210".utf8)) != nil)
     }
+
+    @Test func makesTheTextSearchableOverTheWordsItWasReadFrom() throws {
+        let line = TextLine(text: "Invoice 2026-114 Lumen Energy", frame: CGRect(x: 0.1, y: 0.2, width: 0.5, height: 0.02))
+        let data = try PDFWriter(context: context).data(pages: [PDFPageContent(image: SyntheticPage().render(), look: .gray, text: [line])], title: "", defaultPaper: .a4)
+        let document = try #require(PDFDocument(data: data))
+        #expect(document.page(at: 0)?.string?.contains("Invoice 2026-114 Lumen Energy") == true)
+
+        let found = try #require(document.findString("Invoice 2026-114 Lumen Energy", withOptions: []).first)
+        let bounds = found.bounds(for: try #require(document.page(at: 0)))
+        let size = Paper.a4.size
+        let expected = CGRect(x: 0.1 * size.width, y: 0.78 * size.height, width: 0.5 * size.width, height: 0.02 * size.height)
+        #expect(abs(bounds.minX - expected.minX) < 2 && abs(bounds.maxX - expected.maxX) < 2)
+        #expect(abs(bounds.midY - expected.midY) < expected.height / 2)
+    }
+
+    @Test func keepsTheTextInvisible() throws {
+        let image = SyntheticPage().render()
+        let line = TextLine(text: "Invoice 2026-114 Lumen Energy", frame: CGRect(x: 0.1, y: 0.02, width: 0.5, height: 0.03))
+        let writer = PDFWriter(context: context)
+        let withText = try writer.data(pages: [PDFPageContent(image: image, look: .gray, text: [line])], title: "", defaultPaper: .a4)
+        let withoutText = try writer.data(pages: [PDFPageContent(image: image, look: .gray)], title: "", defaultPaper: .a4)
+        #expect(try pixels(ofFirstPageOf: withText) == pixels(ofFirstPageOf: withoutText))
+    }
+
+    private func pixels(ofFirstPageOf data: Data) throws -> [UInt8] {
+        let page = try #require(CGPDFDocument(CGDataProvider(data: data as CFData)!)?.page(at: 1))
+        let box = page.getBoxRect(.mediaBox)
+        let width = Int(box.width), height = Int(box.height)
+        var pixels = [UInt8](repeating: 0, count: width * height)
+        let bitmap = try #require(CGContext(data: &pixels, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width, space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.none.rawValue))
+        bitmap.drawPDFPage(page)
+        return pixels
+    }
 }

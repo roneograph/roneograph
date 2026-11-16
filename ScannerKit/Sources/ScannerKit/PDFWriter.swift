@@ -1,5 +1,6 @@
 import CoreGraphics
 import CoreImage
+import CoreText
 import Foundation
 import ImageIO
 import UniformTypeIdentifiers
@@ -9,11 +10,14 @@ public struct PDFPageContent: @unchecked Sendable {
     public var look: PageLook
     /// Median text line height as a share of the image's long side, to estimate the size of pages that are not A4 or Letter.
     public var textLineHeight: Double?
+    /// Drawn as invisible text over the image, so the page can be searched, selected and read aloud.
+    public var text: [TextLine]
 
-    public init(image: CIImage, look: PageLook, textLineHeight: Double? = nil) {
+    public init(image: CIImage, look: PageLook, textLineHeight: Double? = nil, text: [TextLine] = []) {
         self.image = image
         self.look = look
         self.textLineHeight = textLineHeight
+        self.text = text
     }
 }
 
@@ -22,7 +26,7 @@ public enum PDFWriterError: Error {
     case cannotEncodePage
 }
 
-/// Writes one image per page, encoded for its look as a grayscale or color JPEG.
+/// Writes one image per page, encoded for its look as a grayscale or color JPEG, under the invisible text of the page.
 public struct PDFWriter: @unchecked Sendable {
     private let context: CIContext
     private let sizing: PageSizing
@@ -51,10 +55,34 @@ public struct PDFWriter: @unchecked Sendable {
             pdf.beginPDFPage([kCGPDFContextMediaBox: Data(bytes: &box, count: MemoryLayout<CGRect>.size)] as CFDictionary)
             pdf.interpolationQuality = .high
             pdf.draw(encoded, in: box)
+            drawInvisibly(page.text, in: pdf, pageSize: box.size)
             pdf.endPDFPage()
         }
         pdf.closePDF()
         return data as Data
+    }
+
+    /// Stretches each line over the box where it was read, so a selection covers the printed words.
+    private func drawInvisibly(_ lines: [TextLine], in pdf: CGContext, pageSize: CGSize) {
+        pdf.saveGState()
+        pdf.setTextDrawingMode(.invisible)
+        for line in lines where !line.text.isEmpty {
+            let frame = CGRect(x: line.frame.minX * pageSize.width, y: (1 - line.frame.maxY) * pageSize.height, width: line.frame.width * pageSize.width, height: line.frame.height * pageSize.height)
+            let font = CTFontCreateWithName("Helvetica" as CFString, frame.height, nil)
+            let text = CTLineCreateWithAttributedString(NSAttributedString(string: line.text, attributes: [NSAttributedString.Key(kCTFontAttributeName as String): font]))
+            var ascent: CGFloat = 0, descent: CGFloat = 0
+            let width = CTLineGetTypographicBounds(text, &ascent, &descent, nil)
+            guard width > 0, ascent + descent > 0 else { continue }
+            let scaleY = frame.height / (ascent + descent)
+            pdf.saveGState()
+            pdf.translateBy(x: frame.minX, y: frame.minY + descent * scaleY)
+            pdf.scaleBy(x: frame.width / width, y: scaleY)
+            pdf.textMatrix = .identity
+            pdf.textPosition = .zero
+            CTLineDraw(text, pdf)
+            pdf.restoreGState()
+        }
+        pdf.restoreGState()
     }
 
     private func encode(_ image: CIImage, look: PageLook, pageSize: CGSize) throws -> CGImage {

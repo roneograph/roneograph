@@ -32,8 +32,11 @@ for path in arguments.dropFirst() {
     for look in [nil] + PageLook.allCases.map(Optional.some) {
         let image = cleaner.render(page, analysis: analysis, settings: CleanupSettings(look: look))
         if look == nil {
-            pdfPages.append(PDFPageContent(image: image, look: analysis.suggestedLook, textLineHeight: analysis.textLineHeight))
-            print("  names: \(namer.suggestions(lines: TextReader().lines(in: image), date: .now).names)")
+            let reading = Date()
+            let lines = TextReader().lines(in: image)
+            print(String(format: "  text: %d lines, %d characters, %.0f ms", lines.count, lines.reduce(0) { $0 + $1.text.count }, Date().timeIntervalSince(reading) * 1000))
+            pdfPages.append(PDFPageContent(image: image, look: analysis.suggestedLook, textLineHeight: analysis.textLineHeight, text: lines))
+            print("  names: \(namer.suggestions(lines: lines, date: .now).names)")
         }
         guard let data = extractor.jpegData(of: image, quality: 0.8) else { continue }
         try data.write(to: output.appending(path: "\(name)-\(look?.rawValue ?? "auto").jpg"))

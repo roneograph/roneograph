@@ -43,6 +43,17 @@ final class ScanProcessorTests {
         #expect(abs(cropped.extent.height / cropped.extent.width - 800.0 / 1200) < 0.02)
     }
 
+    @Test func makesThePDFSearchableWithTheTextOfThePages() throws {
+        var scan = Scan(name: "Invoice")
+        let page = ScanPage(quad: nil, analysis: .sample)
+        try FileManager.default.createDirectory(at: store.directory(of: scan.id), withIntermediateDirectories: true)
+        try #require(PageExtractor(context: CIContext()).jpegData(of: SyntheticPage().render(), quality: 0.9)).write(to: store.flatURL(scanID: scan.id, pageID: page.id))
+        scan.pages = [page]
+
+        let document = try #require(PDFDocument(data: try processor.pdfData(of: scan)))
+        #expect(document.string?.contains("The quick brown fox jumps over the lazy dog") == true)
+    }
+
     @Test func suggestsNamesFromTheTextOfThePreview() throws {
         let scanID = UUID()
         let page = ScanPage(quad: nil, analysis: .sample)
