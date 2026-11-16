@@ -36,7 +36,10 @@ for path in arguments.dropFirst() {
             let lines = TextReader().lines(in: image)
             print(String(format: "  text: %d lines, %d characters, %.0f ms", lines.count, lines.reduce(0) { $0 + $1.text.count }, Date().timeIntervalSince(reading) * 1000))
             pdfPages.append(PDFPageContent(image: image, look: analysis.suggestedLook, textLineHeight: analysis.textLineHeight, text: lines))
-            print("  names: \(namer.suggestions(lines: lines, date: .now).names)")
+            let suggestions = namer.suggestions(lines: lines, date: .now, aspectRatio: image.extent.width / image.extent.height)
+            let details = suggestions.document.details
+            print("  names: \(suggestions.names)")
+            print("  details: \(details.category.rawValue) · issuer \(details.issuer ?? "-") · date \(details.date.map(FileNamer.isoDate) ?? "-") · number \(details.number ?? "-") · keys \(suggestions.document.issuerKeys)")
         }
         guard let data = extractor.jpegData(of: image, quality: 0.8) else { continue }
         try data.write(to: output.appending(path: "\(name)-\(look?.rawValue ?? "auto").jpg"))
