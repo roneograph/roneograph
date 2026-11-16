@@ -120,6 +120,30 @@ final class CameraModelTests {
         #expect(camera.locks == 2)
     }
 
+    @Test func asksToCleanASmudgedLens() {
+        camera.handleSmudge(0.89)
+        #expect(camera.hint == .pointAtPage)
+        camera.handleSmudge(0.9)
+        #expect(camera.hint == .cleanLens)
+        camera.handle(LiveFrame(quad: page, imageSize: size, time: 0))
+        #expect(camera.hint == .cleanLens)
+        camera.handleSmudge(0.2)
+        #expect(camera.hint == .holdStill)
+    }
+
+    @Test func hintsWhatMattersMostFirst() async {
+        camera.handleSmudge(1)
+        camera.handle(LiveFrame(quad: nil, imageSize: size, time: 0, lowLight: true))
+        #expect(camera.hint == .cleanLens)
+        camera.handle(LiveFrame(quad: .rect(x: 0, y: 0.1, width: 1, height: 0.8), imageSize: size, time: 0.1))
+        #expect(camera.hint == .moveFarther)
+
+        device.failsPhotos = true
+        camera.shutter()
+        await camera.waitUntilIdle()
+        #expect(camera.hint == .captureFailed)
+    }
+
     @Test(arguments: [(true, false, CameraModel.Access.denied), (true, true, .granted), (false, true, .unavailable)])
     func asksForTheCamera(available: Bool, granted: Bool, access: CameraModel.Access) async {
         let device = FakeCamera()

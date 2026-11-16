@@ -112,7 +112,7 @@ public final class CameraModel {
             Task { @MainActor in self?.handle(frame) }
         }
         device.onSmudge = { [weak self] confidence in
-            Task { @MainActor in self?.smudged = confidence >= 0.9 }
+            Task { @MainActor in self?.handleSmudge(confidence) }
         }
     }
 
@@ -192,6 +192,10 @@ public final class CameraModel {
         if case .capture = state {
             capture()
         }
+    }
+
+    func handleSmudge(_ confidence: Float) {
+        smudged = confidence >= 0.9
     }
 
     private func capture() {
