@@ -10,6 +10,42 @@ The [manifesto](MANIFESTO.md) says what Roneograph is for and how features are c
 
 [Download Roneograph on the App Store](https://apps.apple.com/app/id6835211020).
 
+## What it does
+
+Capturing:
+
+- Opens on the camera and captures a page on its own once it is held still; a Manual mode leaves it to the shutter.
+- Captures each page once: turning pages in a pile does not take the same page twice.
+- Tells you what to fix: move closer or farther, more light, a dirty lens; a flash helps in dark rooms.
+- Adds pages to a scan at any time, even days later.
+
+Cleaning up:
+
+- Cuts the page out of the photo and flattens it, even when it was shot at an angle.
+- Turns the page upright from the direction of its text, and straightens slightly tilted text.
+- Removes shadows, whitens the paper and keeps faint ink, pencil, stamps and signatures.
+- Makes pages gray, or color when they have color; each page can be switched.
+- Fixes a wrong outline on the original photo, with corners that snap and a magnifier.
+
+The PDF:
+
+- Gives pages their real paper size: A4 or Letter from their proportions, otherwise estimated from the size of the text.
+- Makes every PDF searchable, with the recognized text invisible under each page.
+- Writes PDF/A, the ISO standard for long-term archiving, and shows the file size before sending.
+
+Naming:
+
+- Suggests a name from the text, such as the document type, the sender and its number, and finds the date printed on it.
+- Remembers a corrected name and reuses it for the next document that gets the same suggestion.
+- Follows your file name format: date first or last, in three formats, from the document or the scan day, with spaces, dashes or underscores, lowercase or not.
+
+Sending:
+
+- Email fills in your default address, the name as the subject and the PDF; you only tap Send.
+- Save to Files puts the PDF in a folder picked once, without replacing a file already there.
+- Share reaches any other app.
+- Keeps scans 1, 7 or 30 days, visible in Files, then deletes them.
+
 ## Requirements
 
 - Xcode 26 and [XcodeGen](https://github.com/yonaskolb/XcodeGen)
