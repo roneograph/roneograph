@@ -8,6 +8,9 @@ struct RenameView: View {
     @Bindable var settings: SettingsStore
     @State private var name = ""
     @State private var details = DocumentDetails()
+    /// The name and details when the sheet opened or when the text was read, to keep what arrives while the user has not touched them.
+    @State private var shownName = ""
+    @State private var shownDetails = DocumentDetails()
     @State private var selection: TextSelection?
     @State private var addingCategory = false
     @State private var newCategory = ""
@@ -51,8 +54,11 @@ struct RenameView: View {
                             Text(details.category.rawValue)
                         }
                     }
-                    TextField("Issuer", text: text(\.issuer))
-                        .textContentType(.organizationName)
+                    LabeledContent("Issuer") {
+                        TextField("None", text: text(\.issuer))
+                            .textContentType(.organizationName)
+                            .multilineTextAlignment(.trailing)
+                    }
                     if let date = details.date {
                         HStack {
                             DatePicker("Date", selection: Binding(get: { date }, set: { details.date = $0 }), displayedComponents: .date)
@@ -64,9 +70,12 @@ struct RenameView: View {
                     } else {
                         Button("Add Date") { details.date = scan.scan.created }
                     }
-                    TextField("Number", text: text(\.number))
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
+                    LabeledContent("Number") {
+                        TextField("None", text: text(\.number))
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+                            .multilineTextAlignment(.trailing)
+                    }
                 } header: {
                     Text("Details")
                 } footer: {
@@ -95,9 +104,22 @@ struct RenameView: View {
                 let sanitized = namer.sanitize(value)
                 if sanitized != value { name = sanitized }
             }
+            .onChange(of: scan.scan.title) { _, title in
+                if name == shownName {
+                    name = title
+                    selection = TextSelection(range: name.startIndex..<name.endIndex)
+                }
+                shownName = title
+            }
+            .onChange(of: scan.scan.details) { _, read in
+                if details == shownDetails { details = read }
+                shownDetails = read
+            }
             .onAppear {
                 name = scan.scan.title
+                shownName = name
                 details = scan.scan.details
+                shownDetails = details
                 selection = TextSelection(range: name.startIndex..<name.endIndex)
                 focused = true
             }
@@ -126,8 +148,7 @@ struct RenameView: View {
     private func save() {
         details.issuer = details.issuer?.trimmingCharacters(in: .whitespaces).nilIfEmpty
         details.number = details.number?.trimmingCharacters(in: .whitespaces).nilIfEmpty
-        scan.setDetails(details)
-        scan.rename(name)
+        scan.applyEdits(name: name, details: details, shownName: shownName, shownDetails: shownDetails)
         dismiss()
     }
 }

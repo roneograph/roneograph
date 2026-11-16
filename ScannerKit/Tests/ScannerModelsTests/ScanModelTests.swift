@@ -272,4 +272,27 @@ struct ScanModelTests {
         model.setDetails(DocumentDetails(category: .invoice, date: .now))
         #expect(fixture.settings.learnedIssuer(for: ["lumen"])?.category == .invoice)
     }
+
+    @Test func closingTheSheetWithoutChangesKeepsWhatWasReadMeanwhile() async throws {
+        let fixture = try Fixture()
+        let model = fixture.scanModel()
+        let shownName = model.scan.title, shownDetails = model.scan.details
+        let photo = try #require(PageExtractor(context: CIContext()).jpegData(of: SyntheticPage().render(), quality: 0.9))
+        model.addPhoto(photo, liveQuad: nil)
+        await model.waitUntilIdle()
+        let read = model.scan.title
+        try #require(read != shownName)
+
+        model.applyEdits(name: shownName, details: shownDetails, shownName: shownName, shownDetails: shownDetails)
+        #expect(model.scan.title == read)
+        #expect(!model.scan.isNamedByUser)
+        #expect(!model.scan.areDetailsEditedByUser)
+
+        model.applyEdits(name: read, details: DocumentDetails(category: .letter), shownName: read, shownDetails: model.scan.details)
+        #expect(model.scan.details.category == .letter)
+        #expect(!model.scan.isNamedByUser)
+        model.applyEdits(name: "Mine", details: model.scan.details, shownName: read, shownDetails: model.scan.details)
+        #expect(model.scan.title == "Mine")
+        #expect(model.scan.isNamedByUser)
+    }
 }

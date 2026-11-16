@@ -197,6 +197,12 @@ public final class ScanModel: Identifiable {
         applyFileName()
     }
 
+    /// Applies what the user changed in the name and details, compared to what they were shown, so what was read meanwhile stays.
+    public func applyEdits(name: String, details: DocumentDetails, shownName: String, shownDetails: DocumentDetails) {
+        if details != shownDetails { setDetails(details) }
+        if name != shownName || scan.isNamedByUser { rename(name) }
+    }
+
     /// Changes the details; a new issuer or category is learned for the next document from the same issuer.
     public func setDetails(_ details: DocumentDetails) {
         guard details != scan.details else { return }
