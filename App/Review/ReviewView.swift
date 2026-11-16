@@ -25,7 +25,7 @@ struct ReviewView: View {
             .padding(.bottom, 24)
         }
         .safeAreaInset(edge: .bottom) {
-            SendBar(app: app, scans: [scan], isReady: isReady) { Text(summary) }
+            SendBar(app: app, scans: [scan], isReady: scan.hasCurrentPDF) { Text(summary) }
         }
         .navigationBarTitleDisplayMode(.inline)
         .task(id: scan.pdfInputs) { await scan.buildPDF() }
@@ -56,14 +56,10 @@ struct ReviewView: View {
         viewedPage = page
     }
 
-    private var isReady: Bool {
-        if case .ready = scan.pdf { !scan.isBusy } else { false }
-    }
-
     private var summary: String {
         let count = (scan.scan.pages.count + scan.processing).counted("page")
         switch scan.pdf {
-        case .ready(_, let size) where !scan.isBusy:
+        case .ready(_, let size) where scan.hasCurrentPDF:
             return "\(count) · \(ByteCountFormatter.string(fromByteCount: Int64(size), countStyle: .file))"
         case .failed:
             return "\(count) · the PDF could not be made"

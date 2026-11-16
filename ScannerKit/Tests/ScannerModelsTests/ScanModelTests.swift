@@ -273,6 +273,23 @@ struct ScanModelTests {
         #expect(FileManager.default.fileExists(atPath: url.path(percentEncoded: false)))
     }
 
+    @Test func aRenameMakesThePDFNotCurrent() async throws {
+        let fixture = try Fixture()
+        let model = await fixture.scanModel(pages: 1)
+        await model.preparePDF()
+        #expect(model.hasCurrentPDF)
+
+        model.rename("Water bill")
+        #expect(!model.hasCurrentPDF)
+        await model.preparePDF()
+        #expect(model.hasCurrentPDF)
+        guard case .ready(let url, _) = model.pdf else {
+            Issue.record("PDF not ready: \(model.pdf)")
+            return
+        }
+        #expect(url == fixture.store.pdfURL(of: model.scan))
+    }
+
     @Test func editedDetailsRenameTheFileWithACustomFormat() async throws {
         let fixture = try Fixture()
         fixture.settings.value.fileNameFormat = FileNameFormat(isCustom: true, template: "{CATEGORY}/{YYYY} {ISSUER} {NUMBER}")
