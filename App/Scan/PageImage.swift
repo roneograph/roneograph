@@ -18,17 +18,19 @@ struct PageImage: View {
             }
         }
         .task(id: Key(url: url, revision: revision)) {
-            let url = url, size = maximumSize
-            let loaded = await Task.detached(priority: .userInitiated) { () -> UIImage? in
-                guard let image = UIImage(contentsOfFile: url.path(percentEncoded: false)) else { return nil }
-                let scale = min(1, size / max(image.size.width, image.size.height))
-                return await image.byPreparingThumbnail(ofSize: CGSize(width: image.size.width * scale, height: image.size.height * scale))
-            }.value
-            if let loaded { image = loaded }
+            if let loaded = await Self.load(url, maximumSize: maximumSize) { image = loaded }
         }
     }
 
-    private struct Key: Equatable {
+    static func load(_ url: URL, maximumSize: CGFloat) async -> UIImage? {
+        await Task.detached(priority: .userInitiated) { () -> UIImage? in
+            guard let image = UIImage(contentsOfFile: url.path(percentEncoded: false)) else { return nil }
+            let scale = min(1, maximumSize / max(image.size.width, image.size.height))
+            return await image.byPreparingThumbnail(ofSize: CGSize(width: image.size.width * scale, height: image.size.height * scale))
+        }.value
+    }
+
+    struct Key: Equatable {
         let url: URL
         let revision: Int
     }
