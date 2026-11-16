@@ -4,7 +4,12 @@ import ImageIO
 import Vision
 
 public enum PageLook: String, Codable, Sendable, CaseIterable {
-    case color, gray, blackAndWhite, photo
+    case color, gray, blackAndWhite
+
+    /// Pages saved with a look that no longer exists keep their colors.
+    public init(from decoder: Decoder) throws {
+        self = Self(rawValue: try decoder.singleValueContainer().decode(String.self)) ?? .color
+    }
 }
 
 /// How a page should be turned to be upright.
@@ -83,7 +88,8 @@ public struct PageCleaner: @unchecked Sendable {
         public var colorChroma: Float = 0.12
         public var colorFractionForColor: Double = 0.002
         public var pictureDarkness: Float = 0.45
-        public var pictureFractionForPhoto: Double = 0.15
+        /// Above this, shadow removal could wash out the pictures, so the page is only evened by its paper color.
+        public var pictureFractionForPaperColor: Double = 0.15
         public var minimumSkew: Double = 0.15
         public var minimumLinesForSize = 5
         public var threshold: Double = 0.45
@@ -107,18 +113,9 @@ public struct PageCleaner: @unchecked Sendable {
         let normalized = divide(upright, by: paper)
         let pictureFraction = pictureFraction(Bitmap(paper, longSide: configuration.statisticsSize, context: context))
         let colorFraction = colorFraction(Bitmap(normalized, longSide: configuration.statisticsSize, context: context))
-
         // Black and white is never picked automatically: gray blocks, faint stamps or pencil can vanish in it.
-        let look: PageLook
-        if pictureFraction >= configuration.pictureFractionForPhoto {
-            look = .photo
-        } else if colorFraction >= configuration.colorFractionForColor {
-            look = .color
-        } else {
-            look = .gray
-        }
-        let skew = look == .photo ? 0 : skew(of: normalized)
-        return PageAnalysis(orientation: orientation, skewDegrees: skew, suggestedLook: look, colorFraction: colorFraction, pictureFraction: pictureFraction, textLineHeight: textLineHeight)
+        let look: PageLook = colorFraction >= configuration.colorFractionForColor ? .color : .gray
+        return PageAnalysis(orientation: orientation, skewDegrees: skew(of: normalized), suggestedLook: look, colorFraction: colorFraction, pictureFraction: pictureFraction, textLineHeight: textLineHeight)
     }
 
     public func render(_ page: CIImage, analysis: PageAnalysis, settings: CleanupSettings = .init()) -> CIImage {
@@ -127,12 +124,9 @@ public struct PageCleaner: @unchecked Sendable {
             image = rotated(image, degrees: -analysis.skewDegrees)
         }
 
-        let look = settings.look ?? analysis.suggestedLook
-        if look != .photo {
-            image = whitePaper(divide(image, by: background(of: image)))
-        }
-
-        switch look {
+        let paper = analysis.pictureFraction >= configuration.pictureFractionForPaperColor ? paperColor(of: image) : background(of: image)
+        image = whitePaper(divide(image, by: paper))
+        switch settings.look ?? analysis.suggestedLook {
         case .color:
             break
         case .gray:
@@ -140,8 +134,6 @@ public struct PageCleaner: @unchecked Sendable {
         case .blackAndWhite:
             image = image.applyingFilter("CIColorControls", parameters: [kCIInputSaturationKey: 0])
                 .applyingFilter("CIColorThreshold", parameters: ["inputThreshold": configuration.threshold])
-        case .photo:
-            break
         }
         return image.cropped(to: CGRect(origin: .zero, size: image.extent.size)).applyingFilter("CIColorClamp")
     }
@@ -188,6 +180,14 @@ public struct PageCleaner: @unchecked Sendable {
         filter.inputImage = background
         filter.backgroundImage = image
         return (filter.outputImage ?? image).cropped(to: image.extent)
+    }
+
+    /// The paper color of the whole page, as a uniform image.
+    private func paperColor(of image: CIImage) -> CIImage {
+        let bitmap = Bitmap(image, longSide: configuration.statisticsSize, context: context)
+        let channels = (0..<3).map { c in (0..<bitmap.count).map { bitmap.pixels[$0 * 4 + c] } }
+        let paper = channels.map { CGFloat(max(0.05, Bitmap.percentile($0, 0.9))) }
+        return CIImage(color: CIColor(red: paper[0], green: paper[1], blue: paper[2], colorSpace: CGColorSpace(name: CGColorSpace.linearSRGB)!)!).cropped(to: image.extent)
     }
 
     /// Pushes everything above the knee to white and darkens the ink below it.

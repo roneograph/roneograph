@@ -1,6 +1,7 @@
 import CoreGraphics
 import CoreImage
 import CoreText
+import Foundation
 import ImageIO
 import ScannerKit
 import ScannerKitTesting
@@ -23,8 +24,15 @@ struct PageCleanerTests {
         #expect(cleaner.analyze(SyntheticPage(stamp: true).render()).suggestedLook == .color)
     }
 
-    @Test func aLargePictureIsAPhoto() {
-        #expect(cleaner.analyze(SyntheticPage(picture: true).render()).suggestedLook == .photo)
+    @Test func aLargePictureStaysDark() {
+        let page = SyntheticPage(picture: true).render()
+        let (r, _, _) = color(of: cleaner.render(page, analysis: cleaner.analyze(page)), at: CGPoint(x: 0.5, y: 0.55))
+        #expect(r < 0.4)
+    }
+
+    @Test func aLookThatNoLongerExistsDecodesAsColor() throws {
+        let looks = try JSONDecoder().decode([PageLook].self, from: Data(#"["photo", "gray"]"#.utf8))
+        #expect(looks == [.color, .gray])
     }
 
     @Test func turnsAnUpsideDownPageUpright() {
@@ -70,13 +78,6 @@ struct PageCleanerTests {
         let clean = cleaner.render(page, analysis: cleaner.analyze(page), settings: CleanupSettings(look: .gray))
         let (r, _, _) = color(of: clean, at: SyntheticPage.blockCenter)
         #expect(r < 0.2)
-    }
-
-    @Test func photoLeavesTheColorsAlone() {
-        let page = SyntheticPage(paper: (0.86, 0.8, 0.62)).render()
-        let photo = cleaner.render(page, analysis: cleaner.analyze(page), settings: CleanupSettings(look: .photo))
-        let (r, g, b) = color(of: photo, at: CGPoint(x: 0.05, y: 0.5))
-        #expect(r - b > 0.15 && g < r)
     }
 
     @Test func blackAndWhiteHasOnlyTwoValues() {

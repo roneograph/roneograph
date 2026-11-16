@@ -68,7 +68,7 @@ public struct PDFWriter: @unchecked Sendable {
         }
         for page in pages {
             let image = page.image.atOrigin
-            var box = CGRect(origin: .zero, size: sizing.pageSize(forImage: image.extent.size, textLineHeight: page.look == .photo ? nil : page.textLineHeight, defaultPaper: defaultPaper))
+            var box = CGRect(origin: .zero, size: sizing.pageSize(forImage: image.extent.size, textLineHeight: page.textLineHeight, defaultPaper: defaultPaper))
             let encoded = try encode(image, look: page.look, pageSize: box.size, quality: quality)
             pdf.beginPDFPage([kCGPDFContextMediaBox: Data(bytes: &box, count: MemoryLayout<CGRect>.size)] as CFDictionary)
             pdf.interpolationQuality = .high
@@ -87,7 +87,7 @@ public struct PDFWriter: @unchecked Sendable {
             return try oneBit(resized)
         case .gray:
             return try jpeg(resized, gray: true, quality: quality.jpegQuality)
-        case .color, .photo:
+        case .color:
             return try jpeg(resized, gray: false, quality: quality.jpegQuality)
         }
     }

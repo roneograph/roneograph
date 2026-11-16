@@ -97,7 +97,6 @@ extension PageLook {
         case .color: "Color"
         case .gray: "Gray"
         case .blackAndWhite: "B&W"
-        case .photo: "Photo"
         }
     }
 }

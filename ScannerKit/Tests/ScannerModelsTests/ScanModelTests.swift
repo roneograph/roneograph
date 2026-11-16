@@ -71,15 +71,15 @@ struct ScanModelTests {
     @Test func setsTheLookOfSeveralPages() async throws {
         let fixture = try Fixture()
         let model = await fixture.scanModel(pages: 3)
-        model.setLook(.photo, of: model.scan.pages.map(\.id))
+        model.setLook(.color, of: model.scan.pages.map(\.id))
         await model.waitUntilIdle()
-        #expect(model.scan.pages.map(\.look) == [.photo, .photo, .photo])
+        #expect(model.scan.pages.map(\.look) == [.color, .color, .color])
         #expect(model.scan.pages.map(\.revision) == [1, 1, 1])
 
         model.setLook(nil, of: [model.scan.pages[0].id])
         await model.waitUntilIdle()
         #expect(model.scan.pages[0].cleanup.look == nil)
-        #expect(model.scan.pages[1].look == .photo)
+        #expect(model.scan.pages[1].look == .color)
     }
 
     @Test func recropsAPage() async throws {
