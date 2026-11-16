@@ -24,7 +24,7 @@ struct ReviewView: View {
             .padding(.horizontal)
             .padding(.bottom, 24)
         }
-        .safeAreaInset(edge: .bottom) {
+        .safeAreaBar(edge: .bottom) {
             SendBar(app: app, scans: [scan], isReady: scan.hasCurrentPDF) { Text(scan.summary) }
         }
         .navigationBarTitleDisplayMode(.inline)
