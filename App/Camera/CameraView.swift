@@ -20,6 +20,11 @@ struct CameraView: View {
             Color.black.ignoresSafeArea()
             if camera.access == .denied || camera.access == .unavailable {
                 deniedView
+                VStack {
+                    HStack { closeButton; Spacer() }
+                    Spacer()
+                }
+                .padding()
             } else {
                 PreviewView(session: session).ignoresSafeArea()
                 QuadOverlay(quad: camera.quad, imageSize: camera.imageSize, state: camera.state).ignoresSafeArea()
@@ -37,13 +42,6 @@ struct CameraView: View {
                             .foregroundStyle(.white)
                     }
                     bottomBar
-                }
-                .padding()
-            }
-            if camera.access == .denied || camera.access == .unavailable {
-                VStack {
-                    HStack { closeButton; Spacer() }
-                    Spacer()
                 }
                 .padding()
             }
