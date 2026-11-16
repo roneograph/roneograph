@@ -36,13 +36,8 @@ struct PageCleanerTests {
         #expect(looks == [.color, .gray, .gray, .color])
     }
 
-    @Test func turnsAnUpsideDownPageUpright() {
-        let page = SyntheticPage().render().oriented(.down)
-        #expect(cleaner.analyze(page).orientation == .down)
-    }
-
-    @Test(arguments: [(CGImagePropertyOrientation.right, PageOrientation.left), (.left, .right)])
-    func turnsASidewaysPageUpright(turned: CGImagePropertyOrientation, fix: PageOrientation) {
+    @Test(arguments: [(CGImagePropertyOrientation.down, PageOrientation.down), (.right, .left), (.left, .right)])
+    func turnsAPageUpright(turned: CGImagePropertyOrientation, fix: PageOrientation) {
         #expect(cleaner.analyze(SyntheticPage().render().oriented(turned)).orientation == fix)
     }
 

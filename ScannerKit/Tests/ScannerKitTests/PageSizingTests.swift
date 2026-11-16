@@ -51,6 +51,9 @@ struct PageSizingTests {
     @Test(arguments: [(Locale.Region.unitedStates, Paper.letter), (.canada, .letter), (.france, .a4), (.unitedKingdom, .a4)])
     func picksThePaperOfTheRegion(region: Locale.Region, paper: Paper) {
         #expect(Paper(region: region) == paper)
+    }
+
+    @Test func picksA4WithoutARegion() {
         #expect(Paper(region: nil) == .a4)
     }
 

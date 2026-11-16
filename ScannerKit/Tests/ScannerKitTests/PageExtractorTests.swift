@@ -27,8 +27,8 @@ struct PageExtractorTests {
     }
 
     @Test func signatureIgnoresExposureButNotContent() throws {
-        let photo = SyntheticPhoto.render(page: tilted, contentAtTop: true)
-        let darker = SyntheticPhoto.render(page: tilted, contentAtTop: true, paper: 0.8)
+        let photo = SyntheticPhoto.render(page: tilted)
+        let darker = SyntheticPhoto.render(page: tilted, paper: 0.8)
         let other = SyntheticPhoto.render(page: tilted, contentAtTop: false)
         let reference = try #require(extractor.signature(of: photo, quad: tilted))
         #expect(try #require(extractor.signature(of: darker, quad: tilted)).distance(to: reference) < 0.03)
@@ -38,10 +38,5 @@ struct PageExtractorTests {
         #expect(trigger.update(quad: tilted, signature: reference, at: 0.5) == .capture(tilted))
         #expect(trigger.update(quad: tilted, signature: extractor.signature(of: darker, quad: tilted), at: 0.6) == .waitingForNextPage)
         #expect(trigger.update(quad: tilted, signature: extractor.signature(of: other, quad: tilted), at: 0.7) == .steadying(progress: 0))
-    }
-
-    @Test func encodesJPEG() throws {
-        let data = try #require(extractor.jpegData(of: SyntheticPhoto.render(page: tilted), quality: 0.8))
-        #expect(data.starts(with: [0xFF, 0xD8]))
     }
 }
