@@ -15,6 +15,16 @@ public struct TextLine: Equatable, Sendable {
     }
 }
 
+extension RecognizeTextRequest {
+    /// The accurate recognizer, reading text of any size: the default skips text smaller than 1/32 of the image and measures lines coarsely.
+    static func page() -> Self {
+        var request = RecognizeTextRequest()
+        request.recognitionLevel = .accurate
+        request.minimumTextHeightFraction = 0
+        return request
+    }
+}
+
 /// Reads the lines of text of an upright page, to suggest a file name and to make the PDF searchable.
 public struct TextReader: Sendable {
     private let longSide: CGFloat = 1600
@@ -23,16 +33,13 @@ public struct TextReader: Sendable {
 
     public func lines(in page: CIImage) async -> [TextLine] {
         let image = page.atOrigin.scaled(by: page.scale(toLongSide: longSide))
-        return await VisionQueue.run {
-            let request = VNRecognizeTextRequest()
-            request.recognitionLevel = .accurate
-            request.automaticallyDetectsLanguage = true
-            try? VNImageRequestHandler(ciImage: image).perform([request])
-            return (request.results ?? []).compactMap { observation in
-                guard let candidate = observation.topCandidates(1).first else { return nil }
-                let box = observation.boundingBox
-                return TextLine(text: candidate.string, frame: CGRect(x: box.minX, y: 1 - box.maxY, width: box.width, height: box.height), confidence: candidate.confidence)
-            }
+        var request = RecognizeTextRequest.page()
+        request.automaticallyDetectsLanguage = true
+        let observations = (try? await request.perform(on: image)) ?? []
+        return observations.compactMap { observation in
+            guard let candidate = observation.topCandidates(1).first else { return nil }
+            let box = observation.boundingBox.cgRect
+            return TextLine(text: candidate.string, frame: CGRect(x: box.minX, y: 1 - box.maxY, width: box.width, height: box.height), confidence: candidate.confidence)
         }
     }
 }

@@ -90,7 +90,7 @@ public struct PageCleaner: @unchecked Sendable {
 
     public func analyze(_ page: CIImage) async -> PageAnalysis {
         let page = page.atOrigin
-        let (orientation, textLineHeight) = await VisionQueue.run { orientationAndTextLineHeight(of: page) }
+        let (orientation, textLineHeight) = await orientationAndTextLineHeight(of: page)
         let upright = page.oriented(orientation.imageOrientation)
         let paper = background(of: upright)
         let normalized = divide(upright, by: paper)
@@ -255,16 +255,15 @@ public struct PageCleaner: @unchecked Sendable {
 
     /// The accurate recognizer reads text in any orientation; the direction of its lines says how the page is turned,
     /// and their median height, as a share of the page's long side, how big the text is.
-    private func orientationAndTextLineHeight(of page: CIImage) -> (PageOrientation, Double?) {
+    private func orientationAndTextLineHeight(of page: CIImage) async -> (PageOrientation, Double?) {
         let extent = page.extent
-        let request = VNRecognizeTextRequest()
-        request.recognitionLevel = .accurate
+        var request = RecognizeTextRequest.page()
         request.usesLanguageCorrection = false
-        try? VNImageRequestHandler(ciImage: page.scaled(by: page.scale(toLongSide: textSize))).perform([request])
+        let lines = (try? await request.perform(on: page.scaled(by: page.scale(toLongSide: textSize)))) ?? []
 
         var votes: [PageOrientation: Double] = [:]
         var heights: [Double] = []
-        for line in request.results ?? [] {
+        for line in lines {
             let dx = Double(line.topRight.x - line.topLeft.x) * extent.width
             let dy = Double(line.topRight.y - line.topLeft.y) * extent.height
             let orientation: PageOrientation = abs(dx) >= abs(dy) ? (dx > 0 ? .up : .down) : (dy > 0 ? .right : .left)

@@ -14,6 +14,14 @@ struct TextReaderTests {
         #expect(first.frame.minX < 0.1)
     }
 
+    @Test func readsSmallPrint() async {
+        let page = SyntheticPage().render()
+        let small = page.transformed(by: CGAffineTransform(scaleX: 0.5, y: 0.5))
+        let sheet = small.composited(over: CIImage(color: .white).cropped(to: page.extent))
+        let lines = await TextReader().lines(in: sheet)
+        #expect(lines.contains { $0.text == "The quick brown fox jumps over the lazy dog" })
+    }
+
     @Test(.timeLimit(.minutes(1)))
     func readsMorePagesAtOnceThanThereAreThreads() async {
         let page = SyntheticPage(lines: 5).render()
