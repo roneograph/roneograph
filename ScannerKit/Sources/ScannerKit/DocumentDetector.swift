@@ -427,13 +427,14 @@ public struct DocumentDetector: Sendable {
         }.map(\.line)
     }
 
-    /// Each line with the lines right under it that start with "de" or "d'", as a name or a sentence wrapped on several lines, and the indices of the lines it joins.
+    /// Each line with the lines right under it that start with "de" or "d'", as a name or a sentence wrapped on several lines,
+    /// or that are as large as a short large line, as a name set on two lines in a logo; with the indices of the lines it joins.
     private static func joiningContinuations(of page: Page) -> [(indices: [Int], line: Line)] {
         var result: [(indices: [Int], line: Line)] = []
         var continuations = Set<Int>()
         for (index, line) in page.lines.enumerated() where !continuations.contains(index) {
             var indices = [index]
-            while let last = indices.last, let next = page.lines.indices.first(where: { $0 > last && !continuations.contains($0) && continues(page.lines[$0], after: page.lines[last]) }) {
+            while let last = indices.last, let next = page.lines.indices.first(where: { $0 > last && !continuations.contains($0) && continues(page.lines[$0], after: page.lines[last], on: page) }) {
                 indices.append(next)
                 continuations.insert(next)
             }
@@ -442,8 +443,12 @@ public struct DocumentDetector: Sendable {
         return result
     }
 
-    private static func continues(_ line: Line, after previous: Line) -> Bool {
-        startsWithConnector(line) && isRightUnder(line, previous)
+    private static func continues(_ line: Line, after previous: Line, on page: Page) -> Bool {
+        guard isRightUnder(line, previous) else { return false }
+        if startsWithConnector(line) { return true }
+        let sameSize = max(line.frame.height, previous.frame.height) < min(line.frame.height, previous.frame.height) * 1.3
+        let isShort = previous.words.count <= 2 && line.words.count <= 2
+        return page.isLarge(line) && page.isLarge(previous) && sameSize && isShort && line.text.first?.isUppercase == true
     }
 
     /// Right under the line above, starting at its left edge or within it, or centered on it as in a logo.

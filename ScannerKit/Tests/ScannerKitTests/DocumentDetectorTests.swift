@@ -176,6 +176,22 @@ struct DocumentDetectorTests {
         #expect(detector.detect(lines: lines).details.issuer == "l'Atelier Verdier")
     }
 
+    @Test func readsANameSetOnTwoLargeLinesAsOne() {
+        let lines = [
+            line("Atelier", y: 0.04, height: 0.024),
+            line("Brunel", y: 0.063, height: 0.026),
+            line("Agir pour chacun", y: 0.09, height: 0.011),
+            line("Lorem ipsum", y: 0.5),
+            line("Dolor sit amet", y: 0.52),
+        ]
+        #expect(detector.detect(lines: lines).details.issuer == "Atelier Brunel")
+    }
+
+    @Test func keepsALargeNameApartFromASmallerLineUnderIt() {
+        let lines = [line("Northwind Power", y: 0.04, height: 0.03), line("Energy Services", y: 0.071, height: 0.016), line("Lorem ipsum", y: 0.5), line("Dolor sit amet", y: 0.52)]
+        #expect(detector.detect(lines: lines).details.issuer == "Northwind Power")
+    }
+
     @Test func neverTakesALineStartingWithDeAsTheIssuer() {
         let lines = [line("Cabinet", y: 0.08, height: 0.02), line("de la Butte", y: 0.2, height: 0.03), line("Lorem ipsum", y: 0.5)]
         #expect(detector.detect(lines: lines).details.issuer == "Cabinet")
