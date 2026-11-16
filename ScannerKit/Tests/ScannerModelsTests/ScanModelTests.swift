@@ -56,13 +56,13 @@ struct ScanModelTests {
         let id = model.scan.pages[0].id
         let orientation = model.scan.pages[0].analysis.orientation
 
-        model.rotatePage(id, clockwise: true)
-        model.rotatePage(id, clockwise: true)
+        model.rotatePage(id)
+        model.rotatePage(id)
         model.setLook(.color, of: [id])
         await model.waitUntilIdle()
 
         let page = model.scan.pages[0]
-        #expect(page.analysis.orientation == orientation.turned(clockwise: true).turned(clockwise: true))
+        #expect(page.analysis.orientation == orientation.turned.turned)
         #expect(page.cleanup.look == .color)
         #expect(page.revision == 3)
         #expect(model.updating == 0)

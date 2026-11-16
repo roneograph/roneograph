@@ -22,9 +22,9 @@ public struct ScanPage: Identifiable, Equatable, Sendable, Codable {
 
     public var look: PageLook { cleanup.look ?? analysis.suggestedLook }
 
-    /// Turns the page a quarter turn.
-    public mutating func rotate(clockwise: Bool) {
-        analysis.orientation = analysis.orientation.turned(clockwise: clockwise)
+    /// Turns the page a quarter turn clockwise.
+    public mutating func rotate() {
+        analysis.orientation = analysis.orientation.turned
         revision += 1
     }
 }

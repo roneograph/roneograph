@@ -126,8 +126,8 @@ public final class ScanModel: Identifiable {
         save()
     }
 
-    public func rotatePage(_ id: UUID, clockwise: Bool) {
-        editPage(id) { $0.rotate(clockwise: clockwise) }
+    public func rotatePage(_ id: UUID) {
+        editPage(id) { $0.rotate() }
     }
 
     public func setLook(_ look: PageLook?, of ids: [UUID]) {

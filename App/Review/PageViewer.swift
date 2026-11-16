@@ -56,8 +56,7 @@ struct PageViewer: View {
                 .font(.footnote)
                 .foregroundStyle(.secondary)
                 HStack {
-                    Button("Rotate Left", systemImage: "rotate.left") { scan.rotatePage(page.id, clockwise: false) }
-                    Button("Rotate Right", systemImage: "rotate.right") { scan.rotatePage(page.id, clockwise: true) }
+                    Button("Rotate", systemImage: "rotate.right") { scan.rotatePage(page.id) }
                     Button("Crop", systemImage: "crop") { cropping = page }
                     Spacer()
                     Button("Delete Page", systemImage: "trash", role: .destructive) { delete(page) }

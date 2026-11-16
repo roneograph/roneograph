@@ -216,8 +216,7 @@ private struct PageGrid: View {
                     return true
                 }
                 .contextMenu {
-                    Button("Rotate Right", systemImage: "rotate.right") { scan.rotatePage(page.id, clockwise: true) }
-                    Button("Rotate Left", systemImage: "rotate.left") { scan.rotatePage(page.id, clockwise: false) }
+                    Button("Rotate", systemImage: "rotate.right") { scan.rotatePage(page.id) }
                     Button("Delete", systemImage: "trash", role: .destructive) { withAnimation { scan.deletePage(page.id) } }
                 }
             }
