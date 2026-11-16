@@ -134,6 +134,19 @@ struct DocumentDetectorTests {
         #expect(detector.detect(lines: [line("CAISSE DES ÉCOLES DE LYON", y: 0.04, height: 0.03)]).details.issuer == "Caisse des Écoles de Lyon")
     }
 
+    @Test(arguments: [
+        ("Dr Pauline MARCHAL", "Dr Pauline Marchal"),
+        ("Docteur MARCHAL PAULINE", "Docteur Marchal Pauline"),
+        ("DR PAULINE MARCHAL", "Dr Pauline Marchal"),
+        ("Maître Jean-Luc DE-SAINT-ROCH", "Maître Jean-Luc De-Saint-Roch"),
+        ("Camille de LA FONTAINERIE", "Camille de La Fontainerie"),
+        ("Banque Verdier SNCF", "Banque Verdier SNCF"),
+        ("Atelier Verdier de BTP Services", "Atelier Verdier de BTP Services"),
+    ])
+    func calmsDownTheSurnameOfAPerson(text: String, issuer: String) {
+        #expect(detector.detect(lines: [line(text, y: 0.04, height: 0.03), line("Lorem ipsum", y: 0.5)]).details.issuer == issuer)
+    }
+
     @Test func readsANameWrappedOnSeveralLinesAsOne() {
         let lines = [
             line("Cabinet", y: 0.08, height: 0.02),
@@ -173,7 +186,7 @@ struct DocumentDetectorTests {
             line("Lorem ipsum", y: 0.5),
             line("www.cabinet-delafontainerie.fr", y: 0.95),
         ]
-        #expect(detector.detect(lines: lines).details.issuer == "Bertrand de LA FONTAINERIE")
+        #expect(detector.detect(lines: lines).details.issuer == "Bertrand de La Fontainerie")
     }
 
     @Test func aDomainSharingOneWordDoesNotConfirmALogoReadUncertainly() {

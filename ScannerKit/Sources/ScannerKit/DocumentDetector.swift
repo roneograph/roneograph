@@ -576,7 +576,24 @@ public struct DocumentDetector: Sendable {
         if line.confidence <= 0.5 { words = words.map(regularCapitals) }
         words = Array(words.prefix(5))
         while words.count > 1, let last = words.last, last.count > 1, smallWords.contains(last.lowercased()) { words.removeLast() }
-        return titleCased(words).trimmingCharacters(in: .punctuationCharacters.union(.whitespaces).subtracting(CharacterSet(charactersIn: ".")))
+        return titleCased(personCased(words)).trimmingCharacters(in: .punctuationCharacters.union(.whitespaces).subtracting(CharacterSet(charactersIn: ".")))
+    }
+
+    private static let particles: Set<String> = ["de", "du", "des", "von", "van", "di", "del", "della", "da"]
+
+    /// Calms down the surname of a person written in capitals: "Dr Pauline MARCHAL" becomes "Dr Pauline Marchal", "Louis de LA BRUYÈRE" becomes "Louis de La Bruyère".
+    /// Only after a title such as Dr or Maître, or after the particle of a short name, so that acronyms of companies stay.
+    private static func personCased(_ words: [String]) -> [String] {
+        let isCapitals = { (word: String) in word.filter(\.isLetter).count >= 2 && word.filter(\.isLetter).allSatisfy(\.isUppercase) }
+        let recased = { (word: String) in word.lowercased().split(separator: "-", omittingEmptySubsequences: false).map { $0.prefix(1).uppercased() + $0.dropFirst() }.joined(separator: "-") }
+        guard let first = words.first else { return words }
+        if DocumentVocabulary.professionalTitles.contains(folded(first).replacing(".", with: "")), !isCapitals(first) {
+            return [first] + words.dropFirst().map { isCapitals($0) ? recased($0) : $0 }
+        }
+        guard words.count <= 4, first.first?.isUppercase == true, first.dropFirst().contains(where: \.isLowercase),
+              let particle = words.indices.dropFirst().first(where: { particles.contains(words[$0]) }),
+              particle + 1 < words.count, words[(particle + 1)...].allSatisfy(isCapitals) else { return words }
+        return Array(words[...particle]) + words[(particle + 1)...].map(recased)
     }
 
     /// "VeRDaLiS" becomes "Verdalis": the letters of a logo are often read in the wrong case; acronyms and words in one case are kept.
