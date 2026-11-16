@@ -267,15 +267,16 @@ public struct DocumentDetector: Sendable {
         switch evidence {
         case .label: 1
         case .letter: 2
-        case let .title(weight) where isTitleLike(line): weight * (page.isLarge(line) ? 2 : 1) * (line.frame.minY < 0.4 ? 1.5 : 1)
+        case let .title(weight) where isTitleLike(line, on: page): weight * (page.isLarge(line) ? 2 : 1) * (line.frame.minY < 0.4 ? 1.5 : 1)
         case .title: 1
         }
     }
 
-    /// A short line that is not an item of a list.
-    static func isTitleLike(_ line: Line) -> Bool {
+    /// A short line that is not an item of a list nor the end of a sentence wrapped from the line above.
+    static func isTitleLike(_ line: Line, on page: Page) -> Bool {
         let first = line.tokens.first.map { String($0.text) } ?? ""
-        return line.words.count <= 7 && !["-", "•", "–", "*", "·"].contains(first)
+        let isWrapped = line.text.first?.isLowercase == true && page.lines.contains { isRightUnder(line, $0) }
+        return line.words.count <= 7 && !["-", "•", "–", "*", "·"].contains(first) && !isWrapped
     }
 
     // MARK: Type
@@ -288,7 +289,7 @@ public struct DocumentDetector: Sendable {
     /// The title that gave the category, or the whole heading it starts.
     static func type(in page: Page, kind: Kind) -> DocumentType? {
         var best: (type: DocumentType, weight: Double)?
-        for (line, clues) in zip(page.lines, kind.clues) where isTitleLike(line) {
+        for (line, clues) in zip(page.lines, kind.clues) where isTitleLike(line, on: page) {
             for match in clues {
                 guard isTitle(match.tag, of: kind.category) else { continue }
                 let weight = match.tag.category == nil ? 1 : Self.weight(of: match.tag.evidence, on: line, page: page)
@@ -354,7 +355,7 @@ public struct DocumentDetector: Sendable {
                 if let value = value(after: match.range.upperBound, in: line, page: page) { return value }
             }
         }
-        for (line, clues) in zip(page.lines, kind.clues) where isTitleLike(line) {
+        for (line, clues) in zip(page.lines, kind.clues) where isTitleLike(line, on: page) {
             for match in clues where isTitle(match.tag, of: kind.category) {
                 if let value = value(after: match.range.upperBound, in: line, page: page, sameLineOnly: true) { return value }
             }
@@ -441,11 +442,15 @@ public struct DocumentDetector: Sendable {
         return result
     }
 
-    /// Right under the line above, starting at its left edge or within it, or centered on it as in a logo.
     private static func continues(_ line: Line, after previous: Line) -> Bool {
+        startsWithConnector(line) && isRightUnder(line, previous)
+    }
+
+    /// Right under the line above, starting at its left edge or within it, or centered on it as in a logo.
+    static func isRightUnder(_ line: Line, _ previous: Line) -> Bool {
         let gap = line.frame.minY - previous.frame.maxY
         let isAligned = (line.frame.minX > previous.frame.minX - 0.02 && line.frame.minX < previous.frame.maxX) || abs(line.frame.midX - previous.frame.midX) < 0.03
-        return startsWithConnector(line) && isAligned && gap > -previous.frame.height * 0.3 && gap < min(line.frame.height, previous.frame.height)
+        return isAligned && gap > -previous.frame.height * 0.3 && gap < min(line.frame.height, previous.frame.height)
     }
 
     /// Whether every longer word of a web domain is in the name, as "verdalis.fr" for "VeRDaLiS", or a legal name is the name.

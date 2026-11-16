@@ -74,6 +74,17 @@ struct DocumentDetectorTests {
         #expect(detector.detect(lines: lines).parts.type == nil)
     }
 
+    @Test func theEndOfAWrappedSentenceIsNotATitle() {
+        let lines = [
+            line("Objet : votre consommation", y: 0.25),
+            line("Madame,", y: 0.3),
+            line("Nous avons relevé votre compteur le 3 mars et ajusté votre consommation selon les", y: 0.4),
+            line("conditions de votre contrat de fourniture.", y: 0.413),
+            line("Veuillez agréer, Madame, nos salutations distinguées.", y: 0.5),
+        ]
+        #expect(detector.detect(lines: lines).details.category == .letter)
+    }
+
     @Test func narrowPagesLeanTowardsReceipts() {
         let lines = [line("PAIN DE CAMPAGNE 3,20", y: 0.1), line("CB SANS CONTACT 3,20", y: 0.2)]
         #expect(detector.detect(lines: lines).details.category == .other)
