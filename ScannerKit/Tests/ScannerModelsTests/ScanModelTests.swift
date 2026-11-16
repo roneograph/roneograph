@@ -183,6 +183,16 @@ struct ScanModelTests {
         #expect(model.scan.title == "Scan 2026-11-12")
     }
 
+    @Test(arguments: ["  Lumen   bill ", "", "   "])
+    func previewsTheFileNameATypedNameGets(typed: String) throws {
+        let fixture = try Fixture()
+        fixture.settings.value.fileNameFormat = FileNameFormat(separator: .dash)
+        let model = fixture.scanModel()
+        let preview = model.fileNameSegments(for: model.finalName(typed)).map(\.text).joined()
+        model.rename(typed)
+        #expect(preview == model.scan.name)
+    }
+
     @Test func twoScansWithTheSameNameGetDifferentFiles() async throws {
         let fixture = try Fixture()
         fixture.settings.value.fileNameFormat = FileNameFormat(separator: .dash)

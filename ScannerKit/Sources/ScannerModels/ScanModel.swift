@@ -47,6 +47,8 @@ public final class ScanModel: Identifiable {
     private var store: ScanStore { processor.store }
     public var pdfInputs: PDFInputs { PDFInputs(name: scan.fileName, title: scan.title, pages: scan.pages) }
     public var fallbackTitle: String { namer.fallback(for: scan.created) }
+    /// The name a typed name becomes: trimmed, with single spaces, the first suggestion or the date when empty.
+    public func finalName(_ name: String) -> String { namer.finalName(name, fallback: scan.suggestions.first ?? fallbackTitle) }
     public var isBusy: Bool { processing > 0 || updating > 0 }
     /// The name remembered for the issuer, while it is the name of the scan.
     public var rememberedName: String? { scan.remembered.contains(.name) ? scan.title : nil }
@@ -215,7 +217,7 @@ public final class ScanModel: Identifiable {
     // MARK: Name, PDF, sending
 
     public func rename(_ title: String) {
-        scan.title = namer.finalName(title, fallback: scan.suggestions.first ?? fallbackTitle)
+        scan.title = finalName(title)
         scan.isNamedByUser = true
         scan.remembered.remove(.name)
         let pattern = learnedPattern(for: scan.title)

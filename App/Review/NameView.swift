@@ -110,7 +110,7 @@ struct NameView: View {
     }
 
     private var segments: [FileNameSegment] {
-        scan.fileNameSegments(for: name.isEmpty ? scan.scan.suggestions.first ?? scan.fallbackTitle : name) + [FileNameSegment(".pdf", .text)]
+        scan.fileNameSegments(for: scan.finalName(name)) + [FileNameSegment(".pdf", .text)]
     }
 
     private func save() {
