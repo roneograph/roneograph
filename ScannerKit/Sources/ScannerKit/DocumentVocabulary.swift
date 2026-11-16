@@ -1,6 +1,6 @@
 /// The words the document detector looks for, in English, French, German, Spanish and Italian.
 ///
-/// In phrases, "n°" stands for any number marker (n°, nº, no, nr, #), a leading "*" also matches the end of a longer word
+/// In phrases, "n°" stands for any number marker, such as nº, no, nr or #; a leading "*" also matches the end of a longer word
 /// (German compounds such as "Stromrechnung"), and a leading "^" only matches at the start of a line.
 enum DocumentVocabulary {
     struct Entry: Sendable {

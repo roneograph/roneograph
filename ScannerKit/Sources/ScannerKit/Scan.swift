@@ -69,7 +69,7 @@ public struct Scan: Identifiable, Equatable, Sendable, Codable {
     public var suggestedParts = SuggestedParts()
     /// How to recognize the issuer on the next document, to reuse what the user corrected.
     public var issuerKeys: [String] = []
-    /// Nil until the first page is read, and for scans made before it was kept.
+    /// Nil until the first page is read.
     public var read: ReadDocument?
     /// The values that come from what the user corrected on a past document, until changed.
     public var remembered: Set<RememberedValue> = []

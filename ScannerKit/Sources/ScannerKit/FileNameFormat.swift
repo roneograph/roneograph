@@ -52,7 +52,7 @@ public struct FileNameFormat: Equatable, Sendable, Codable {
     public var lowercase: Bool
     /// Uses `template` instead of the date position and style.
     public var isCustom: Bool
-    /// Always a valid template; kept when the custom format is turned off.
+    /// Kept when the custom format is turned off; an invalid one gives the simple format instead.
     public var template: String
 
     public init(datePosition: DatePosition = .none, dateStyle: DateStyle = .day, dateSource: DateSource = .document, separator: Separator = .space, lowercase: Bool = false, isCustom: Bool = false, template: String = Self.defaultTemplate) {

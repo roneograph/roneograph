@@ -57,7 +57,7 @@ public struct DocumentDetector: Sendable {
 
     struct Token {
         var text: Substring
-        /// Folded, without surrounding punctuation; number markers (n°, nº, no, nr, #) all become "n°".
+        /// Folded, without surrounding punctuation; number markers such as nº, no, nr or # all become "n°".
         var key: String
 
         static let markers: Set<String> = ["n°", "nº", "no", "n", "nr", "nro", "num", "#", "n.º", "n.°"]
@@ -368,7 +368,7 @@ public struct DocumentDetector: Sendable {
 
     private static let allNumberLabels = Phrases(DocumentVocabulary.entries.flatMap(\.numberLabels).map { (Phrase($0), true) })
 
-    /// The reference next to a label of the category (of any category for letters), after the title, or next to a customer or file reference.
+    /// The reference next to a label of the category (of any category for letters and other documents), after the title, or next to a customer or file reference.
     static func number(in page: Page, kind: Kind) -> String? {
         let labels = [.letter, .other].contains(kind.category) ? allNumberLabels : numberLabels[kind.category] ?? Phrases([])
         for line in page.lines where !line.isOwn {

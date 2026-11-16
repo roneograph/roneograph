@@ -145,6 +145,10 @@ struct FileNameFormatTests {
         #expect(custom("{NAME}.pdf").fileName(name: "Bill", scanDate: scanDate) == "Bill")
     }
 
+    @Test func anInvalidCustomFormatGivesTheSimpleFormat() {
+        #expect(custom("{FOO} {NAME}").fileName(name: "Lumen Energy invoice", details: lumen, scanDate: scanDate) == "Lumen Energy invoice")
+    }
+
     @Test func keepsTheCustomFormatAndDropsAnInvalidOne() throws {
         let format = custom("{CATEGORY}/{NAME}", separator: .dash)
         #expect(try JSONDecoder().decode(FileNameFormat.self, from: JSONEncoder().encode(format)) == format)
