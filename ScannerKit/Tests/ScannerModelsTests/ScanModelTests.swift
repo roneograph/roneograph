@@ -51,6 +51,32 @@ struct ScanModelTests {
         #expect(!FileManager.default.fileExists(atPath: model.photoURL(of: page).path(percentEncoded: false)))
     }
 
+    @Test func deletingTheLastPageLeavesNothingBehind() async throws {
+        let fixture = try Fixture()
+        let model = await fixture.scanModel(pages: 1)
+        await model.buildPDF(delay: .zero)
+        #expect(fixture.pdfExists(model.scan.fileName))
+
+        model.deletePage(model.scan.pages[0].id)
+        await model.waitUntilIdle()
+
+        #expect(fixture.store.all().isEmpty)
+        #expect(!fixture.pdfExists(model.scan.fileName))
+        #expect(!FileManager.default.fileExists(atPath: fixture.store.directory(of: model.id).path(percentEncoded: false)))
+    }
+
+    @Test func deletingTheLastPageKeepsAPageStillProcessed() async throws {
+        let fixture = try Fixture()
+        let model = await fixture.scanModel(pages: 1)
+        model.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
+        model.deletePage(model.scan.pages[0].id)
+        await model.waitUntilIdle()
+
+        let page = try #require(model.scan.pages.first)
+        #expect(fixture.store.all().first?.pages == [page])
+        #expect(FileManager.default.fileExists(atPath: model.previewURL(of: page).path(percentEncoded: false)))
+    }
+
     @Test func quickEditsAreAllApplied() async throws {
         let fixture = try Fixture()
         let model = await fixture.scanModel(pages: 1)

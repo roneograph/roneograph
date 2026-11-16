@@ -38,6 +38,19 @@ struct AppModelTests {
         #expect(app.path.isEmpty)
     }
 
+    @Test func deletingTheOnlyPageInTheCameraLeavesNoScan() async throws {
+        let fixture = try Fixture()
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+        let scan = app.startScan()
+        scan.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
+        await scan.waitUntilIdle()
+        scan.deletePage(scan.scan.pages[0].id)
+        await scan.waitUntilIdle()
+        app.closeCamera()
+
+        #expect(app.scans.isEmpty)
+    }
+
     @Test func doneOpensReview() async throws {
         let fixture = try Fixture()
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)

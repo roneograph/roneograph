@@ -127,10 +127,19 @@ public final class ScanModel: Identifiable {
 
     // MARK: Pages
 
+    /// Without pages left, the stored scan goes too, unless a page still being processed comes in.
     public func deletePage(_ id: UUID) {
         scan.pages.removeAll { $0.id == id }
         store.deletePageFiles(scanID: scan.id, pageID: id)
-        save()
+        if !scan.pages.isEmpty {
+            save()
+            return
+        }
+        enqueue { [self] in
+            guard scan.pages.isEmpty else { return }
+            store.delete(scan)
+            didSave?()
+        }
     }
 
     /// Moves a page to the place of another one, as when dropping it there.
