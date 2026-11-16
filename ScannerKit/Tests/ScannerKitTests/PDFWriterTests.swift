@@ -44,6 +44,12 @@ struct PDFWriterTests {
         #expect(gray.range(of: Data("/DCTDecode".utf8)) != nil)
     }
 
+    @Test(arguments: [(PageLook.gray, 1), (.color, 3)])
+    func writesEachLookWithItsColorComponents(look: PageLook, components: Int) throws {
+        let data = try PDFWriter(context: context).data(pages: [PDFPageContent(image: SyntheticPage().render(), look: look)], title: "", defaultPaper: .a4)
+        #expect(try componentCount(ofImageOnFirstPageOf: data) == components)
+    }
+
     @Test func neverUpscalesASmallImage() throws {
         let tiny = SyntheticPage().render().transformed(by: CGAffineTransform(scaleX: 0.25, y: 0.25))
         let data = try PDFWriter(context: context).data(pages: [PDFPageContent(image: tiny, look: .gray)], title: "", defaultPaper: .a4)
@@ -71,6 +77,30 @@ struct PDFWriterTests {
         let withText = try writer.data(pages: [PDFPageContent(image: image, look: .gray, text: [line])], title: "", defaultPaper: .a4)
         let withoutText = try writer.data(pages: [PDFPageContent(image: image, look: .gray)], title: "", defaultPaper: .a4)
         #expect(try pixels(ofFirstPageOf: withText) == pixels(ofFirstPageOf: withoutText))
+    }
+
+    /// Components of the ICC profile of the image on the first page.
+    private func componentCount(ofImageOnFirstPageOf data: Data) throws -> Int? {
+        let document = try #require(CGPDFDocument(CGDataProvider(data: data as CFData)!))
+        defer { withExtendedLifetime(document) {} }
+        let page = try #require(document.page(at: 1)?.dictionary)
+        var resources: CGPDFDictionaryRef?, images: CGPDFDictionaryRef?
+        #expect(CGPDFDictionaryGetDictionary(page, "Resources", &resources))
+        #expect(resources.map { CGPDFDictionaryGetDictionary($0, "XObject", &images) } == true)
+        var colorSpace: CGPDFObjectRef?
+        CGPDFDictionaryApplyBlock(try #require(images), { _, object, _ in
+            var image: CGPDFStreamRef?
+            if CGPDFObjectGetValue(object, .stream, &image), let image, let dictionary = CGPDFStreamGetDictionary(image) {
+                CGPDFDictionaryGetObject(dictionary, "ColorSpace", &colorSpace)
+            }
+            return colorSpace == nil
+        }, nil)
+
+        var array: CGPDFArrayRef?, profile: CGPDFStreamRef?, count: CGPDFInteger = 0
+        guard CGPDFObjectGetValue(try #require(colorSpace), .array, &array), let array,
+              CGPDFArrayGetStream(array, 1, &profile), let profile,
+              CGPDFDictionaryGetInteger(try #require(CGPDFStreamGetDictionary(profile)), "N", &count) else { return nil }
+        return count
     }
 
     private func pixels(ofFirstPageOf data: Data) throws -> [UInt8] {
