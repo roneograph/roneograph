@@ -142,6 +142,17 @@ struct DocumentDetectorTests {
         #expect(detector.detect(lines: Array(lines.dropLast())).details.issuer != "Verdalis")
     }
 
+    @Test func takesALogoWhoseLongWordIsInTheWebDomain() {
+        let lines = [
+            line("Bertrand de", y: 0.04, height: 0.012),
+            TextLine(text: "LA FONTAINERIE", frame: CGRect(x: 0.1, y: 0.053, width: 0.3, height: 0.022), confidence: 0.5),
+            line("GESTION DE PATRIMOINE", y: 0.08, height: 0.02),
+            line("Lorem ipsum", y: 0.5),
+            line("www.cabinet-delafontainerie.fr", y: 0.95),
+        ]
+        #expect(detector.detect(lines: lines).details.issuer == "Bertrand de LA FONTAINERIE")
+    }
+
     @Test func aDomainSharingOneWordDoesNotConfirmALogoReadUncertainly() {
         let lines = [
             line("CHAMBRE DES MÉTIERS", y: 0.04, height: 0.012),

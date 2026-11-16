@@ -445,7 +445,7 @@ public struct DocumentDetector: Sendable {
 
     private static func continues(_ line: Line, after previous: Line, on page: Page) -> Bool {
         guard isRightUnder(line, previous) else { return false }
-        if startsWithConnector(line) { return true }
+        if startsWithConnector(line) || endsWithSmallWord(previous) { return true }
         let sameSize = max(line.frame.height, previous.frame.height) < min(line.frame.height, previous.frame.height) * 1.3
         let isShort = previous.words.count <= 2 && line.words.count <= 2
         return page.isLarge(line) && page.isLarge(previous) && sameSize && isShort && line.text.first?.isUppercase == true
@@ -455,20 +455,34 @@ public struct DocumentDetector: Sendable {
     static func isRightUnder(_ line: Line, _ previous: Line) -> Bool {
         let gap = line.frame.minY - previous.frame.maxY
         let isAligned = (line.frame.minX > previous.frame.minX - 0.02 && line.frame.minX < previous.frame.maxX) || abs(line.frame.midX - previous.frame.midX) < 0.03
-        return isAligned && gap > -previous.frame.height * 0.3 && gap < min(line.frame.height, previous.frame.height)
+        return isAligned && gap > -min(line.frame.height, previous.frame.height) * 0.5 && gap < min(line.frame.height, previous.frame.height)
     }
 
-    /// Whether every longer word of a web domain is in the name, as "verdalis.fr" for "VeRDaLiS", or a legal name is the name.
+    /// Whether a web domain confirms the name, or a legal name is the name: every longer word of the domain is in the name, as "verdalis.fr" for "VeRDaLiS",
+    /// or a word of six letters or more of the name is in the domain, as "cabinet-delabruyere.fr" for "LA BRUYÈRE"; a shorter word such as a city is not enough,
+    /// nor a piece of a logo starting with "de".
     private static func isConfirmed(_ line: Line, by evidence: IssuerEvidence) -> Bool {
-        let name = letters(issuerName(of: line))
+        let issuerName = issuerName(of: line)
+        let name = letters(issuerName)
+        let words = issuerName.split(whereSeparator: \.isWhitespace).map { letters(String($0)) }
+        let isPiece = words.first.map { smallWords.subtracting(articles).contains($0) } ?? true
+        let longWords = isPiece ? [] : words.filter { $0.count >= 6 }
         return evidence.domains.contains { domain in
-            let words = (domain.domain.split(separator: ".").first ?? "").split(separator: "-").filter { $0.count >= 4 }
-            return !words.isEmpty && words.allSatisfy { name.contains($0.filter(\.isLetter)) }
+            let stem = domain.domain.split(separator: ".").first ?? ""
+            let words = stem.split(separator: "-").filter { $0.count >= 4 }
+            let stemLetters = stem.filter(\.isLetter)
+            return (!words.isEmpty && words.allSatisfy { name.contains($0.filter(\.isLetter)) }) || longWords.contains { stemLetters.contains($0) }
         } || evidence.legalNames.contains { letters($0.name) == name }
     }
 
     /// Articles start names as well as they end lines: "l'Assurance Maladie", "la Poste".
     private static let articles: Set<String> = ["la", "le", "les", "the", "il", "l"]
+
+    /// Whether the line ends with a lowercase "de", "of" or "la", so it goes on with the line under it, as in "Louis de" over "LA BRUYÈRE".
+    private static func endsWithSmallWord(_ line: Line) -> Bool {
+        guard let last = line.tokens.last, last.text.first?.isLowercase == true else { return false }
+        return smallWords.contains(String(last.text))
+    }
 
     /// Whether the line starts with a lowercase "de" or "d'", so it ends a line above it instead of starting a name.
     private static func startsWithConnector(_ line: Line) -> Bool {
