@@ -88,12 +88,3 @@ struct RootView: View {
         }
     }
 }
-
-/// Settings, always the rightmost button at the top of Home and Review.
-struct SettingsButton: View {
-    let app: AppModel
-
-    var body: some View {
-        Button("Settings", systemImage: "gearshape") { app.showingSettings = true }
-    }
-}

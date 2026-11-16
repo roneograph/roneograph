@@ -76,7 +76,9 @@ struct HomeView: View {
                     Button("Select") { startSelecting([]) }
                 }
             }
-            ToolbarItem(placement: .topBarTrailing) { SettingsButton(app: app) }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Settings", systemImage: "gearshape") { app.showingSettings = true }
+            }
         }
     }
 
