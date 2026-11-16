@@ -262,6 +262,16 @@ struct ScanModelTests {
         #expect(!second.scan.areDetailsEditedByUser)
     }
 
+    @Test func tellsWhichSuggestionANameWouldBeLearnedFor() throws {
+        let fixture = try Fixture()
+        var scan = Scan(name: "Scan", title: "Invoice Lumen")
+        scan.suggestions = ["Invoice Lumen", "Invoice 1234"]
+        let model = ScanModel(scan: scan, processor: fixture.processor, settings: fixture.settings)
+        #expect(model.learnedSuggestion(for: "Lumen electricity") == "Invoice Lumen")
+        #expect(model.learnedSuggestion(for: "Invoice Lumen") == nil)
+        #expect(fixture.scanModel().learnedSuggestion(for: "Mine") == nil)
+    }
+
     @Test func editingOnlyTheDateLearnsNothing() async throws {
         let fixture = try Fixture()
         var scan = Scan(name: "Scan")
@@ -276,22 +286,18 @@ struct ScanModelTests {
     @Test func closingTheSheetWithoutChangesKeepsWhatWasReadMeanwhile() async throws {
         let fixture = try Fixture()
         let model = fixture.scanModel()
-        let shownName = model.scan.title, shownDetails = model.scan.details
+        let shownName = model.scan.title
         let photo = try #require(PageExtractor(context: CIContext()).jpegData(of: SyntheticPage(title: "INVOICE").render(), quality: 0.9))
         model.addPhoto(photo, liveQuad: nil)
         await model.waitUntilIdle()
         let read = model.scan.title
         try #require(read != shownName)
 
-        model.applyEdits(name: shownName, details: shownDetails, shownName: shownName, shownDetails: shownDetails)
+        model.applyName(shownName, shownName: shownName)
         #expect(model.scan.title == read)
         #expect(!model.scan.isNamedByUser)
-        #expect(!model.scan.areDetailsEditedByUser)
 
-        model.applyEdits(name: read, details: DocumentDetails(category: .letter), shownName: read, shownDetails: model.scan.details)
-        #expect(model.scan.details.category == .letter)
-        #expect(!model.scan.isNamedByUser)
-        model.applyEdits(name: "Mine", details: model.scan.details, shownName: read, shownDetails: model.scan.details)
+        model.applyName("Mine", shownName: read)
         #expect(model.scan.title == "Mine")
         #expect(model.scan.isNamedByUser)
     }

@@ -6,7 +6,7 @@ import SwiftUI
 struct ReviewView: View {
     let app: AppModel
     let scan: ScanModel
-    @State private var showingRename = false
+    @State private var editing: DocumentField?
     @State private var showingMail = false
     @State private var showingShare = false
     @State private var showingEmailQuestion = false
@@ -24,7 +24,8 @@ struct ReviewView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                nameHeader
+                DocumentCard(scan: scan, settings: app.settings) { editing = $0 }
+                    .padding(.top, 8)
                 if app.settings.showsPageTip, !scan.scan.pages.isEmpty {
                     PageTip { withAnimation { app.settings.dismissPageTip() } }
                 }
@@ -35,9 +36,6 @@ struct ReviewView: View {
         }
         .safeAreaInset(edge: .bottom) { sendBar }
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) { SettingsButton(app: app) }
-        }
         .confirmationDialog("Delete this scan?", isPresented: $confirmingDelete, titleVisibility: .visible) {
             Button("Delete Scan", role: .destructive) { app.delete(scan.id) }
         }
@@ -46,11 +44,14 @@ struct ReviewView: View {
         .task {
             if settings.askForName, !scan.scan.isNamedByUser, !askedForName {
                 askedForName = true
-                showingRename = true
+                editing = .name
             }
         }
-        .sheet(isPresented: $showingRename) {
-            RenameView(scan: scan, settings: app.settings)
+        .sheet(item: $editing) { field in
+            switch field {
+            case .name: NameView(scan: scan, settings: app.settings)
+            case .issuer, .number: DetailTextView(scan: scan, field: field)
+            }
         }
         .sheet(isPresented: $showingMail, onDismiss: finishSending) {
             if case .ready(let url, _) = scan.pdf {
@@ -101,44 +102,6 @@ struct ReviewView: View {
         } message: {
             Text(scan.failure ?? "")
         }
-    }
-
-    private var nameHeader: some View {
-        Button {
-            showingRename = true
-        } label: {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(scan.scan.title)
-                        .font(.title2.bold())
-                        .foregroundStyle(.primary)
-                        .multilineTextAlignment(.leading)
-                    Image(systemName: "pencil").foregroundStyle(.tint)
-                }
-                if !detailsSummary.isEmpty {
-                    Text(detailsSummary)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-                Label("\(scan.scan.name).pdf", systemImage: "doc")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-            }
-        }
-        .buttonStyle(.plain)
-        .accessibilityHint("Renames the PDF and edits the details of the document")
-        .padding(.top, 8)
-    }
-
-    private var detailsSummary: String {
-        let details = scan.scan.details
-        return [
-            details.category == .other ? nil : details.category.rawValue,
-            details.issuer,
-            details.date?.formatted(date: .abbreviated, time: .omitted),
-        ].compactMap { $0 }.joined(separator: " · ")
     }
 
     private var sendBar: some View {

@@ -49,9 +49,8 @@ public final class ScanModel: Identifiable {
 
     /// The file name a name and details get with the format from the settings, before avoiding collisions.
     /// A name the user typed is kept as typed; a suggested one leaves out what a custom format already shows.
-    public func fileName(for title: String, details: DocumentDetails? = nil) -> String {
-        let isSuggested = (!scan.isNamedByUser && title == scan.title) || scan.suggestions.contains(title)
-        return settings.value.fileNameFormat.fileName(name: title, details: details ?? scan.details, scanDate: scan.created, suggestedParts: isSuggested ? scan.suggestedParts : nil)
+    public func fileName(for title: String) -> String {
+        fileNameSegments(for: title).map(\.text).joined()
     }
 
     public func previewURL(of page: ScanPage) -> URL { store.previewURL(scanID: scan.id, pageID: page.id) }
@@ -197,11 +196,25 @@ public final class ScanModel: Identifiable {
         applyFileName()
     }
 
-    /// Applies what the user changed in the name and details, compared to what they were shown, so what was read meanwhile stays.
-    public func applyEdits(name: String, details: DocumentDetails, shownName: String, shownDetails: DocumentDetails) {
-        if details != shownDetails { setDetails(details) }
+    /// Renames the scan only when the user changed the name they were shown, so a name read meanwhile stays.
+    public func applyName(_ name: String, shownName: String) {
         if name != shownName || scan.isNamedByUser { rename(name) }
     }
+
+    /// The parts of the file name a name gives, and where each comes from.
+    public func fileNameSegments(for title: String) -> [FileNameSegment] {
+        let isSuggested = (!scan.isNamedByUser && title == scan.title) || scan.suggestions.contains(title)
+        return settings.value.fileNameFormat.segments(name: title, details: scan.details, scanDate: scan.created, suggestedParts: isSuggested ? scan.suggestedParts : nil)
+    }
+
+    /// The suggestion a name would be learned for, when the name differs from it.
+    public func learnedSuggestion(for title: String) -> String? {
+        guard let suggestion = scan.suggestions.first, suggestion != fallbackTitle, suggestion != title else { return nil }
+        return suggestion
+    }
+
+    /// Whether a new issuer or category can be reused for the next documents from the same issuer.
+    public var learnsIssuer: Bool { !scan.issuerKeys.isEmpty }
 
     /// Changes the details; a new issuer or category is learned for the next document from the same issuer.
     public func setDetails(_ details: DocumentDetails) {
