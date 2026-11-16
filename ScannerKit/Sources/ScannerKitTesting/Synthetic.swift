@@ -39,6 +39,11 @@ public enum SyntheticPhoto {
         }
         return CIImage(cgImage: context.makeImage()!)
     }
+
+    /// A JPEG photo of the page, tilted by default, as the camera would take it.
+    public static func jpeg(page: Quad = .tilted) -> Data {
+        CIContext().jpegRepresentation(of: render(page: page), colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!)!
+    }
 }
 
 /// An A4 page at about 100 dpi with real text, optionally with a title, a stamp, a shaded header, a picture, a shadow or a rotation.
@@ -46,16 +51,16 @@ public struct SyntheticPage {
     public static let size = CGSize(width: 840, height: 1188)
     public static let blockCenter = CGPoint(x: 0.5, y: 0.93)
 
-    public var paper: (CGFloat, CGFloat, CGFloat) = (0.95, 0.95, 0.93)
-    public var stamp = false
-    public var shadedHeader = false
-    public var picture = false
-    public var shadow = false
+    public let paper: (CGFloat, CGFloat, CGFloat)
+    public let stamp: Bool
+    public let shadedHeader: Bool
+    public let picture: Bool
+    public let shadow: Bool
     /// A shadow with sharp edges across the blank top margin, like a hand or a phone.
-    public var handShadow = false
-    public var rotation: Double = 0
+    public let handShadow: Bool
+    public let rotation: Double
     /// Big text above the body text.
-    public var title: String?
+    public let title: String?
 
     public init(paper: (CGFloat, CGFloat, CGFloat) = (0.95, 0.95, 0.93), title: String? = nil, stamp: Bool = false, shadedHeader: Bool = false, picture: Bool = false, shadow: Bool = false, handShadow: Bool = false, rotation: Double = 0) {
         self.paper = paper
@@ -124,13 +129,6 @@ public struct SyntheticPage {
             image = image.applyingFilter("CIMultiplyCompositing", parameters: [kCIInputBackgroundImageKey: mask])
         }
         return image
-    }
-}
-
-extension SyntheticPhoto {
-    /// A JPEG photo of a tilted page, as the camera would take it.
-    public static func jpeg(page: Quad = .tilted) -> Data {
-        CIContext().jpegRepresentation(of: render(page: page), colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!)!
     }
 }
 
