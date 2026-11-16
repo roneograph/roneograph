@@ -47,7 +47,7 @@ Sending:
 - Save to Files puts the PDF in a folder picked once, or in the folders of a custom format inside it, without replacing a file already there.
 - Share reaches any other app.
 - Selecting several scans on Home sends them at once, all PDFs in one email per owner; a shortcut selects the scans not sent yet.
-- Owners keep your own paper apart from a company's you scan for: each owner has its email address, folder and file name format, and a document gets its owner from the name on the page, from its issuer, or the default one.
+- Owners keep your own paper apart from a company's you scan for: each owner has its email address, folder and file name format, and a document gets the owner recognized from lines seen on that owner's documents sent before, or the one remembered for its issuer, or the default one.
 - Keeps scans 1, 7 or 30 days, or forever, visible in Files.
 
 ## Requirements
