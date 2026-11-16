@@ -15,30 +15,12 @@ public struct TextLine: Equatable, Sendable {
     }
 }
 
-/// Names suggested from the text of a page, and the details read on it.
-public struct NameSuggestions: Equatable, Sendable {
-    public var names: [String]
-    public var document: DetectedDocument
-
-    public init(names: [String], document: DetectedDocument = .init()) {
-        self.names = names
-        self.document = document
-    }
-
-    /// Nil when no date was found.
-    public var date: Date? { document.details.date }
-}
-
-/// Suggests file names from the text of a page and keeps names valid for file systems and mail apps.
+/// Suggests file names from what was read on a page and keeps names valid for file systems and mail apps.
 public struct FileNamer: Sendable {
     public static let forbidden = Set("/\\:*?\"<>|")
     public var maximumLength = 80
-    /// Reads 03/04/2026 as March 4 instead of April 3.
-    public var monthFirst: Bool
 
-    public init(monthFirst: Bool = Locale.current.region == .unitedStates) {
-        self.monthFirst = monthFirst
-    }
+    public init() {}
 
     /// Replaces the characters file systems or mail apps reject by a dash, as the user types.
     public func sanitize(_ name: String) -> String {
@@ -57,20 +39,15 @@ public struct FileNamer: Sendable {
         "Scan \(Self.isoDate(date))"
     }
 
-    /// Up to two names, best first, or the fallback name when the text says nothing useful; `aspectRatio` is the width over the height of the page.
-    public func suggestions(lines: [TextLine], date: Date, ownLines: Set<String> = [], aspectRatio: CGFloat? = nil) -> NameSuggestions {
-        suggestions(for: DocumentDetector(monthFirst: monthFirst).detect(lines: lines, ownLines: ownLines, aspectRatio: aspectRatio), date: date)
-    }
-
-    public func suggestions(for document: DetectedDocument, date: Date) -> NameSuggestions {
-        let parts = document.parts
+    /// Up to two names, best first, or the fallback name when the page says nothing useful.
+    public func names(for parts: SuggestedParts, date: Date) -> [String] {
         let typeAndIssuer = [parts.type, parts.issuer].compactMap { $0 }.joined(separator: " ")
         let typeAndNumber = parts.type.flatMap { type in parts.number.map { "\(type) \($0)" } }
         let best = parts.issuer == nil ? typeAndNumber ?? parts.type : typeAndIssuer
 
         var seen = Set<String>()
         let names = [best, typeAndNumber].compactMap { $0 }.map { finalName($0, fallback: "") }.filter { !$0.isEmpty && seen.insert($0).inserted }
-        return NameSuggestions(names: names.isEmpty ? [fallback(for: date)] : names, document: document)
+        return names.isEmpty ? [fallback(for: date)] : names
     }
 
     /// "é" becomes "e", "œ" becomes "oe" and "ß" becomes "ss"; other scripts are kept.

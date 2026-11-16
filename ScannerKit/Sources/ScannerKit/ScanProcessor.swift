@@ -68,10 +68,10 @@ public struct ScanProcessor: @unchecked Sendable {
         try data.write(to: store.previewURL(scanID: scanID, pageID: page.id), options: .atomic)
     }
 
-    /// Name suggestions and the details of the document, from the text of the page; `ownLines` are never taken as the issuer.
-    public func nameSuggestions(for page: ScanPage, scanID: UUID, date: Date, ownLines: Set<String> = []) -> NameSuggestions? {
+    /// The details of the document and the words to name it after, from the text of the page; `ownLines` are never taken as the issuer.
+    public func detectDocument(on page: ScanPage, scanID: UUID, ownLines: Set<String> = []) -> DetectedDocument? {
         guard let preview = CIImage(contentsOf: store.previewURL(scanID: scanID, pageID: page.id)) else { return nil }
-        return FileNamer().suggestions(lines: reader.lines(in: preview), date: date, ownLines: ownLines, aspectRatio: preview.extent.width / preview.extent.height)
+        return DocumentDetector().detect(lines: reader.lines(in: preview), ownLines: ownLines, aspectRatio: preview.extent.width / preview.extent.height)
     }
 
     public func pdfData(of scan: Scan) throws -> Data {

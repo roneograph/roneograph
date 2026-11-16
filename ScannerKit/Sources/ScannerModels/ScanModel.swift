@@ -109,10 +109,9 @@ public final class ScanModel: Identifiable {
     /// Reads the details and names on the first page; what the user corrected for the same issuer before wins over what was read.
     private func suggestNames(from page: ScanPage) async {
         let processor = processor, scanID = scan.id, date = scan.created, ownLines = settings.ownLines
-        guard let read = await Task.detached(priority: .userInitiated, operation: {
-            processor.nameSuggestions(for: page, scanID: scanID, date: date, ownLines: ownLines)
+        guard var document = await Task.detached(priority: .userInitiated, operation: {
+            processor.detectDocument(on: page, scanID: scanID, ownLines: ownLines)
         }).value, !isDeleted else { return }
-        var document = read.document
         settings.recordHeaderLines(document.headerLines, issuerEvidence: document.issuerEvidence)
         scan.read = ReadDocument(details: document.details, parts: document.parts)
         let learned = settings.learnedIssuer(for: document.issuerKeys)
@@ -126,8 +125,8 @@ public final class ScanModel: Identifiable {
             if category != document.details.category { remembered.insert(.category) }
             document.details.category = category
         }
-        let suggestions = namer.suggestions(for: document, date: date)
-        scan.suggestions = suggestions.names
+        let names = namer.names(for: document.parts, date: date)
+        scan.suggestions = names
         scan.suggestedParts = document.parts
         scan.issuerKeys = document.issuerKeys
         if scan.areDetailsEditedByUser {
@@ -135,7 +134,7 @@ public final class ScanModel: Identifiable {
         } else {
             scan.details = document.details
         }
-        if !scan.isNamedByUser, let first = suggestions.names.first {
+        if !scan.isNamedByUser, let first = names.first {
             let learnedName = learned?.name.map { namer.finalName($0.name(details: document.details, date: document.details.date ?? date), fallback: first) }
             scan.title = learnedName ?? first
             if let learnedName, learnedName != first { remembered.insert(.name) }
@@ -240,7 +239,7 @@ public final class ScanModel: Identifiable {
             if restored.contains(.category) { details.category = read.details.category }
         }
         let followsSuggestion = restored.contains(.name) || (!scan.isNamedByUser && scan.title == scan.suggestions.first)
-        let names = namer.suggestions(for: DetectedDocument(details: details, parts: parts), date: scan.created).names
+        let names = namer.names(for: parts, date: scan.created)
         scan.details = details
         scan.suggestedParts = parts
         scan.suggestions = names
@@ -295,7 +294,7 @@ public final class ScanModel: Identifiable {
         if details.number != old.number { parts.number = details.number }
         guard parts != scan.suggestedParts else { return }
         let followsSuggestion = !scan.isNamedByUser && scan.title == scan.suggestions.first
-        let names = namer.suggestions(for: DetectedDocument(details: details, parts: parts), date: scan.created).names
+        let names = namer.names(for: parts, date: scan.created)
         scan.suggestedParts = parts
         scan.suggestions = names
         if followsSuggestion, let first = names.first { scan.title = first }

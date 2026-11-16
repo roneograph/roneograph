@@ -54,12 +54,13 @@ final class ScanProcessorTests {
         #expect(document.string?.contains("The quick brown fox jumps over the lazy dog") == true)
     }
 
-    @Test func suggestsNamesFromTheTextOfThePreview() throws {
+    @Test func detectsTheDocumentFromTheTextOfThePreview() throws {
         let scanID = UUID()
         let page = ScanPage(quad: nil, analysis: .sample)
         try FileManager.default.createDirectory(at: store.directory(of: scanID), withIntermediateDirectories: true)
         try processor.writePreview(of: page, scanID: scanID, flat: SyntheticPage(title: "INVOICE").render())
-        let suggestions = try #require(processor.nameSuggestions(for: page, scanID: scanID, date: .now))
-        #expect(suggestions.names.first?.hasPrefix("Invoice") == true)
+        let document = try #require(processor.detectDocument(on: page, scanID: scanID))
+        #expect(document.details.category == .invoice)
+        #expect(document.parts.type == "Invoice")
     }
 }

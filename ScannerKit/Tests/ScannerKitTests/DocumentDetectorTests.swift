@@ -354,6 +354,48 @@ struct DocumentDetectorTests {
         #expect(detector.detect(lines: header + [line("Thank you for choosing Corvane Analytics.", y: 0.5)]).details.issuer == "Corvane Analytics")
     }
 
+    // MARK: Parts
+
+    @Test func keepsTheTypeIssuerAndNumberAsPrinted() {
+        let lines = [
+            line("Facture n° 2026FA0004711", y: 0.03, height: 0.012),
+            line("OFFICE DU TOURISME DES", y: 0.12, height: 0.016),
+            line("3, QUAI DES TILLEULS", y: 0.15, height: 0.008),
+            line("Jeanne MARTIN", y: 0.2, height: 0.013),
+            line("Lyon, le 6 octobre 2026,", y: 0.3, height: 0.013),
+        ]
+        let detected = detector.detect(lines: lines)
+        #expect(detected.parts == SuggestedParts(type: "Facture", issuer: "Office du Tourisme", number: "2026FA0004711"))
+        #expect(iso(detected.details.date) == "2026-10-06")
+    }
+
+    @Test func usesAHeadingAsTheTypeWithoutTheIssuer() {
+        let lines = [line("RECEPISSE DE DECLARATION DE TRAVAUX", y: 0.2, height: 0.015), line("Adresse : 12 R DES LILAS", y: 0.25, height: 0.012)]
+        #expect(detector.detect(lines: lines).parts == SuggestedParts(type: "Recepisse de declaration de travaux"))
+    }
+
+    @Test func ignoresUncertainTextRecipientsAndLabels() {
+        let lines = [
+            TextLine(text: "ORIZON MOBILIT", frame: CGRect(x: 0.1, y: 0.1, width: 0.3, height: 0.03), confidence: 0.3),
+            TextLine(text: "Jeanne MARTIN", frame: CGRect(x: 0.6, y: 0.15, width: 0.3, height: 0.02)),
+            line("Forme juridique : Société", y: 0.2, height: 0.02),
+            line("Invoice 1234", y: 0.25, height: 0.01),
+        ]
+        #expect(detector.detect(lines: lines).parts == SuggestedParts(type: "Invoice", number: "1234"))
+    }
+
+    @Test(arguments: [("Lumen Energy", "Lumen Energy"), ("CAISSE D'ÉPARGNE", "Caisse d'Épargne"), ("L'ORÉAL FRANCE", "L'Oréal France"), ("BANCA DELL’ADRIATICO", "Banca dell’Adriatico")])
+    func keepsElidedArticlesSmallInAnIssuerInCapitals(text: String, issuer: String) {
+        let parts = detector.detect(lines: [line(text, y: 0.05, height: 0.03), line("12 rue des Lilas, 75011 Paris", y: 0.09, height: 0.01)]).parts
+        #expect(parts.type == nil)
+        #expect(parts.issuer == issuer)
+    }
+
+    @Test func keepsElidedArticlesSmallInAHeading() {
+        let lines = [line("FACTURE D'ÉLECTRICITÉ", y: 0.2, height: 0.015), line("Adresse : 12 R DES LILAS", y: 0.25, height: 0.012)]
+        #expect(detector.detect(lines: lines).parts.type == "Facture d'électricité")
+    }
+
     // MARK: Date
 
     @Test(arguments: [
@@ -368,9 +410,19 @@ struct DocumentDetectorTests {
         #expect(iso(detector.detect(lines: lines).details.date) == "2026-03-14")
     }
 
-    @Test(arguments: ["14 mars 2026", "14. März 2026", "14 de marzo de 2026", "14 marzo 2026", "March 14th, 2026", "14 Mar. 2026", "14.03.26", "14/03/26", "Lyon, le 14 mars 2026", "Leipzig, den 14.03.2026"])
+    @Test(arguments: ["2026-03-14", "14 mars 2026", "14. März 2026", "14 de marzo de 2026", "14 marzo 2026", "March 14th, 2026", "14 Mar. 2026", "14.03.26", "14/03/26", "Lyon, le 14 mars 2026", "Leipzig, den 14.03.2026"])
     func readsDates(text: String) {
         #expect(iso(detector.detect(lines: [line(text, y: 0.5)]).details.date) == "2026-03-14")
+    }
+
+    @Test func readsOrdinalDays() {
+        #expect(iso(detector.detect(lines: [line("1er janvier 2027", y: 0.5)]).details.date) == "2027-01-01")
+    }
+
+    @Test func readsAmbiguousDatesMonthFirstWhenAsked() {
+        let lines = [line("03/04/2026", y: 0.5)]
+        #expect(iso(detector.detect(lines: lines).details.date) == "2026-04-03")
+        #expect(iso(DocumentDetector(monthFirst: true).detect(lines: lines).details.date) == "2026-03-04")
     }
 
     @Test(arguments: ["Pacific/Kiritimati", "Pacific/Auckland", "Europe/Paris", "Pacific/Pago_Pago"])
