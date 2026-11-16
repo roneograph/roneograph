@@ -19,7 +19,7 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
     public var learnedIssuers: [LearnedIssuer] = []
     /// Header lines seen on past scans, to recognize the user's own name and address.
     public var headerLines: [HeaderLine] = []
-    public var keepDays = 7
+    public var keepScans = ScanRetention.week
 
     public init() {}
 
@@ -35,7 +35,8 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case email, archiveFolder, askedForEmail, dismissedPageTip, autoCapture, askForName, fileNameFormat, categories, learnedIssuers, headerLines, keepDays
+        case email, archiveFolder, askedForEmail, dismissedPageTip, autoCapture, askForName, fileNameFormat, categories, learnedIssuers, headerLines
+        case keepScans = "keepDays"
     }
 
     /// Missing or unknown values keep their default, so settings survive app updates.
@@ -52,8 +53,19 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
         categories = (try? container.decode([DocumentCategory].self, forKey: .categories)) ?? defaults.categories
         learnedIssuers = (try? container.decode([LearnedIssuer].self, forKey: .learnedIssuers)) ?? defaults.learnedIssuers
         headerLines = (try? container.decode([HeaderLine].self, forKey: .headerLines)) ?? defaults.headerLines
-        keepDays = (try? container.decode(Int.self, forKey: .keepDays)) ?? defaults.keepDays
+        keepScans = (try? container.decode(ScanRetention.self, forKey: .keepScans)) ?? defaults.keepScans
     }
+}
+
+/// How long scans stay on the device before they are deleted, sent or not.
+public enum ScanRetention: Int, CaseIterable, Sendable, Codable {
+    case day = 1
+    case week = 7
+    case month = 30
+    case forever = 0
+
+    /// Nil when scans are never deleted.
+    public var days: Int? { self == .forever ? nil : rawValue }
 }
 
 /// What the user corrected on documents from one issuer, recognized by any of its keys; nil when not corrected.

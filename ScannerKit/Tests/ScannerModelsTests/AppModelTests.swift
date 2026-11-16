@@ -191,9 +191,20 @@ struct AppModelTests {
         let app = AppModel(processor: fixture.processor, settings: fixture.settings, now: { now })
         #expect(app.scans.map(\.name) == ["Today", "Week"])
 
-        fixture.settings.value.keepDays = 1
+        fixture.settings.value.keepScans = .day
         app.refresh()
         #expect(app.scans.map(\.name) == ["Today"])
+    }
+
+    @Test func keepsScansForeverWhenAsked() throws {
+        let fixture = try Fixture()
+        let now = Date()
+        var scan = Scan(created: now.addingTimeInterval(-400 * 86400), name: "Old")
+        scan.pages = [ScanPage(quad: nil, analysis: .sample)]
+        try fixture.store.save(scan)
+        fixture.settings.value.keepScans = .forever
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings, now: { now })
+        #expect(app.scans.map(\.name) == ["Old"])
     }
 
     @Test func settingsSurviveARestart() throws {

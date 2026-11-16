@@ -14,4 +14,8 @@ struct WordingTests {
         #expect(1.counted("page") == "1 page")
         #expect(30.counted("day") == "30 days")
     }
+
+    @Test func labelsRetentions() {
+        #expect(ScanRetention.allCases.map(\.label) == ["1 day", "7 days", "30 days", "Forever"])
+    }
 }

@@ -7,6 +7,13 @@ extension Int {
     }
 }
 
+extension ScanRetention {
+    /// The choice in Settings: "7 days", "Forever".
+    public var label: String {
+        days.map { $0.counted("day") } ?? "Forever"
+    }
+}
+
 extension SendMethod {
     /// How a scan went out, on Home and in the confirmation.
     public var pastTense: String {

@@ -46,7 +46,7 @@ Sending:
 - Email fills in your default address, the name as the subject and the PDF; you only tap Send.
 - Save to Files puts the PDF in a folder picked once, or in the folders of a custom format inside it, without replacing a file already there.
 - Share reaches any other app.
-- Keeps scans 1, 7 or 30 days, visible in Files, then deletes them.
+- Keeps scans 1, 7 or 30 days, or forever, visible in Files.
 
 ## Requirements
 

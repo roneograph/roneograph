@@ -127,10 +127,8 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Picker("Keep scans for", selection: $settings.value.keepDays) {
-                        Text("1 day").tag(1)
-                        Text("7 days").tag(7)
-                        Text("30 days").tag(30)
+                    Picker("Keep scans for", selection: $settings.value.keepScans) {
+                        ForEach(ScanRetention.allCases, id: \.self) { Text($0.label).tag($0) }
                     }
                     LabeledContent("Stored", value: stored)
                     Button("Delete All Scans…", role: .destructive) { deletingScans = true }
@@ -138,7 +136,9 @@ struct SettingsView: View {
                 } header: {
                     Text("Scans on this iPhone")
                 } footer: {
-                    Text("Scans are deleted after this time, sent or not. PDFs already saved to Files or sent stay where they are.")
+                    Text(settings.value.keepScans == .forever
+                        ? "Scans stay until you delete them. PDFs already saved to Files or sent stay where they are."
+                        : "Scans are deleted after this time, sent or not. PDFs already saved to Files or sent stay where they are.")
                 }
                 .confirmationDialog("Delete \(app.scans.count == 1 ? "the scan" : "all \(app.scans.count) scans")?", isPresented: $deletingScans, titleVisibility: .visible) {
                     Button("Delete All Scans", role: .destructive) {

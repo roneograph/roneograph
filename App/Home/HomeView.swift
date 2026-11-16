@@ -60,9 +60,10 @@ struct HomeView: View {
             } header: {
                 Text("Recent")
             } footer: {
-                let days = app.settings.value.keepDays
-                Text("Scans are deleted after \(days.counted("day")).")
-                    .frame(maxWidth: .infinity)
+                if let days = app.settings.value.keepScans.days {
+                    Text("Scans are deleted after \(days.counted("day")).")
+                        .frame(maxWidth: .infinity)
+                }
             }
         }
     }

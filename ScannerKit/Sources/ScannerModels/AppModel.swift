@@ -28,7 +28,9 @@ public final class AppModel {
 
     /// Deletes expired scans and reloads the list.
     public func refresh() {
-        store.deleteScans(olderThan: now().addingTimeInterval(-Double(settings.value.keepDays) * 86400))
+        if let days = settings.value.keepScans.days {
+            store.deleteScans(olderThan: now().addingTimeInterval(-Double(days) * 86400))
+        }
         reload()
     }
 
