@@ -160,7 +160,7 @@ public final class AppModel {
                 delete(scan.id)
             }
         }
-        settings.removeOwner(id)
+        settings.removeOwner(id, movingTo: newOwner)
         reload()
     }
 

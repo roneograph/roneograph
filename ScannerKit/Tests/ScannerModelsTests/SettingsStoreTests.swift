@@ -154,11 +154,35 @@ struct SettingsStoreTests {
         let personal = fixture.settings.value.defaultOwnerID
         fixture.settings.learn(keys: ["print"]) { $0.owner = holding.id }
         fixture.settings.learn(keys: ["lumen"]) { $0.owner = holding.id; $0.category = .invoice }
-        fixture.settings.value.headerLines = [HeaderLine(fingerprint: "street", owners: [personal, holding.id])]
+        fixture.settings.value.headerLines = [
+            HeaderLine(fingerprint: "street", issuers: ["print", "bank"], owners: [personal, holding.id]),
+            HeaderLine(fingerprint: "fernwood holding", issuers: ["print", "bank"], owners: [holding.id]),
+        ]
         fixture.settings.removeOwner(holding.id)
         #expect(fixture.settings.learnedIssuer(for: ["print"]) == nil)
         #expect(fixture.settings.learnedIssuer(for: ["lumen"]) == LearnedIssuer(keys: ["lumen"], category: .invoice))
-        #expect(fixture.settings.value.headerLines.map(\.owners) == [[personal]])
+        #expect(fixture.settings.value.headerLines.map(\.owners) == [[personal, holding.id], []])
+        #expect(fixture.settings.owner(recognizing: ["street"]) == nil)
+    }
+
+    @Test func removingAnOwnerGivesWhatRecognizedItToTheOwnerOfItsScans() throws {
+        let fixture = try Fixture()
+        let personal = fixture.settings.value.defaultOwnerID
+        let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
+        let employer = try #require(fixture.settings.addOwner("Halcyon Labs"))
+        fixture.settings.learn(keys: ["print"]) { $0.owner = holding.id }
+        fixture.settings.value.headerLines = [
+            HeaderLine(fingerprint: "street", issuers: ["print", "bank"], owners: [personal, holding.id]),
+            HeaderLine(fingerprint: "both", issuers: ["print", "bank"], owners: [holding.id, employer.id]),
+        ]
+        fixture.settings.removeOwner(holding.id, movingTo: holding.id)
+        #expect(fixture.settings.value.hasOwner(holding.id))
+
+        fixture.settings.removeOwner(holding.id, movingTo: employer.id)
+        #expect(fixture.settings.learnedIssuer(for: ["print"])?.owner == employer.id)
+        #expect(fixture.settings.value.headerLines.map(\.owners) == [[personal, employer.id], [employer.id]])
+        #expect(fixture.settings.owner(recognizing: ["street"]) == nil)
+        #expect(fixture.settings.owner(recognizing: ["both"]) == employer.id)
     }
 
     /// Lines seen with documents from two issuers, as the address block of an owner.
