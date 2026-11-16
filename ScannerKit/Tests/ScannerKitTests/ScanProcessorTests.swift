@@ -23,7 +23,7 @@ final class ScanProcessorTests {
         }
 
         scan.pages = [page, page]
-        let document = try #require(PDFDocument(data: try processor.pdfData(of: scan, quality: .small, paper: .a4)))
+        let document = try #require(PDFDocument(data: try processor.pdfData(of: scan, paper: .a4)))
         #expect(document.pageCount == 2)
     }
 

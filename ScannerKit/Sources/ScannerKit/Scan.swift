@@ -46,8 +46,6 @@ public struct Scan: Identifiable, Equatable, Sendable, Codable {
     public var isNamedByUser = false
     public var suggestions: [String] = []
     public var pages: [ScanPage] = []
-    /// Overrides the PDF size from the settings for this scan.
-    public var quality: PDFQuality?
     /// False while pages are being captured.
     public var isFinished = false
     public var sent: Date?

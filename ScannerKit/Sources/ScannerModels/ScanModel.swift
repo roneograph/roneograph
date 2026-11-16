@@ -14,7 +14,6 @@ public final class ScanModel: Identifiable {
     public struct PDFInputs: Equatable {
         var name: String
         var pages: [ScanPage]
-        var quality: PDFQuality
         var paper: Paper
     }
 
@@ -44,8 +43,7 @@ public final class ScanModel: Identifiable {
     }
 
     public var store: ScanStore { processor.store }
-    public var quality: PDFQuality { scan.quality ?? settings.value.quality }
-    public var pdfInputs: PDFInputs { PDFInputs(name: scan.name, pages: scan.pages, quality: quality, paper: settings.value.paper) }
+    public var pdfInputs: PDFInputs { PDFInputs(name: scan.name, pages: scan.pages, paper: settings.value.paper) }
     public var fallbackTitle: String { namer.fallback(for: scan.created) }
     public var isBusy: Bool { processing > 0 || updating > 0 }
 
@@ -191,11 +189,6 @@ public final class ScanModel: Identifiable {
         save()
     }
 
-    public func setQuality(_ quality: PDFQuality) {
-        scan.quality = quality == settings.value.quality ? nil : quality
-        save()
-    }
-
     public func markSent(_ method: SendMethod) {
         scan.sent = now()
         scan.sentBy = method
@@ -210,9 +203,9 @@ public final class ScanModel: Identifiable {
         pdf = .building
         try? await Task.sleep(for: delay)
         guard !Task.isCancelled else { return }
-        let processor = processor, scan = scan, quality = quality, paper = settings.value.paper
+        let processor = processor, scan = scan, paper = settings.value.paper
         do {
-            let data = try await Task.detached(priority: .userInitiated) { try processor.pdfData(of: scan, quality: quality, paper: paper) }.value
+            let data = try await Task.detached(priority: .userInitiated) { try processor.pdfData(of: scan, paper: paper) }.value
             guard !Task.isCancelled, !isDeleted else { return }
             let url = store.pdfURL(of: scan)
             try data.write(to: url, options: .atomic)
@@ -220,18 +213,6 @@ public final class ScanModel: Identifiable {
         } catch {
             pdf = .failed
         }
-    }
-
-    /// Sizes of the PDF in every quality, for the options sheet.
-    public func pdfSizes() async -> [PDFQuality: Int] {
-        let processor = processor, scan = scan, paper = settings.value.paper
-        return await Task.detached(priority: .userInitiated) {
-            var sizes: [PDFQuality: Int] = [:]
-            for quality in PDFQuality.allCases {
-                sizes[quality] = try? processor.pdfData(of: scan, quality: quality, paper: paper).count
-            }
-            return sizes
-        }.value
     }
 
     /// Deletes the scan; pages still being processed are dropped when they finish, then their files are deleted too.

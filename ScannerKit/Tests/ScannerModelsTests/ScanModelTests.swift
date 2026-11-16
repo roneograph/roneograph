@@ -197,22 +197,4 @@ struct ScanModelTests {
         #expect(url == fixture.store.pdfURL(of: model.scan))
         #expect(size > 1000)
     }
-
-    @Test func measuresThePDFInEveryQuality() async throws {
-        let fixture = try Fixture()
-        let model = await fixture.scanModel(pages: 1)
-        let sizes = await model.pdfSizes()
-        #expect(Set(sizes.keys) == Set(PDFQuality.allCases))
-        #expect(try #require(sizes[.small]) < #require(sizes[.best]))
-    }
-
-    @Test func qualityOverrideIsDroppedWhenItMatchesTheDefault() async throws {
-        let fixture = try Fixture()
-        let model = await fixture.scanModel(pages: 1)
-        model.setQuality(.small)
-        #expect(model.scan.quality == .small)
-        #expect(model.quality == .small)
-        model.setQuality(fixture.settings.value.quality)
-        #expect(model.scan.quality == nil)
-    }
 }

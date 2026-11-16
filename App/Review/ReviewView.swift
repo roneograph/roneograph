@@ -7,7 +7,6 @@ struct ReviewView: View {
     let app: AppModel
     let scan: ScanModel
     @State private var showingRename = false
-    @State private var showingOptions = false
     @State private var showingMail = false
     @State private var showingShare = false
     @State private var showingEmailQuestion = false
@@ -50,10 +49,6 @@ struct ReviewView: View {
         }
         .sheet(isPresented: $showingRename) {
             RenameView(scan: scan)
-        }
-        .sheet(isPresented: $showingOptions) {
-            PDFOptionsView(scan: scan)
-                .presentationDetents([.medium])
         }
         .sheet(isPresented: $showingMail, onDismiss: finishSending) {
             if case .ready(let url, _) = scan.pdf {
@@ -134,13 +129,7 @@ struct ReviewView: View {
                 if settings.hasValidEmail {
                     Text("To \(settings.email)").lineLimit(1).truncationMode(.middle)
                 }
-                HStack(spacing: 4) {
-                    Text(summary)
-                    Text("·")
-                    Button(scan.quality.title) { showingOptions = true }
-                        .accessibilityHint("Changes the size of the PDF")
-                        .disabled(!isReady)
-                }
+                Text(summary)
             }
             .font(.footnote)
             .foregroundStyle(.secondary)

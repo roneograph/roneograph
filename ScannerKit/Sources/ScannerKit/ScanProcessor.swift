@@ -70,11 +70,11 @@ public struct ScanProcessor: @unchecked Sendable {
         return FileNamer().suggestions(lines: reader.lines(in: preview), date: date)
     }
 
-    public func pdfData(of scan: Scan, quality: PDFQuality, paper: Paper) throws -> Data {
+    public func pdfData(of scan: Scan, paper: Paper) throws -> Data {
         let pages = try scan.pages.map { page in
             guard let flat = CIImage(contentsOf: store.flatURL(scanID: scan.id, pageID: page.id)) else { throw ProcessingError.unreadablePage }
             return PDFPageContent(image: cleaner.render(flat, analysis: page.analysis, settings: page.cleanup), look: page.look, textLineHeight: page.analysis.textLineHeight)
         }
-        return try writer.data(pages: pages, title: scan.title, quality: quality, defaultPaper: paper)
+        return try writer.data(pages: pages, title: scan.title, defaultPaper: paper)
     }
 }

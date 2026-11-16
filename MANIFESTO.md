@@ -14,7 +14,7 @@ Pages are gray; color is kept only where it is on the page.
 
 ## Small files, without losing a single word
 
-Roneograph makes the smallest PDFs it can without losing information. Compression may make a page a little less pretty; it must never make it say something else. Roneograph never uses a compression that can swap one character for another, at any size setting, and the smallest setting still has to be readable by a human and by OCR.
+Roneograph makes the smallest PDFs it can without losing information. Compression may make a page a little less pretty; it must never make it say something else. Roneograph never uses a compression that can swap one character for another, and every page stays readable by a human and by OCR.
 
 ## Searchable
 

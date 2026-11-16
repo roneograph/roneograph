@@ -4,7 +4,7 @@ import ScannerKit
 
 // Usage: page-cleanup <output directory> <page images...>
 // Writes the automatic result and every look of each page, prints the analysis,
-// then writes scan-<quality>.pdf with all pages in their automatic look.
+// then writes scan.pdf with all pages in their automatic look.
 let arguments = CommandLine.arguments.dropFirst()
 guard arguments.count >= 2 else {
     FileHandle.standardError.write(Data("Usage: page-cleanup <output directory> <page images...>\n".utf8))
@@ -41,9 +41,7 @@ for path in arguments.dropFirst() {
     print(String(format: "%@: %@, %@, skew %.2f°, color %.4f, picture %.3f, line %.4f, analysis %.0f ms", name, analysis.suggestedLook.rawValue, analysis.orientation.rawValue, analysis.skewDegrees, analysis.colorFraction, analysis.pictureFraction, analysis.textLineHeight ?? 0, analyzed.timeIntervalSince(started) * 1000))
 }
 
-for quality in PDFQuality.allCases {
-    let started = Date()
-    let data = try writer.data(pages: pdfPages, title: "Scan", quality: quality, defaultPaper: .a4)
-    try data.write(to: output.appending(path: "scan-\(quality.rawValue).pdf"))
-    print(String(format: "scan-%@.pdf: %d pages, %d KB, %d KB per page, %.0f ms", quality.rawValue, pdfPages.count, data.count / 1024, data.count / 1024 / max(1, pdfPages.count), Date().timeIntervalSince(started) * 1000))
-}
+let started = Date()
+let data = try writer.data(pages: pdfPages, title: "Scan", defaultPaper: .a4)
+try data.write(to: output.appending(path: "scan.pdf"))
+print(String(format: "scan.pdf: %d pages, %d KB, %d KB per page, %.0f ms", pdfPages.count, data.count / 1024, data.count / 1024 / max(1, pdfPages.count), Date().timeIntervalSince(started) * 1000))

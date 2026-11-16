@@ -41,9 +41,6 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Picker("Size", selection: $settings.value.quality) {
-                        ForEach(PDFQuality.allCases, id: \.self) { Text($0.title).tag($0) }
-                    }
                     Picker("Default paper", selection: $settings.value.paper) {
                         Text("A4").tag(Paper.a4)
                         Text("Letter").tag(Paper.letter)
@@ -95,24 +92,6 @@ extension PageLook {
         switch self {
         case .color: "Color"
         case .gray: "Gray"
-        }
-    }
-}
-
-extension PDFQuality {
-    var title: String {
-        switch self {
-        case .small: "Small"
-        case .balanced: "Balanced"
-        case .best: "Best"
-        }
-    }
-
-    var purpose: String {
-        switch self {
-        case .small: "Email, upload limits"
-        case .balanced: "Reading on screen, archiving"
-        case .best: "Printing, very small print"
         }
     }
 }

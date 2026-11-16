@@ -11,7 +11,7 @@ struct PDFWriterTests {
 
     @Test func writesOnePagePerImageAtTheRightSize() throws {
         let page = SyntheticPage().render()
-        let data = try PDFWriter(context: context).data(pages: [PDFPageContent(image: page, look: .gray), PDFPageContent(image: page, look: .color)], title: "Invoice", quality: .balanced, defaultPaper: .a4)
+        let data = try PDFWriter(context: context).data(pages: [PDFPageContent(image: page, look: .gray), PDFPageContent(image: page, look: .color)], title: "Invoice", defaultPaper: .a4)
         let document = try #require(PDFDocument(data: data))
         #expect(document.pageCount == 2)
         let box = try #require(document.page(at: 0)).bounds(for: .mediaBox)
@@ -21,7 +21,7 @@ struct PDFWriterTests {
     }
 
     @Test func declaresPDFAWithAnOutputIntent() throws {
-        let data = try PDFWriter(context: context).data(pages: [PDFPageContent(image: SyntheticPage().render(), look: .color)], title: "Invoice", quality: .balanced, defaultPaper: .a4)
+        let data = try PDFWriter(context: context).data(pages: [PDFPageContent(image: SyntheticPage().render(), look: .color)], title: "Invoice", defaultPaper: .a4)
         let document = try #require(CGPDFDocument(CGDataProvider(data: data as CFData)!))
         let catalog = try #require(document.catalog)
 
@@ -40,21 +40,13 @@ struct PDFWriterTests {
     }
 
     @Test func embedsPagesAsJPEG() throws {
-        let gray = try PDFWriter(context: context).data(pages: [PDFPageContent(image: SyntheticPage().render(), look: .gray)], title: "", quality: .balanced, defaultPaper: .a4)
+        let gray = try PDFWriter(context: context).data(pages: [PDFPageContent(image: SyntheticPage().render(), look: .gray)], title: "", defaultPaper: .a4)
         #expect(gray.range(of: Data("/DCTDecode".utf8)) != nil)
-    }
-
-    @Test func smallerQualityMakesSmallerFiles() throws {
-        let page = SyntheticPage(stamp: true, shadow: true).render()
-        let writer = PDFWriter(context: context)
-        let sizes = try PDFQuality.allCases.map { try writer.data(pages: [PDFPageContent(image: page, look: .color)], title: "", quality: $0, defaultPaper: .a4).count }
-        #expect(sizes == sizes.sorted())
-        #expect(sizes[0] < sizes[2])
     }
 
     @Test func neverUpscalesASmallImage() throws {
         let tiny = SyntheticPage().render().transformed(by: CGAffineTransform(scaleX: 0.25, y: 0.25))
-        let data = try PDFWriter(context: context).data(pages: [PDFPageContent(image: tiny, look: .gray)], title: "", quality: .best, defaultPaper: .a4)
+        let data = try PDFWriter(context: context).data(pages: [PDFPageContent(image: tiny, look: .gray)], title: "", defaultPaper: .a4)
         #expect(data.range(of: Data("/Width 210".utf8)) != nil)
     }
 }
