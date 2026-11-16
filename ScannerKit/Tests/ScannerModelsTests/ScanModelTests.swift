@@ -547,12 +547,37 @@ struct ScanModelTests {
         let first = fixture.scanModel()
         first.addPhoto(photo, liveQuad: nil)
         await first.waitUntilIdle()
-        fixture.settings.learn(keys: first.scan.issuerKeys) { $0.owner = UUID() }
+        fixture.settings.learn(keys: first.scan.issuerKeys) { $0.owner = fixture.settings.value.defaultOwnerID }
 
         let second = fixture.scanModel()
         second.addPhoto(photo, liveQuad: nil)
         await second.waitUntilIdle()
         #expect(second.hasDefaultOwner)
+        #expect(second.scan.remembered.isEmpty)
+    }
+
+    @Test func anOwnerRecognizedByTheLinesWinsOverTheOneRememberedForTheIssuer() async throws {
+        let fixture = try Fixture()
+        let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
+        let employer = try #require(fixture.settings.addOwner("Halcyon Labs"))
+        let photo = try #require(PageExtractor(context: CIContext()).jpegData(of: SyntheticPage(title: "LUMEN ENERGY SAS").render(), quality: 0.9))
+        let first = fixture.scanModel()
+        first.addPhoto(photo, liveQuad: nil)
+        await first.waitUntilIdle()
+        first.setOwner(employer.id)
+        let lines = first.scan.headerLines
+        try #require(!lines.isEmpty)
+        for index in fixture.settings.value.headerLines.indices where lines.contains(fixture.settings.value.headerLines[index].fingerprint) {
+            fixture.settings.value.headerLines[index].issuers = ["print", "bank"]
+            fixture.settings.value.headerLines[index].owners = [holding.id]
+        }
+
+        let second = fixture.scanModel()
+        second.addPhoto(photo, liveQuad: nil)
+        await second.waitUntilIdle()
+        #expect(fixture.settings.learnedIssuer(for: second.scan.issuerKeys)?.owner == employer.id)
+        #expect(second.owner.id == holding.id)
+        #expect(!second.hasDefaultOwner)
         #expect(second.scan.remembered.isEmpty)
     }
 

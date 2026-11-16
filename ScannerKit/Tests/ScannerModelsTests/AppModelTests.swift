@@ -241,6 +241,7 @@ struct AppModelTests {
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)
         let mine = await fixture.capturedScan(in: app)
         let other = await fixture.capturedScan(in: app)
+        let third = await fixture.capturedScan(in: app)
         #expect(app.destination(of: [mine]) == "To me@example.com")
 
         let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
@@ -248,7 +249,7 @@ struct AppModelTests {
         #expect(app.destination(of: [mine]) == "Personal · To me@example.com")
         other.setOwner(holding.id)
         #expect(app.destination(of: [other]) == "Fernwood Holding")
-        #expect(app.destination(of: [mine, other, mine]) == "2 emails: Personal (2), Fernwood Holding (1)")
+        #expect(app.destination(of: [mine, other, third]) == "2 emails: Personal (2), Fernwood Holding (1)")
         #expect(app.byOwner([other, mine]).map(\.owner.id) == [holding.id, fixture.settings.value.defaultOwnerID])
 
         app.didSend([other], by: .email)
@@ -275,6 +276,20 @@ struct AppModelTests {
         #expect(!fixture.settings.value.hasOwner(holding.id))
         #expect(app.scans.first?.owner?.id == employer.id)
         #expect(app.scans.first?.name == "Office_power")
+    }
+
+    @Test func deletingAnOwnerCanMoveItsScansToTheDefaultOwner() async throws {
+        let fixture = try Fixture()
+        let personal = fixture.settings.value.defaultOwnerID
+        let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+        let scan = await fixture.capturedScan(in: app)
+        scan.setOwner(holding.id)
+
+        app.deleteOwner(holding.id, movingScansTo: personal)
+        #expect(fixture.settings.value.owners.map(\.id) == [personal])
+        #expect(app.scans.map(\.owner?.id) == [personal])
+        #expect(scan.owner.id == personal)
     }
 
     @Test func deletingAnOwnerCanDeleteItsScans() async throws {
