@@ -213,6 +213,18 @@ struct DocumentDetectorTests {
         #expect(detector.detect(lines: lines).details.number == "INV-104829")
     }
 
+    @Test func readsTheNumberUnderItsLabelInABox() {
+        let lines = [line("FACTURE", y: 0.05, height: 0.02), line("Numéro de facture", y: 0.2), line("FA-2026-00417", y: 0.215), line("Montant", y: 0.3), line("90,82 €", y: 0.315)]
+        #expect(detector.detect(lines: lines).details.number == "FA-2026-00417")
+    }
+
+    @Test func readsLabelsGluedToTheirValue() {
+        let lines = [line("FACTURE", y: 0.05, height: 0.02), line("Facture N°:FA-2026-00417", y: 0.2), line("Date de facture:14/03/2026 à 18:42", y: 0.25)]
+        let details = detector.detect(lines: lines).details
+        #expect(details.number == "FA-2026-00417")
+        #expect(iso(details.date) == "2026-03-14")
+    }
+
     @Test func ignoresYearsAndAmountsAsNumbers() {
         #expect(detector.detect(lines: [line("Bescheid für 2025", y: 0.2, height: 0.02)]).details.number == nil)
         #expect(detector.detect(lines: [line("FACTURE", y: 0.2, height: 0.02), line("N° de facture : 1 234,50 €", y: 0.25)]).details.number == nil)

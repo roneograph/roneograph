@@ -86,13 +86,35 @@ public struct DocumentDetector: Sendable {
                     text: line.text,
                     frame: line.frame,
                     confidence: line.confidence,
-                    tokens: line.text.split(whereSeparator: \.isWhitespace).map(Token.init),
+                    tokens: Self.separatingColons(line.text).split(whereSeparator: \.isWhitespace).map(Token.init),
                     folded: line.text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil).replacing("’", with: "'"),
                     isOwn: !ownLines.isEmpty && ownLines.contains(DocumentDetector.fingerprint(line.text))
                 )
             }
             let heights = lines.map(\.frame.height).sorted()
             bodyHeight = heights.isEmpty ? 0.01 : heights[heights.count / 2]
+        }
+
+        /// "N°:FA-1" becomes "N° : FA-1", so labels and values stay apart; times such as 18:42 are kept.
+        static func separatingColons(_ text: String) -> String {
+            var result = ""
+            var previous: Character?
+            for character in text {
+                if character == ":", let previous, !previous.isNumber {
+                    result += " : "
+                } else {
+                    result.append(character)
+                }
+                previous = character
+            }
+            return result
+        }
+
+        /// The line right under a short line, starting at the same place, as in boxed forms.
+        func line(under line: Line) -> Line? {
+            lines.first { other in
+                other.frame.minY > line.frame.midY && other.frame.minY - line.frame.maxY < line.frame.height * 1.5 && abs(other.frame.minX - line.frame.minX) < 0.02
+            }
         }
 
         func isLarge(_ line: Line) -> Bool {
@@ -320,8 +342,14 @@ public struct DocumentDetector: Sendable {
 
     private static func value(after index: Int, in line: Line, page: Page, sameLineOnly: Bool = false) -> String? {
         var tokens = line.tokens[index...].drop { skippedBeforeValue.contains($0.key) }
-        if tokens.isEmpty, !sameLineOnly, let next = page.neighbor(of: line, toTheRight: true) {
-            tokens = next.tokens[...].drop { skippedBeforeValue.contains($0.key) }
+        var isWholeLine = false
+        if tokens.isEmpty, !sameLineOnly {
+            if let next = page.neighbor(of: line, toTheRight: true) {
+                tokens = next.tokens[...].drop { skippedBeforeValue.contains($0.key) }
+            } else if let under = page.line(under: line) {
+                tokens = under.tokens[...]
+                isWholeLine = true
+            }
         }
         var parts: [String] = []
         for token in tokens {
@@ -330,6 +358,7 @@ public struct DocumentDetector: Sendable {
                   text.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || "/-._".contains($0)) }), !isDate(text) else { break }
             parts.append(text)
         }
+        if isWholeLine && parts.count < tokens.count { return nil }
         let value = parts.joined(separator: " ")
         let isYear = value.count == 4 && Int(value).map { (1990...2100).contains($0) } == true
         return value.filter { $0.isLetter || $0.isNumber }.count >= 3 && !isYear ? value : nil
