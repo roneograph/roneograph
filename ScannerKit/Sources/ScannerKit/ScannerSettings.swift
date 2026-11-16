@@ -8,8 +8,6 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
     /// Set once the review screen tip about tapping pages was closed, or a page was opened.
     public var dismissedPageTip = false
     public var autoCapture = true
-    /// Nil lets each page pick its look.
-    public var look: PageLook?
     public var quality = PDFQuality.balanced
     public var paper = Paper.a4
     /// Opens the rename sheet when the review screen first shows.
@@ -26,7 +24,7 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case email, askedForEmail, dismissedPageTip, autoCapture, look, quality, paper, askForName, fileNameFormat, keepDays
+        case email, askedForEmail, dismissedPageTip, autoCapture, quality, paper, askForName, fileNameFormat, keepDays
     }
 
     /// Missing or unknown values keep their default, so settings survive app updates.
@@ -37,7 +35,6 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
         askedForEmail = (try? container.decode(Bool.self, forKey: .askedForEmail)) ?? defaults.askedForEmail
         dismissedPageTip = (try? container.decode(Bool.self, forKey: .dismissedPageTip)) ?? defaults.dismissedPageTip
         autoCapture = (try? container.decode(Bool.self, forKey: .autoCapture)) ?? defaults.autoCapture
-        look = try? container.decode(PageLook.self, forKey: .look)
         quality = (try? container.decode(PDFQuality.self, forKey: .quality)) ?? defaults.quality
         paper = (try? container.decode(Paper.self, forKey: .paper)) ?? defaults.paper
         askForName = (try? container.decode(Bool.self, forKey: .askForName)) ?? defaults.askForName

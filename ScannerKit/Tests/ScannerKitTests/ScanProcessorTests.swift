@@ -16,7 +16,7 @@ final class ScanProcessorTests {
 
     @Test func processesAPhotoIntoAPageAndAPDF() throws {
         var scan = Scan(name: "Test")
-        let page = try processor.addPage(photo: SyntheticPhoto.jpeg(), liveQuad: nil, scanID: scan.id, look: nil)
+        let page = try processor.addPage(photo: SyntheticPhoto.jpeg(), liveQuad: nil, scanID: scan.id)
         #expect(try #require(page.quad).maxCornerDistance(to: .tilted) < 0.02)
         for url in [store.photoURL(scanID: scan.id, pageID: page.id), store.flatURL(scanID: scan.id, pageID: page.id), store.previewURL(scanID: scan.id, pageID: page.id)] {
             #expect(FileManager.default.fileExists(atPath: url.path(percentEncoded: false)))
@@ -29,7 +29,7 @@ final class ScanProcessorTests {
 
     @Test func recropsFromTheOriginalPhoto() throws {
         let scanID = UUID()
-        let page = try processor.addPage(photo: SyntheticPhoto.jpeg(), liveQuad: nil, scanID: scanID, look: nil)
+        let page = try processor.addPage(photo: SyntheticPhoto.jpeg(), liveQuad: nil, scanID: scanID)
 
         let whole = try processor.recrop(page, scanID: scanID, quad: nil)
         #expect(whole.quad == nil)

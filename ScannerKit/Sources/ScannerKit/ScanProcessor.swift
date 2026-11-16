@@ -24,11 +24,11 @@ public struct ScanProcessor: @unchecked Sendable {
     }
 
     /// Finds the page again on the full photo (the live outline as a fallback), flattens and analyzes it, and saves the photo, the flat page and a preview.
-    public func addPage(photo data: Data, liveQuad: Quad?, scanID: UUID, look: PageLook?) throws -> ScanPage {
+    public func addPage(photo data: Data, liveQuad: Quad?, scanID: UUID) throws -> ScanPage {
         guard let photo = CIImage(data: data, options: [.applyOrientationProperty: true]) else { throw ProcessingError.unreadablePhoto }
         let quad = extractor.detect(in: photo.scaled(by: photo.scale(toLongSide: detectionSize))) ?? liveQuad
         try FileManager.default.createDirectory(at: store.directory(of: scanID), withIntermediateDirectories: true)
-        let page = try flatten(photo, quad: quad, scanID: scanID) { ScanPage(quad: quad, analysis: $0, cleanup: CleanupSettings(look: look)) }
+        let page = try flatten(photo, quad: quad, scanID: scanID) { ScanPage(quad: quad, analysis: $0) }
         try data.write(to: store.photoURL(scanID: scanID, pageID: page.id), options: .atomic)
         return page
     }

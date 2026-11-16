@@ -79,12 +79,12 @@ public final class ScanModel: Identifiable {
 
     public func addPhoto(_ data: Data, liveQuad: Quad?) {
         processing += 1
-        let processor = processor, scanID = scan.id, look = settings.value.look
+        let processor = processor, scanID = scan.id
         enqueue { [self] in
             defer { processing -= 1 }
             do {
                 let page = try await Task.detached(priority: .userInitiated) {
-                    try processor.addPage(photo: data, liveQuad: liveQuad, scanID: scanID, look: look)
+                    try processor.addPage(photo: data, liveQuad: liveQuad, scanID: scanID)
                 }.value
                 guard !isDeleted else { return }
                 scan.pages.append(page)
