@@ -46,11 +46,11 @@ public final class SettingsStore {
 
     /// Adds an owner named as typed, with the file name format of the default owner; returns it, or the existing owner with the same name.
     @discardableResult
-    public func addOwner(_ name: String, symbol: Owner.Symbol = .building) -> Owner? {
+    public func addOwner(_ name: String) -> Owner? {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return nil }
         if let existing = owner(named: name) { return existing }
-        let owner = Owner(name: name, symbol: symbol, fileNameFormat: value.defaultOwner.fileNameFormat)
+        let owner = Owner(name: name, fileNameFormat: value.defaultOwner.fileNameFormat)
         value.addOwner(owner)
         return owner
     }
