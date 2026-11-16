@@ -34,7 +34,6 @@ public struct ScanPage: Identifiable, Equatable, Sendable, Codable {
     /// Turns the page a quarter turn clockwise.
     public mutating func rotate() {
         analysis.orientation = analysis.orientation.turned
-        revision += 1
     }
 }
 

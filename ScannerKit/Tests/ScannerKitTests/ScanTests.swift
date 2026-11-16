@@ -13,11 +13,10 @@ struct ScanTests {
         }
     }
 
-    @Test func rotatingAPageBumpsItsRevision() {
+    @Test func rotatesAPageAQuarterTurnClockwise() {
         var page = ScanPage(quad: nil, analysis: .sample)
         page.rotate()
         #expect(page.analysis.orientation == .right)
-        #expect(page.revision == 1)
     }
 
     @Test func aPageTurnedClockwiseRendersSideways() {
