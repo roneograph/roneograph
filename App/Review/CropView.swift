@@ -55,7 +55,7 @@ struct CropView: View {
     }
 
     private func editorView(photo: UIImage, size: CGSize) -> some View {
-        let mapping = ImageViewMapping(imageSize: photo.size, viewSize: size, scaling: .fit)
+        let mapping = ImageViewMapping(imageSize: photo.size, viewSize: size)
         let frame = mapping.imageFrame
         return ZStack(alignment: .topLeading) {
             Image(uiImage: photo)

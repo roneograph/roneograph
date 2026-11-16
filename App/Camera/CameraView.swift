@@ -234,7 +234,7 @@ struct QuadOverlay: View {
     var body: some View {
         Canvas { context, size in
             guard let quad else { return }
-            let mapping = ImageViewMapping(imageSize: imageSize, viewSize: size, scaling: .fit)
+            let mapping = ImageViewMapping(imageSize: imageSize, viewSize: size)
             var path = Path()
             path.addLines(quad.corners.map(mapping.viewPoint(for:)))
             path.closeSubpath()
