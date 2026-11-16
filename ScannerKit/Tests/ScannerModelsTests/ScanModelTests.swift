@@ -507,6 +507,20 @@ struct ScanModelTests {
         #expect(fixture.settings.learnedIssuer(for: second.scan.issuerKeys)?.owner == nil)
     }
 
+    @Test func changingTheDefaultOwnerMovesNoScan() throws {
+        let fixture = try Fixture()
+        let personal = fixture.settings.value.defaultOwnerID
+        var holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
+        holding.fileNameFormat = FileNameFormat(separator: .underscore)
+        fixture.settings.value.updateOwner(holding)
+        let model = fixture.scanModel(title: "Office power")
+
+        fixture.settings.value.defaultOwnerID = holding.id
+        #expect(model.owner.id == personal)
+        #expect(model.hasDefaultOwner)
+        #expect(fixture.scanModel(title: "Office rent").owner.id == holding.id)
+    }
+
     @Test func aRememberedOwnerIsNotUsedWithASingleOwner() async throws {
         let fixture = try Fixture()
         let photo = try #require(PageExtractor(context: CIContext()).jpegData(of: SyntheticPage(title: "LUMEN ENERGY SAS").render(), quality: 0.9))
@@ -528,7 +542,7 @@ struct ScanModelTests {
         fixture.settings.recordHeaderLines(["fernwood holding"], issuerEvidence: ["print.example"])
         var scan = Scan(name: "Scan")
         scan.headerLines = ["fernwood holding"]
-        scan.owner = holding.id
+        scan.owner = ScanOwner(id: holding.id)
         let model = ScanModel(scan: scan, processor: fixture.processor, settings: fixture.settings)
 
         model.markSent(.email)

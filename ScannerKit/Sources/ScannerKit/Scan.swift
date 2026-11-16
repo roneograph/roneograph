@@ -71,6 +71,18 @@ public struct Sent: Equatable, Sendable, Codable {
     }
 }
 
+/// Who a scan belongs to, kept as it was given so changing the default owner moves no scan.
+public struct ScanOwner: Equatable, Sendable, Codable {
+    public var id: UUID
+    /// True when nothing told the owner and the scan got the default one; reading the page may still replace it.
+    public var isDefault: Bool
+
+    public init(id: UUID, isDefault: Bool = false) {
+        self.id = id
+        self.isDefault = isDefault
+    }
+}
+
 public struct Scan: Identifiable, Equatable, Sendable, Codable {
     public let id: UUID
     public var created: Date
@@ -87,8 +99,8 @@ public struct Scan: Identifiable, Equatable, Sendable, Codable {
     public var suggestedParts = SuggestedParts()
     /// How to recognize the issuer on the next document, to reuse what the user corrected.
     public var issuerKeys: [String] = []
-    /// Nil until read on the page or chosen: the default owner.
-    public var owner: UUID?
+    /// Read on the page, remembered per issuer, chosen, or the default owner; nil until the scan has a model, which gives it one.
+    public var owner: ScanOwner?
     /// Fingerprints of the header lines of the first page, linked to the owner when the scan is sent.
     public var headerLines: [String] = []
     /// Nil until the first page is read.

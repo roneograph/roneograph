@@ -272,7 +272,7 @@ struct AppModelTests {
 
         app.deleteOwner(holding.id, movingScansTo: employer.id)
         #expect(!fixture.settings.value.hasOwner(holding.id))
-        #expect(app.scans.first?.owner == employer.id)
+        #expect(app.scans.first?.owner?.id == employer.id)
         #expect(app.scans.first?.name == "Office_power")
     }
 

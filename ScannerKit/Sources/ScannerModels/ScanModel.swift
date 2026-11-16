@@ -37,6 +37,8 @@ public final class ScanModel: Identifiable {
 
     public init(scan: Scan, processor: ScanProcessor, settings: SettingsStore, now: @escaping @Sendable () -> Date = Date.init) {
         self.id = scan.id
+        var scan = scan
+        if scan.owner == nil { scan.owner = ScanOwner(id: settings.value.defaultOwnerID, isDefault: true) }
         self.scan = scan
         self.processor = processor
         self.settings = settings
@@ -52,9 +54,9 @@ public final class ScanModel: Identifiable {
     /// The name remembered for the issuer, while it is the name of the scan.
     public var rememberedName: String? { scan.remembered.contains(.name) ? scan.title : nil }
     /// Where the PDF goes and how it is named.
-    public var owner: Owner { settings.value.owner(scan.owner) }
-    /// True when nothing on the page told the owner and none was chosen.
-    public var hasDefaultOwner: Bool { !settings.value.hasOwner(scan.owner) }
+    public var owner: Owner { settings.value.owner(scan.owner?.id) }
+    /// True when nothing on the page told the owner and none was chosen: the scan got the default owner.
+    public var hasDefaultOwner: Bool { scan.owner?.isDefault ?? true }
     public var fileNameFormat: FileNameFormat { owner.fileNameFormat }
 
     /// The file name a name and details get with the format of the owner, before avoiding collisions.
@@ -144,11 +146,11 @@ public final class ScanModel: Identifiable {
             scan.title = learnedName ?? first
             if let learnedName, learnedName != first { remembered.insert(.name) }
         }
-        if scan.owner == nil {
+        if hasDefaultOwner {
             if let owner = settings.owner(recognizing: document.headerLines) {
-                scan.owner = owner
+                scan.owner = ScanOwner(id: owner)
             } else if let owner = learned?.owner, settings.value.hasSeveralOwners, settings.value.hasOwner(owner) {
-                scan.owner = owner
+                scan.owner = ScanOwner(id: owner)
                 remembered.insert(.owner)
             }
         }
@@ -242,7 +244,7 @@ public final class ScanModel: Identifiable {
         settings.forget(values, keys: scan.issuerKeys)
         let restored = values.intersection(scan.remembered)
         guard !restored.isEmpty else { return }
-        if restored.contains(.owner) { scan.owner = nil }
+        if restored.contains(.owner) { scan.owner = ScanOwner(id: settings.value.defaultOwnerID, isDefault: true) }
         var details = scan.details
         var parts = scan.suggestedParts
         if let read = scan.read {
@@ -331,14 +333,18 @@ public final class ScanModel: Identifiable {
 
     /// Gives the scan to another owner, renamed with its format; the owner is reused for the next documents from the same issuer.
     public func setOwner(_ id: UUID) {
-        guard settings.value.hasOwner(id), id != scan.owner else { return }
+        guard settings.value.hasOwner(id), id != scan.owner?.id || hasDefaultOwner else { return }
         settings.learn(keys: scan.issuerKeys, label: scan.details.issuer) { $0.owner = id }
-        assignOwner(id)
+        give(to: ScanOwner(id: id))
     }
 
-    /// Gives the scan to another owner without learning anything, as when its owner is deleted.
-    func assignOwner(_ id: UUID?) {
-        scan.owner = id
+    /// Gives the scan to another owner without learning anything, as when its owner is deleted; a scan that got the default owner keeps saying so.
+    func assignOwner(_ id: UUID) {
+        give(to: ScanOwner(id: id, isDefault: hasDefaultOwner))
+    }
+
+    private func give(to owner: ScanOwner) {
+        scan.owner = owner
         scan.remembered.remove(.owner)
         applyFileName()
     }

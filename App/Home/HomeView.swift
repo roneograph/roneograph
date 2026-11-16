@@ -98,7 +98,7 @@ struct HomeView: View {
             }
             Section {
                 ForEach(app.scans) { scan in
-                    ScanRow(scan: scan, store: app.store, owner: app.settings.value.hasSeveralOwners ? app.settings.value.owner(scan.owner) : nil, isSelecting: isSelecting, open: { app.path = [scan.id] }, continueScan: { app.continueScan(scan.id) })
+                    ScanRow(scan: scan, store: app.store, owner: app.settings.value.hasSeveralOwners ? app.settings.value.owner(scan.owner?.id) : nil, isSelecting: isSelecting, open: { app.path = [scan.id] }, continueScan: { app.continueScan(scan.id) })
                         .selectionDisabled(!scan.isFinished)
                         .swipeActions {
                             if !isSelecting {

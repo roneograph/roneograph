@@ -145,7 +145,7 @@ public final class AppModel {
 
     /// The scans of an owner other than the default one, which deleting it moves or deletes.
     public func scans(of ownerID: UUID) -> [Scan] {
-        scans.filter { $0.owner == ownerID }
+        scans.filter { $0.owner?.id == ownerID }
     }
 
     /// Deletes an owner, never the default one; its scans go to another owner, or are deleted without one.
