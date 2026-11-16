@@ -44,6 +44,8 @@ enum DocumentVocabulary {
                 "receipt", "sales receipt", "payment receipt", "till receipt", "rent receipt", "reçu", "reçu de paiement", "ticket de caisse", "quittance",
                 "quittance de loyer", "quittung", "kassenbon", "kassenbeleg", "kassenzettel", "zahlungsbeleg", "recibo", "ticket de compra",
                 "factura simplificada", "ricevuta", "ricevuta fiscale", "scontrino", "scontrino fiscale", "documento commerciale",
+                "payment confirmation", "proof of payment", "preuve de paiement", "zahlungsbestätigung", "justificante de pago",
+                "comprobante de pago", "ricevuta di pagamento",
             ],
             weakTitles: ["ticket", "beleg"],
             labels: [
@@ -198,7 +200,7 @@ enum DocumentVocabulary {
             titles: [
                 "certificate", "certificate of completion", "certificat", "certificat de scolarité", "attestation", "attestation de scolarité",
                 "attestation employeur", "attestation sur l'honneur", "relevé de notes", "bescheinigung", "*bescheinigung", "meldebescheinigung",
-                "zertifikat", "urkunde", "bestätigung", "certificado", "certificado de empadronamiento", "constancia", "certificato",
+                "zertifikat", "urkunde", "meldebestätigung", "certificado", "certificado de empadronamiento", "constancia", "certificato",
                 "certificato di residenza", "attestato",
             ],
             weakTitles: ["récépissé"],

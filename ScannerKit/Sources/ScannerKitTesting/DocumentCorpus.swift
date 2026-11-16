@@ -272,6 +272,89 @@ public enum DocumentCorpus {
         8 43 B Distinti saluti
         8 48 B L'amministratore
         """),
+        CorpusDocument("hold-insurance-fr", .insurance, issuer: "Brisemer Assurances", date: "2026-03-01", number: "AUTO-55120", """
+        8 4 T Brisemer Assurances
+        55 15 B Mme Camille Rouvière
+        55 17 B 8 rue des Glycines
+        55 19 B 69007 Lyon
+        8 26 H AVIS D'ÉCHÉANCE
+        8 30 B Contrat n° AUTO-55120 · Automobile
+        8 32 B Émis le 01/03/2026
+        8 34 B Date d'échéance : 01/04/2026
+        8 39 B Cotisation annuelle TTC
+        75 39 B 512,40 €
+        8 44 B Prélèvement le 05/04/2026 sur votre compte.
+        8 93 S Brisemer Assurances SA · RCS Nantes 678 912 345 · www.brisemer-assurances.fr
+        """),
+        CorpusDocument("hold-invoice-it", .invoice, issuer: "Luce Alpina", date: "2026-03-05", number: "2026/123", """
+        8 4 T LUCE ALPINA
+        55 15 B Giulia Fabbretti
+        55 17 B Via dei Gelsomini 9
+        55 19 B 40125 Bologna
+        8 26 H BOLLETTA LUCE
+        8 30 B Fattura n. 2026/123 del 05/03/2026
+        8 32 B Periodo: gennaio - febbraio 2026
+        8 37 B Spesa per la materia energia
+        75 37 B 61,20 €
+        8 39 B Spesa per il trasporto
+        75 39 B 18,44 €
+        8 43 B Totale da pagare
+        75 43 B 79,64 €
+        8 45 B Scadenza 25/03/2026
+        8 93 S Luce Alpina S.p.A. · P.IVA 03456789012 · www.lucealpina.it
+        """),
+        CorpusDocument("hold-order-en", .other, issuer: "Fernleaf Books", date: "2026-03-08", number: "10234", """
+        8 4 T Fernleaf Books
+        8 12 H Thanks for your order!
+        8 17 B Order #10234
+        8 19 B Order date: 8 March 2026
+        8 24 B The Lantern Keeper (paperback)
+        75 24 B £9.99
+        8 26 B Delivery
+        75 26 B £2.99
+        8 30 B Subtotal
+        75 30 B £12.98
+        8 32 B Total
+        75 32 B £12.98
+        8 36 B We'll email you when your parcel is on its way.
+        8 93 S www.fernleafbooks.co.uk
+        """),
+        CorpusDocument("hold-letter-de", .letter, issuer: "Ondine Mobilfunk", date: "2026-03-12", number: "MF-2231-8", """
+        10 4 T Ondine Mobilfunk
+        10 16 S Ondine Mobilfunk GmbH · Postfach 11 22 · 10001 Berlin
+        10 18.5 B Frau
+        10 20.5 B Lena Brückner
+        10 22.5 B Lindenweg 12
+        10 24.5 B 04109 Leipzig
+        60 20.5 B Berlin, 12.03.2026
+        10 32 B Bestätigung Ihrer Kündigung
+        10 34 B Vertragsnummer: MF-2231-8
+        10 39 B Sehr geehrte Frau Brückner,
+        10 42 B hiermit bestätigen wir die Kündigung Ihres Vertrags zum 30.04.2026.
+        10 47 B Mit freundlichen Grüßen
+        10 52 B Ihr Ondine-Team
+        """),
+        CorpusDocument("hold-receipt-fr", .receipt, issuer: "Boulangerie du Parc", date: "2026-03-21", number: nil, aspectRatio: 0.4, """
+        20 3 B CARTE BANCAIRE
+        20 5 B SANS CONTACT
+        10 9 B LE 21/03/26 A 12:31
+        10 11 B BOULANGERIE DU PARC
+        10 13 B 69007 LYON
+        10 17 B MONTANT = 7,80 EUR
+        10 19 B DEBIT
+        20 23 B TICKET CLIENT
+        20 25 B A CONSERVER
+        """),
+        CorpusDocument("hold-receipt-es2", .receipt, issuer: "Banco Mirasol", date: "2026-03-18", number: "0098123", """
+        8 4 T BANCO MIRASOL
+        8 14 H JUSTIFICANTE DE PAGO
+        8 20 B Fecha de la operación: 18/03/2026
+        8 22 B Referencia: 0098123
+        8 24 B Ordenante: Lucía Ferrándiz Soler
+        8 26 B Beneficiario: Gestoría Albar S.L.
+        8 28 B Importe: 121,00 €
+        8 32 B Concepto: honorarios marzo
+        """),
     ]
 
     static let invoices = [

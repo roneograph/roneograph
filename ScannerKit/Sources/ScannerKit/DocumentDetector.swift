@@ -25,7 +25,7 @@ public struct DocumentDetector: Sendable {
             category: kind.category,
             issuer: issuer,
             date: date(in: page),
-            number: Self.number(in: page, kind: kind, type: type)
+            number: Self.number(in: page, kind: kind)
         )
         let keys = evidence.keys(for: issuer)
         return DetectedDocument(
@@ -269,18 +269,14 @@ public struct DocumentDetector: Sendable {
     struct DocumentType {
         var word: String
         var isHeading: Bool
-        var line: Int
-        var range: Range<Int>
     }
 
     /// The title that gave the category, or the whole heading it starts.
     static func type(in page: Page, kind: Kind) -> DocumentType? {
         var best: (type: DocumentType, weight: Double)?
-        for (index, line) in page.lines.enumerated() where isTitleLike(line) {
-            for match in kind.clues[index] {
-                guard case .title = match.tag.evidence else { continue }
-                let fits = match.tag.category == kind.category || (match.tag.category == nil && [.other, .letter].contains(kind.category))
-                guard fits else { continue }
+        for (line, clues) in zip(page.lines, kind.clues) where isTitleLike(line) {
+            for match in clues {
+                guard isTitle(match.tag, of: kind.category) else { continue }
                 let weight = match.tag.category == nil ? 1 : Self.weight(of: match.tag.evidence, on: line, page: page)
                 guard weight > best?.weight ?? 0 else { continue }
                 let words = line.text.split(whereSeparator: \.isWhitespace).map(String.init)
@@ -293,10 +289,16 @@ public struct DocumentDetector: Sendable {
                     let text = line.tokens[match.range].map(\.text).joined(separator: " ").trimmingCharacters(in: .punctuationCharacters)
                     word = text.prefix(1).uppercased() + text.dropFirst().lowercased()
                 }
-                best = (DocumentType(word: word, isHeading: isHeading, line: index, range: match.range), weight)
+                best = (DocumentType(word: word, isHeading: isHeading), weight)
             }
         }
         return best?.type
+    }
+
+    /// A title of the category, or a generic title such as "Order" on a page without category.
+    static func isTitle(_ clue: Clue, of category: DocumentCategory) -> Bool {
+        guard case .title = clue.evidence else { return false }
+        return clue.category == category || (clue.category == nil && [.other, .letter].contains(category))
     }
 
     private static let smallWords: Set<String> = ["de", "du", "des", "la", "le", "les", "et", "of", "the", "and", "for", "von", "der", "und", "di", "del", "della", "delle", "y", "il"]
@@ -319,16 +321,20 @@ public struct DocumentDetector: Sendable {
         uniquingKeysWith: { first, _ in first }
     )
 
-    /// The reference next to a label of the category, after the title, or next to a customer or file reference.
-    static func number(in page: Page, kind: Kind, type: DocumentType?) -> String? {
-        let labels = numberLabels[kind.category] ?? Phrases([])
+    private static let allNumberLabels = Phrases(DocumentVocabulary.entries.flatMap(\.numberLabels).map { (Phrase($0), true) })
+
+    /// The reference next to a label of the category (of any category for letters), after the title, or next to a customer or file reference.
+    static func number(in page: Page, kind: Kind) -> String? {
+        let labels = [.letter, .other].contains(kind.category) ? allNumberLabels : numberLabels[kind.category] ?? Phrases([])
         for line in page.lines where !line.isOwn {
             for match in labels.matches(in: line) {
                 if let value = value(after: match.range.upperBound, in: line, page: page) { return value }
             }
         }
-        if let type, let value = value(after: type.range.upperBound, in: page.lines[type.line], page: page, sameLineOnly: true) {
-            return value
+        for (line, clues) in zip(page.lines, kind.clues) where isTitleLike(line) {
+            for match in clues where isTitle(match.tag, of: kind.category) {
+                if let value = value(after: match.range.upperBound, in: line, page: page, sameLineOnly: true) { return value }
+            }
         }
         for line in page.lines where !line.isOwn {
             for match in (numberLabels[nil] ?? Phrases([])).matches(in: line) {
@@ -353,7 +359,8 @@ public struct DocumentDetector: Sendable {
         }
         var parts: [String] = []
         for token in tokens {
-            let text = token.text.trimmingCharacters(in: CharacterSet(charactersIn: ",;.:()"))
+            var text = token.text.trimmingCharacters(in: CharacterSet(charactersIn: ",;.:()"))
+            if parts.isEmpty && text.hasPrefix("#") { text.removeFirst() }
             guard text.contains(where: \.isNumber), text.first?.isLetter == true || text.first?.isNumber == true,
                   text.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || "/-._".contains($0)) }), !isDate(text) else { break }
             parts.append(text)
