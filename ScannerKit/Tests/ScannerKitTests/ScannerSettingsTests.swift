@@ -18,6 +18,14 @@ struct ScannerSettingsTests {
         #expect(decoded.keepScans == retention)
     }
 
+    @Test func keepsTheCurrentCategoryEvenWhenRemoved() {
+        var settings = ScannerSettings()
+        settings.categories = [DocumentCategory("Car")]
+        #expect(settings.categories(keeping: .invoice) == settings.allCategories)
+        #expect(settings.categories(keeping: DocumentCategory("Car")) == settings.allCategories)
+        #expect(settings.categories(keeping: DocumentCategory("Boat")) == settings.allCategories + [DocumentCategory("Boat")])
+    }
+
     @Test(arguments: [("me@example.com", true), ("me@example", false), ("", false), ("a b@example.com", false), ("me@example.c", false)])
     func validatesEmails(email: String, valid: Bool) {
         #expect(ScannerSettings.isValidEmail(email) == valid)

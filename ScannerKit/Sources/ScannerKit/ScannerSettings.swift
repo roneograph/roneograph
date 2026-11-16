@@ -28,6 +28,12 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
         DocumentCategory.builtIn.dropLast() + categories.sorted() + [.other]
     }
 
+    /// The categories to pick from, with the current one even when the user removed it since.
+    public func categories(keeping current: DocumentCategory) -> [DocumentCategory] {
+        let all = allCategories
+        return all.contains(current) ? all : all + [current]
+    }
+
     public var hasValidEmail: Bool { Self.isValidEmail(email) }
 
     public static func isValidEmail(_ email: String) -> Bool {

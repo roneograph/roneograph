@@ -89,7 +89,7 @@ struct DocumentCard: View {
     private var categoryRow: some View {
         Menu {
             Picker("Category", selection: Binding(get: { details.category }, set: { category in update { $0.category = category } })) {
-                ForEach(categories, id: \.self) { Text($0.rawValue).tag($0) }
+                ForEach(settings.value.categories(keeping: details.category), id: \.self) { Text($0.rawValue).tag($0) }
             }
             Divider()
             Button("New Category…", systemImage: "plus") { addingCategory = true }
@@ -211,12 +211,6 @@ struct DocumentCard: View {
 
     private var chevron: some View {
         Image(systemName: "chevron.right").font(.footnote.bold()).foregroundStyle(.tertiary)
-    }
-
-    /// The categories to pick from, with the current one even when the user removed it since.
-    private var categories: [DocumentCategory] {
-        let all = settings.value.allCategories
-        return all.contains(details.category) ? all : all + [details.category]
     }
 
     private func update(_ change: (inout DocumentDetails) -> Void) {
