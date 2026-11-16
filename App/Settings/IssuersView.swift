@@ -28,7 +28,7 @@ struct IssuersView: View {
         Form {
             Section {
                 ForEach(issuers, id: \.keys) { issuer in
-                    IssuerRow(issuer: issuer, owner: issuer.owner.flatMap { id in settings.value.owners.first { $0.id == id } })
+                    IssuerRow(issuer: issuer, owner: issuer.owner.map(settings.value.owner))
                         .swipeActions {
                             Button("Forget", role: .destructive) { settings.forget(issuer) }
                         }
