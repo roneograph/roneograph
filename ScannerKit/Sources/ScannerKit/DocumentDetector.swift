@@ -405,7 +405,9 @@ public struct DocumentDetector: Sendable {
     /// An uncertain reading, as of a logo, counts only when a web domain or a legal name on the page confirms it.
     /// A known issuer such as "Finances publiques" counts anywhere in the header; a state emblem such as "République française" never does.
     static func issuerCandidates(in page: Page, clues: [[(range: Range<Int>, tag: Clue)]], evidence: IssuerEvidence) -> [Line] {
-        joiningContinuations(of: page).filter { indices, line in
+        let credentials = credentialLines(of: page)
+        return joiningContinuations(of: page).filter { indices, line in
+            if indices.contains(where: credentials.contains) { return false }
             let text = line.text.trimmingCharacters(in: .whitespaces)
             let letters = text.filter(\.isLetter).count
             let digits = text.filter(\.isNumber).count
@@ -431,6 +433,21 @@ public struct DocumentDetector: Sendable {
     }
 
     private static let emblems = Set(DocumentVocabulary.emblems.map(letters))
+
+    /// The lines stacked right under a name such as "Docteur Camille Arnaud": the specialty and titles of that person, not other issuers.
+    private static func credentialLines(of page: Page) -> Set<Int> {
+        let isPerson = { (line: Line) in line.words.first.map { DocumentVocabulary.professionalTitles.contains($0.key.replacing(".", with: "")) } == true }
+        var credentials = Set<Int>()
+        for (index, line) in page.lines.enumerated() where isPerson(line) {
+            var last = line
+            for next in page.lines.indices where next > index && isRightUnder(page.lines[next], last) && page.lines[next].frame.minX > last.frame.minX - 0.02 {
+                if isPerson(page.lines[next]) { break }
+                credentials.insert(next)
+                last = page.lines[next]
+            }
+        }
+        return credentials
+    }
 
     /// Each line with the lines right under it that start with "de" or "d'", as a name or a sentence wrapped on several lines,
     /// or that are as large as a short large line, as a name set on two lines in a logo; with the indices of the lines it joins.

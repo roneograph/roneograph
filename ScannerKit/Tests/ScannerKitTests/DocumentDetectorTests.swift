@@ -216,6 +216,29 @@ struct DocumentDetectorTests {
         #expect(detector.detect(lines: lines).details.issuer == "Finances Publiques")
     }
 
+    @Test func neverTakesTheTitlesUnderADoctorAsTheIssuer() {
+        let lines = [
+            line("Docteur Camille Arnaud", y: 0.18, height: 0.015),
+            line("Ancien Chef de clinique des Hôpitaux", y: 0.196, height: 0.015),
+            line("Ancien Interne des Hôpitaux de Lyon", y: 0.212, height: 0.017),
+            line("RPPS 10000000001", y: 0.235, height: 0.011),
+            line("Lorem ipsum", y: 0.5),
+            line("Dolor sit amet", y: 0.52),
+        ]
+        #expect(detector.detect(lines: lines).details.issuer == "Docteur Camille Arnaud")
+    }
+
+    @Test func aSecondDoctorIsNotATitleOfTheFirst() {
+        let lines = [
+            line("Dr Pauline Marchal", y: 0.07, height: 0.012),
+            line("Docteur Camille Arnaud", y: 0.083, height: 0.014),
+            line("RPPS 10000000001", y: 0.1, height: 0.011),
+            line("Lorem ipsum", y: 0.5),
+            line("Dolor sit amet", y: 0.52),
+        ]
+        #expect(detector.detect(lines: lines).details.issuer == "Docteur Camille Arnaud")
+    }
+
     @Test func neverTakesALineStartingWithDeAsTheIssuer() {
         let lines = [line("Cabinet", y: 0.08, height: 0.02), line("de la Butte", y: 0.2, height: 0.03), line("Lorem ipsum", y: 0.5)]
         #expect(detector.detect(lines: lines).details.issuer == "Cabinet")
