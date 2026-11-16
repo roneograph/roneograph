@@ -44,18 +44,28 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Label("\(settings.value.fileNameFormat.fileName(name: "Lumen Energy invoice", scanDate: .now)).pdf", systemImage: "doc")
+                    Label("\(settings.value.fileNameFormat.sampleFileName).pdf", systemImage: "doc")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
-                    Picker("Date", selection: $settings.value.fileNameFormat.datePosition) {
-                        Text("None").tag(FileNameFormat.DatePosition.none)
-                        Text("First").tag(FileNameFormat.DatePosition.start)
-                        Text("Last").tag(FileNameFormat.DatePosition.end)
-                    }
-                    if settings.value.fileNameFormat.datePosition != .none {
-                        Picker("Date format", selection: $settings.value.fileNameFormat.dateStyle) {
-                            ForEach(FileNameFormat.DateStyle.allCases, id: \.self) { Text($0.format(.now)).tag($0) }
+                    if settings.value.fileNameFormat.isCustom {
+                        NavigationLink {
+                            FileNameFormatView(settings: settings)
+                        } label: {
+                            LabeledContent("Format", value: settings.value.fileNameFormat.template)
                         }
+                    } else {
+                        Picker("Date", selection: $settings.value.fileNameFormat.datePosition) {
+                            Text("None").tag(FileNameFormat.DatePosition.none)
+                            Text("First").tag(FileNameFormat.DatePosition.start)
+                            Text("Last").tag(FileNameFormat.DatePosition.end)
+                        }
+                        if settings.value.fileNameFormat.datePosition != .none {
+                            Picker("Date format", selection: $settings.value.fileNameFormat.dateStyle) {
+                                ForEach(FileNameFormat.DateStyle.allCases, id: \.self) { Text($0.format(.now)).tag($0) }
+                            }
+                        }
+                    }
+                    if settings.value.fileNameFormat.isCustom || settings.value.fileNameFormat.datePosition != .none {
                         Picker("Date of", selection: $settings.value.fileNameFormat.dateSource) {
                             Text("The document").tag(FileNameFormat.DateSource.document)
                             Text("The scan").tag(FileNameFormat.DateSource.scan)
@@ -69,13 +79,22 @@ struct SettingsView: View {
                     .pickerStyle(.segmented)
                     Toggle("Lowercase", isOn: $settings.value.fileNameFormat.lowercase)
                     Toggle("Ask for a name", isOn: $settings.value.askForName)
-                    if !settings.value.learnedNames.isEmpty {
-                        Button("Forget \(settings.value.learnedNames.count.counted("Corrected Name"))", role: .destructive) { settings.value.learnedNames = [] }
-                    }
                 } header: {
                     Text("File name")
                 } footer: {
                     Text("The name is found in the text, and a name you correct is reused for the next document that gets the same suggestion. The date of the document is the one printed on it, or the day of the scan when there is none.")
+                }
+
+                Section {
+                    Toggle("Custom format", isOn: $settings.value.fileNameFormat.isCustom)
+                    NavigationLink("Categories") { CategoriesView(settings: settings) }
+                    if settings.hasLearned {
+                        Button("Forget Corrections", role: .destructive) { settings.forgetLearned() }
+                    }
+                } header: {
+                    Text("Advanced")
+                } footer: {
+                    Text("A custom format builds file names from the details of the document, such as {YYYY}-{MM} {ISSUER}, and can file scans into folders. Forgetting corrections also forgets names, issuers and categories you corrected, and which lines are your own name and address.")
                 }
 
                 Section("Scanning") {

@@ -50,7 +50,7 @@ struct ReviewView: View {
             }
         }
         .sheet(isPresented: $showingRename) {
-            RenameView(scan: scan)
+            RenameView(scan: scan, settings: app.settings)
         }
         .sheet(isPresented: $showingMail, onDismiss: finishSending) {
             if case .ready(let url, _) = scan.pdf {
@@ -115,6 +115,12 @@ struct ReviewView: View {
                         .multilineTextAlignment(.leading)
                     Image(systemName: "pencil").foregroundStyle(.tint)
                 }
+                if !detailsSummary.isEmpty {
+                    Text(detailsSummary)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
                 Label("\(scan.scan.name).pdf", systemImage: "doc")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -122,8 +128,17 @@ struct ReviewView: View {
             }
         }
         .buttonStyle(.plain)
-        .accessibilityHint("Renames the PDF")
+        .accessibilityHint("Renames the PDF and edits the details of the document")
         .padding(.top, 8)
+    }
+
+    private var detailsSummary: String {
+        let details = scan.scan.details
+        return [
+            details.category == .other ? nil : details.category.rawValue,
+            details.issuer,
+            details.date?.formatted(date: .abbreviated, time: .omitted),
+        ].compactMap { $0 }.joined(separator: " · ")
     }
 
     private var sendBar: some View {
