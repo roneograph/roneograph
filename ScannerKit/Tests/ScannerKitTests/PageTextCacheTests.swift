@@ -20,4 +20,20 @@ struct PageTextCacheTests {
         #expect(cache.lines(of: ScanPage(quad: nil, analysis: .sample), read: read).first?.text == "Read 3")
         #expect(reads == 3)
     }
+
+    @Test func keepsOnlyTheLatestRevisionOfAPage() {
+        let cache = PageTextCache()
+        let original = ScanPage(quad: nil, analysis: .sample)
+        var rotated = original
+        rotated.rotate()
+        var reads = 0
+        let read = { () -> [TextLine] in
+            reads += 1
+            return [TextLine(text: "Read \(reads)", frame: .zero)]
+        }
+
+        _ = cache.lines(of: original, read: read)
+        _ = cache.lines(of: rotated, read: read)
+        #expect(cache.lines(of: original, read: read).first?.text == "Read 3")
+    }
 }

@@ -1,22 +1,16 @@
 import Foundation
 import Synchronization
 
-/// The text read on each page revision, so renaming a scan does not read all its pages again.
+/// The text read on the latest revision of each page, so renaming a scan does not read all its pages again.
 public final class PageTextCache: Sendable {
-    private struct Key: Hashable {
-        let page: UUID
-        let revision: Int
-    }
-
-    private let lines = Mutex<[Key: [TextLine]]>([:])
+    private let lines = Mutex<[UUID: (revision: Int, lines: [TextLine])]>([:])
 
     public init() {}
 
     public func lines(of page: ScanPage, read: () -> [TextLine]) -> [TextLine] {
-        let key = Key(page: page.id, revision: page.revision)
-        if let cached = lines.withLock({ $0[key] }) { return cached }
+        if let cached = lines.withLock({ $0[page.id] }), cached.revision == page.revision { return cached.lines }
         let read = read()
-        lines.withLock { $0[key] = read }
+        lines.withLock { $0[page.id] = (page.revision, read) }
         return read
     }
 }
