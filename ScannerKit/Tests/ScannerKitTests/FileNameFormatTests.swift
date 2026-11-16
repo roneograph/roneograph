@@ -1,10 +1,11 @@
 import Foundation
 import ScannerKit
+import ScannerKitTesting
 import Testing
 
 struct FileNameFormatTests {
-    let date = ISO8601DateFormatter().date(from: "2026-11-12T12:00:00Z")!
-    let scanDate = ISO8601DateFormatter().date(from: "2026-11-16T12:00:00Z")!
+    let date = Date.day("2026-11-12")
+    let scanDate = Date.day("2026-11-16")
 
     private func name(_ format: FileNameFormat, _ name: String) -> String {
         format.fileName(name: name, details: DocumentDetails(date: date), scanDate: scanDate)
@@ -73,7 +74,7 @@ struct FileNameFormatTests {
 
     // MARK: Custom format
 
-    let lumen = DocumentDetails(category: .invoice, issuer: "Lumen Energy", date: ISO8601DateFormatter().date(from: "2026-11-12T12:00:00Z")!, number: "2026-0042")
+    let lumen = DocumentDetails(category: .invoice, issuer: "Lumen Energy", date: .day("2026-11-12"), number: "2026-0042")
 
     private func custom(_ template: String, separator: FileNameFormat.Separator = .space, lowercase: Bool = false, dateSource: FileNameFormat.DateSource = .document) -> FileNameFormat {
         FileNameFormat(dateSource: dateSource, separator: separator, lowercase: lowercase, isCustom: true, template: template)

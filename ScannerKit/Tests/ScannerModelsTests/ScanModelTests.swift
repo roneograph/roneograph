@@ -187,7 +187,7 @@ struct ScanModelTests {
 
     @Test func anEmptyNameWithoutSuggestionsFallsBackToTheDate() throws {
         let fixture = try Fixture()
-        let created = ISO8601DateFormatter().date(from: "2026-11-12T12:00:00Z")!
+        let created = Date.day("2026-11-12")
         let model = ScanModel(scan: Scan(created: created, name: "Scan"), processor: fixture.processor, settings: fixture.settings)
         model.rename("   ")
         #expect(model.scan.title == "Scan 2026-11-12")

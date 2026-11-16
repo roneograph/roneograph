@@ -7,9 +7,12 @@ import NaturalLanguage
 public struct DocumentDetector: Sendable {
     /// Reads 03/04/2026 as March 4 instead of April 3.
     public var monthFirst: Bool
+    /// The user's time zone: a printed date is kept as that day there, as dates are shown and named.
+    public var timeZone: TimeZone
 
-    public init(monthFirst: Bool = Locale.current.region == .unitedStates) {
+    public init(monthFirst: Bool = Locale.current.region == .unitedStates, timeZone: TimeZone = .current) {
         self.monthFirst = monthFirst
+        self.timeZone = timeZone
     }
 
     /// `ownLines` holds the fingerprints of lines known to be the user's own name and address, never taken as the issuer.
@@ -409,7 +412,7 @@ public struct DocumentDetector: Sendable {
     }
 
     private static func isDate(_ text: String) -> Bool {
-        !dateMatches(in: text, monthFirst: false).isEmpty
+        !dateMatches(in: text, monthFirst: false, timeZone: .gmt).isEmpty
     }
 
     // MARK: Issuer
@@ -642,7 +645,7 @@ public struct DocumentDetector: Sendable {
 
     private func dates(on line: Line, page: Page) -> [FoundDate] {
         let text = line.folded
-        let matches = Self.dateMatches(in: text, monthFirst: monthFirst)
+        let matches = Self.dateMatches(in: text, monthFirst: monthFirst, timeZone: timeZone)
         return matches.enumerated().compactMap { index, match in
             let previousEnd = index > 0 ? matches[index - 1].range.upperBound : text.startIndex
             let between = Self.trimmed(text[previousEnd..<match.range.lowerBound])
@@ -704,8 +707,10 @@ public struct DocumentDetector: Sendable {
     private static let monthDayDate = try! NSRegularExpression(pattern: #"\b(\p{L}+)\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})(?!\d)"#)
 
     /// Every date written on the folded text, in order: 2026-03-14, 14/03/2026, 14.03.26, 14 mars 2026, March 14, 2026, 14 de marzo de 2026.
-    static func dateMatches(in text: String, monthFirst: Bool) -> [DateMatch] {
+    static func dateMatches(in text: String, monthFirst: Bool, timeZone: TimeZone) -> [DateMatch] {
         guard text.count(where: \.isNumber) >= 4 else { return [] }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
         var found: [DateMatch] = []
         let whole = NSRange(text.startIndex..., in: text)
         func each(_ expression: NSRegularExpression, _ body: ([String]) -> Date?) {
@@ -715,7 +720,7 @@ public struct DocumentDetector: Sendable {
                 if let date = body(groups) { found.append(DateMatch(range: range, date: date)) }
             }
         }
-        each(isoDate) { groups in date(Int(groups[0])!, Int(groups[1])!, Int(groups[2])!) }
+        each(isoDate) { groups in date(Int(groups[0])!, Int(groups[1])!, Int(groups[2])!, in: calendar) }
         each(numericDate) { groups in
             let (a, b) = (Int(groups[0])!, Int(groups[2])!)
             var year = Int(groups[3])!
@@ -724,17 +729,16 @@ public struct DocumentDetector: Sendable {
                 year += 2000
             }
             let (day, month) = a > 12 ? (a, b) : b > 12 ? (b, a) : monthFirst ? (b, a) : (a, b)
-            return date(year, month, day)
+            return date(year, month, day, in: calendar)
         }
-        each(dayMonthDate) { groups in DocumentVocabulary.months[groups[1]].flatMap { date(Int(groups[2])!, $0, Int(groups[0])!) } }
-        each(monthDayDate) { groups in DocumentVocabulary.months[groups[0]].flatMap { date(Int(groups[2])!, $0, Int(groups[1])!) } }
+        each(dayMonthDate) { groups in DocumentVocabulary.months[groups[1]].flatMap { date(Int(groups[2])!, $0, Int(groups[0])!, in: calendar) } }
+        each(monthDayDate) { groups in DocumentVocabulary.months[groups[0]].flatMap { date(Int(groups[2])!, $0, Int(groups[1])!, in: calendar) } }
         return found.sorted { $0.range.lowerBound < $1.range.lowerBound }
     }
 
-    private static func date(_ year: Int, _ month: Int, _ day: Int) -> Date? {
+    /// Noon, so the day stays the same when read a few hours away from the time zone.
+    private static func date(_ year: Int, _ month: Int, _ day: Int, in calendar: Calendar) -> Date? {
         guard (1990...2100).contains(year), (1...12).contains(month), (1...31).contains(day) else { return nil }
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = .gmt
         let components = DateComponents(year: year, month: month, day: day, hour: 12)
         guard components.isValidDate(in: calendar) else { return nil }
         return calendar.date(from: components)

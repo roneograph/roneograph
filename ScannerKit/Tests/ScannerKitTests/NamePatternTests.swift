@@ -1,10 +1,11 @@
 import Foundation
 import ScannerKit
+import ScannerKitTesting
 import Testing
 
 struct NamePatternTests {
     private func date(_ iso: String) -> Date {
-        ISO8601DateFormatter().date(from: "\(iso)T12:00:00Z")!
+        .day(iso)
     }
 
     private func next(_ name: String, from first: String, number: String? = nil, to second: String, nextNumber: String? = nil) -> String {

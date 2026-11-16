@@ -373,6 +373,13 @@ struct DocumentDetectorTests {
         #expect(iso(detector.detect(lines: [line(text, y: 0.5)]).details.date) == "2026-03-14")
     }
 
+    @Test(arguments: ["Pacific/Kiritimati", "Pacific/Auckland", "Europe/Paris", "Pacific/Pago_Pago"])
+    func readsAPrintedDateAsThatDayInTheUserTimeZone(identifier: String) {
+        let timeZone = TimeZone(identifier: identifier)!
+        let date = DocumentDetector(monthFirst: false, timeZone: timeZone).detect(lines: [line("Invoice date: 12 November 2026", y: 0.2)]).details.date
+        #expect(date?.formatted(Date.ISO8601FormatStyle(timeZone: timeZone).year().month().day()) == "2026-11-12")
+    }
+
     @Test func leavesTheDateEmptyWhenOnlyDueOrBirthDatesArePrinted() {
         let lines = [line("Date de naissance : 12/06/1991", y: 0.1), line("À payer avant le 28/03/2026", y: 0.2)]
         #expect(detector.detect(lines: lines).details.date == nil)
@@ -430,7 +437,7 @@ struct DocumentDetectorTests {
     }
 
     private func iso(_ date: Date?) -> String? {
-        date?.formatted(Date.ISO8601FormatStyle(timeZone: .gmt).year().month().day())
+        date.map { FileNamer.isoDate($0) }
     }
 
     private func line(_ text: String, y: Double, height: Double = 0.011) -> TextLine {
@@ -503,6 +510,6 @@ struct CorpusReport {
     }
 
     private static func iso(_ date: Date) -> String {
-        date.formatted(Date.ISO8601FormatStyle(timeZone: .gmt).year().month().day())
+        FileNamer.isoDate(date)
     }
 }
