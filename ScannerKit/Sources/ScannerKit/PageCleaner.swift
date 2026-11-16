@@ -136,7 +136,7 @@ public struct PageCleaner: @unchecked Sendable {
         case .gray:
             image = image.applyingFilter("CIColorControls", parameters: [kCIInputSaturationKey: 0])
         }
-        return image.cropped(to: CGRect(origin: .zero, size: image.extent.size)).applyingFilter("CIColorClamp")
+        return image.applyingFilter("CIColorClamp")
     }
 
     // MARK: Lighting
