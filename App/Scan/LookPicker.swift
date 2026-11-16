@@ -1,4 +1,5 @@
 import ScannerKit
+import ScannerModels
 import SwiftUI
 
 /// Auto, or one of the looks a page can have.

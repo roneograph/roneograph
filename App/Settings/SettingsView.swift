@@ -181,12 +181,3 @@ extension SettingsView {
         app.scans.isEmpty ? "None" : "\(app.scans.count.counted("scan")) · \(storedBytes.formatted(.byteCount(style: .file)))"
     }
 }
-
-extension PageLook {
-    var title: String {
-        switch self {
-        case .color: "Color"
-        case .gray: "Gray"
-        }
-    }
-}

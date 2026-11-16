@@ -14,6 +14,16 @@ extension ScanRetention {
     }
 }
 
+extension PageLook {
+    /// The look of a page, in Review and in the page viewer.
+    public var title: String {
+        switch self {
+        case .color: "Color"
+        case .gray: "Gray"
+        }
+    }
+}
+
 extension SendMethod {
     /// How a scan went out, on Home and in the confirmation.
     public var pastTense: String {

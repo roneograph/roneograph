@@ -20,6 +20,10 @@ struct WordingTests {
         #expect(ScanRetention.allCases.map(\.label) == ["1 day", "7 days", "30 days", "Forever"])
     }
 
+    @Test func namesPageLooks() {
+        #expect(PageLook.allCases.map(\.title) == ["Gray", "Color"])
+    }
+
     @Test func namesTheMailAfterTheScanOrCountsTheDocuments() {
         let bill = Scan(name: "bill", title: "Water bill")
         #expect([bill].mailSubject == "Water bill")
