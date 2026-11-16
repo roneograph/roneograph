@@ -1,3 +1,4 @@
+import CoreImage
 import Foundation
 import ScannerKit
 import ScannerKitTesting
@@ -174,6 +175,24 @@ struct ScanModelTests {
         model.rename("Mine")
         await model.waitUntilIdle()
         #expect(model.scan.title == "Mine")
+    }
+
+    @Test func reusesACorrectedNameWhenTheSameSuggestionComesBack() async throws {
+        let fixture = try Fixture()
+        let photo = try #require(PageExtractor(context: CIContext()).jpegData(of: SyntheticPage().render(), quality: 0.9))
+        let first = fixture.scanModel()
+        first.addPhoto(photo, liveQuad: nil)
+        await first.waitUntilIdle()
+        let suggestion = try #require(first.scan.suggestions.first)
+        #expect(suggestion != first.fallbackTitle)
+        first.rename("Lumen Energy bill")
+
+        let second = fixture.scanModel()
+        second.addPhoto(photo, liveQuad: nil)
+        await second.waitUntilIdle()
+        #expect(second.scan.title == "Lumen Energy bill")
+        #expect(second.scan.suggestions.first == suggestion)
+        #expect(!second.scan.isNamedByUser)
     }
 
     @Test func changingTheFormatRenamesTheFile() async throws {

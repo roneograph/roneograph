@@ -10,6 +10,7 @@ public final class SettingsStore {
 
     private let defaults: UserDefaults
     private static let key = "settings"
+    static let learnedNamesLimit = 200
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -29,6 +30,17 @@ public final class SettingsStore {
     /// Remembers the folder picked in Files for the Save button.
     public func chooseArchiveFolder(_ url: URL) throws {
         value.archiveFolder = try ArchiveFolder(url: url)
+    }
+
+    public func learnedName(for suggestion: String) -> String? {
+        value.learnedNames.first { $0.suggestion == suggestion }?.name
+    }
+
+    /// Remembers the name given instead of a suggestion; going back to the suggestion forgets it.
+    public func learn(_ name: String, for suggestion: String) {
+        var names = value.learnedNames.filter { $0.suggestion != suggestion }
+        if name != suggestion { names.insert(LearnedName(suggestion: suggestion, name: name), at: 0) }
+        value.learnedNames = Array(names.prefix(Self.learnedNamesLimit))
     }
 
     public var showsPageTip: Bool { !value.dismissedPageTip }

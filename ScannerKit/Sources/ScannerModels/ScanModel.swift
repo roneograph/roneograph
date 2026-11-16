@@ -106,7 +106,7 @@ public final class ScanModel: Identifiable {
         scan.suggestions = suggestions.names
         scan.documentDate = suggestions.date
         if !scan.isNamedByUser, let first = suggestions.names.first {
-            scan.title = first
+            scan.title = settings.learnedName(for: first) ?? first
         }
         applyFileName()
     }
@@ -177,6 +177,9 @@ public final class ScanModel: Identifiable {
     public func rename(_ title: String) {
         scan.title = namer.finalName(title, fallback: scan.suggestions.first ?? fallbackTitle)
         scan.isNamedByUser = true
+        if let suggestion = scan.suggestions.first, suggestion != fallbackTitle {
+            settings.learn(scan.title, for: suggestion)
+        }
         applyFileName()
     }
 

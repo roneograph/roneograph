@@ -13,6 +13,8 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
     /// Opens the rename sheet when the review screen first shows.
     public var askForName = false
     public var fileNameFormat = FileNameFormat()
+    /// Names the user gave instead of a suggestion, most recent first.
+    public var learnedNames: [LearnedName] = []
     public var keepDays = 7
 
     public init() {}
@@ -24,7 +26,7 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case email, archiveFolder, askedForEmail, dismissedPageTip, autoCapture, askForName, fileNameFormat, keepDays
+        case email, archiveFolder, askedForEmail, dismissedPageTip, autoCapture, askForName, fileNameFormat, learnedNames, keepDays
     }
 
     /// Missing or unknown values keep their default, so settings survive app updates.
@@ -38,6 +40,18 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
         autoCapture = (try? container.decode(Bool.self, forKey: .autoCapture)) ?? defaults.autoCapture
         askForName = (try? container.decode(Bool.self, forKey: .askForName)) ?? defaults.askForName
         fileNameFormat = (try? container.decode(FileNameFormat.self, forKey: .fileNameFormat)) ?? defaults.fileNameFormat
+        learnedNames = (try? container.decode([LearnedName].self, forKey: .learnedNames)) ?? defaults.learnedNames
         keepDays = (try? container.decode(Int.self, forKey: .keepDays)) ?? defaults.keepDays
+    }
+}
+
+/// A suggested name and the name the user chose instead, reused when the same suggestion comes back.
+public struct LearnedName: Equatable, Sendable, Codable {
+    public var suggestion: String
+    public var name: String
+
+    public init(suggestion: String, name: String) {
+        self.suggestion = suggestion
+        self.name = name
     }
 }

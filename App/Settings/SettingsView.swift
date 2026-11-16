@@ -69,10 +69,13 @@ struct SettingsView: View {
                     .pickerStyle(.segmented)
                     Toggle("Lowercase", isOn: $settings.value.fileNameFormat.lowercase)
                     Toggle("Ask for a name", isOn: $settings.value.askForName)
+                    if !settings.value.learnedNames.isEmpty {
+                        Button("Forget \(settings.value.learnedNames.count.counted("Corrected Name"))", role: .destructive) { settings.value.learnedNames = [] }
+                    }
                 } header: {
                     Text("File name")
                 } footer: {
-                    Text("The name is found in the text. The date of the document is the one printed on it, or the day of the scan when there is none.")
+                    Text("The name is found in the text, and a name you correct is reused for the next document that gets the same suggestion. The date of the document is the one printed on it, or the day of the scan when there is none.")
                 }
 
                 Section("Scanning") {
