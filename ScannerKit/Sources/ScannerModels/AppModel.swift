@@ -88,12 +88,12 @@ public final class AppModel {
         }
     }
 
-    /// Stops at the first PDF that cannot be saved; the ones saved before it are confirmed.
+    /// A PDF could not be saved; `saved` lists the scans saved before it.
     public struct ArchiveError: Error {
         public let saved: [UUID]
     }
 
-    /// Copies each PDF to the archive folder, in order, then confirms them like any other sending.
+    /// Copies each PDF to the archive folder, in order, up to the first that cannot be saved, and confirms the ones saved like any other sending.
     public func saveToArchive(_ models: [ScanModel]) throws {
         var saved: [ScanModel] = []
         defer { didSend(saved, by: .files) }

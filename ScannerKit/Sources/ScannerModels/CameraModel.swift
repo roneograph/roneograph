@@ -168,7 +168,7 @@ public final class CameraModel {
         capture()
     }
 
-    /// The last page was wrong: forget it and capture the page in view again.
+    /// Lets the page in view be captured again, once the last page was deleted to retake it.
     public func retake() {
         trigger.reset()
     }

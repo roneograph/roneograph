@@ -2,7 +2,7 @@ import ScannerKit
 import ScannerModels
 import SwiftUI
 
-/// One page at a time, swiping between pages: change its look, rotate it, delete it.
+/// One page at a time, swiping between pages: change its look, rotate, crop or delete it.
 struct PageViewer: View {
     let scan: ScanModel
     @State var selection: UUID
