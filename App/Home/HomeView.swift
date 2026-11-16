@@ -312,22 +312,48 @@ private struct WelcomeView: View {
     }
 
     private var content: some View {
-        VStack(spacing: 20) {
-            AppIcon(size: 120)
-            VStack(spacing: 8) {
-                Text("Archive your paperwork").font(.title.bold())
-                Text("Hold your iPhone above a letter, an invoice or a payslip.\nIt is captured on its own and saved as a small, searchable PDF/A.")
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(.secondary)
+        VStack(spacing: 0) {
+            AppIcon(size: 100).accessibilityHidden(true)
+            Text("Archive your paperwork")
+                .font(.title.bold())
+                .multilineTextAlignment(.center)
+                .padding(.top, 24)
+            VStack(alignment: .leading, spacing: 20) {
+                WelcomePromise("No shutter to press", detail: "Hold your iPhone above a letter, an invoice or a payslip.", systemImage: "doc.viewfinder")
+                WelcomePromise("Small, searchable PDFs", detail: "PDF/A files with text you can search and copy.", systemImage: "doc.text.magnifyingglass")
+                WelcomePromise("Free and open source", detail: "No ads, no account, nothing uploaded.", systemImage: "hand.raised.slash")
             }
-            VStack(spacing: 2) {
-                Label("Free and open source", systemImage: "checkmark.seal")
-                Text("No ads, no account, nothing uploaded")
-            }
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-            .padding(.top, 4)
+            .frame(maxWidth: 330)
+            .padding(.top, 30)
         }
         .padding()
+    }
+}
+
+private struct WelcomePromise: View {
+    let title: String
+    let detail: String
+    let systemImage: String
+
+    init(_ title: String, detail: String, systemImage: String) {
+        self.title = title
+        self.detail = detail
+        self.systemImage = systemImage
+    }
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 14) {
+            Image(systemName: systemImage)
+                .font(.title2)
+                .foregroundStyle(.tint)
+                .frame(width: 34)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.headline)
+                Text(detail).foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .accessibilityElement(children: .combine)
     }
 }
