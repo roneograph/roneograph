@@ -21,6 +21,17 @@ struct WordingTests {
         #expect(ScanRetention.allCases.map(\.label) == ["1 day", "7 days", "30 days", "Forever"])
     }
 
+    @Test func mentionsOwnersOnlyWhenThereAreSeveral() {
+        var settings = ScannerSettings()
+        #expect(settings.emailQuestionTitle(for: settings.defaultOwnerID) == "Email scans to")
+        #expect(settings.nothingRemembered == "Correct the name, issuer or category of a scan, and it is reused for the next documents from the same issuer.")
+        let holding = Owner(name: "Fernwood Holding")
+        settings.addOwner(holding)
+        #expect(settings.emailQuestionTitle(for: holding.id) == "Email Fernwood Holding scans to")
+        #expect(settings.emailQuestionTitle(for: nil) == "Email Personal scans to")
+        #expect(settings.nothingRemembered == "Correct the name, issuer, category or owner of a scan, and it is reused for the next documents from the same issuer.")
+    }
+
     @Test func namesTheIssuerInSentences() {
         #expect(DocumentDetails(issuer: "Lumen Energy").issuerName == "Lumen Energy")
         #expect(DocumentDetails().issuerName == "this issuer")

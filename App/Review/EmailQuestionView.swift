@@ -14,7 +14,7 @@ struct EmailQuestionView: View {
     var body: some View {
         VStack(spacing: 16) {
             VStack(spacing: 6) {
-                Text(title).font(.title3.bold())
+                Text(settings.value.emailQuestionTitle(for: ownerID)).font(.title3.bold())
                 Text("The Email button fills in this address from now on. Change it anytime in Settings.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -45,10 +45,6 @@ struct EmailQuestionView: View {
         .frame(maxHeight: .infinity, alignment: .top)
         .background(Color(.systemGroupedBackground))
         .onAppear { focused = true }
-    }
-
-    private var title: String {
-        settings.value.hasSeveralOwners ? "Email \(settings.value.owner(ownerID).name) scans to" : "Email scans to"
     }
 
     private var isValid: Bool { ScannerSettings.isValidEmail(email.trimmingCharacters(in: .whitespaces)) }

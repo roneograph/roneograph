@@ -85,13 +85,15 @@ struct OwnerView: View {
 
             OwnerSections(settings: settings, owner: owner, includesCustomFormat: true)
 
-            Section {
-                LabeledContent("Its lines on the page", value: settings.recognizesLines(of: ownerID) ? "Recognized" : "Not yet")
-                LabeledContent("Issuers remembered", value: "\(settings.issuerCount(of: ownerID))")
-            } header: {
-                Text("Recognized by")
-            } footer: {
-                Text("A line that only shows on this owner's documents, such as its name, gives it the next documents once they are sent. Only fingerprints of the lines are kept.")
+            if settings.value.hasSeveralOwners {
+                Section {
+                    LabeledContent("Its lines on the page", value: settings.recognizesLines(of: ownerID) ? "Recognized" : "Not yet")
+                    LabeledContent("Issuers remembered", value: "\(settings.issuerCount(of: ownerID))")
+                } header: {
+                    Text("Recognized by")
+                } footer: {
+                    Text("A line that only shows on this owner's documents, such as its name, gives it the next documents once they are sent. Only fingerprints of the lines are kept.")
+                }
             }
 
             Section {

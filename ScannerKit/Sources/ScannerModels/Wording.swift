@@ -15,6 +15,18 @@ extension ScanRetention {
     }
 }
 
+extension ScannerSettings {
+    /// Asked on the first tap on Email for an owner; owners are named only when there are several.
+    public func emailQuestionTitle(for ownerID: UUID?) -> String {
+        hasSeveralOwners ? "Email \(owner(ownerID).name) scans to" : "Email scans to"
+    }
+
+    /// In Settings › Memory › Issuers, before anything is remembered.
+    public var nothingRemembered: String {
+        "Correct the \(hasSeveralOwners ? "name, issuer, category or owner" : "name, issuer or category") of a scan, and it is reused for the next documents from the same issuer."
+    }
+}
+
 extension DocumentDetails {
     /// The issuer in a sentence, "this issuer" when none is known.
     public var issuerName: String {

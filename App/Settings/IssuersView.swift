@@ -14,7 +14,7 @@ struct IssuersView: View {
                 ContentUnavailableView {
                     Label("Nothing Remembered", systemImage: "clock.arrow.circlepath")
                 } description: {
-                    Text("Correct the name, issuer, category or owner of a scan, and it is reused for the next documents from the same issuer.")
+                    Text(settings.value.nothingRemembered)
                 }
             } else {
                 list
