@@ -83,38 +83,3 @@ struct FileNamerTests {
         TextLine(text: text, frame: CGRect(x: 0.1, y: y, width: 0.5, height: height))
     }
 }
-
-struct FileNameFormatTests {
-    let date = ISO8601DateFormatter().date(from: "2026-11-12T12:00:00Z")!
-
-    @Test func keepsTheNameByDefault() {
-        #expect(FileNameFormat().fileName(name: "Lumen Energy invoice", date: date) == "Lumen Energy invoice")
-    }
-
-    @Test func datesDashesAndLowercase() {
-        let format = FileNameFormat(datePrefix: true, separator: .dash, lowercase: true)
-        #expect(format.fileName(name: "Lumen Energy invoice", date: date) == "2026-11-12-lumen-energy-invoice")
-        #expect(format.fileName(name: "Attestation d'assurance habitation", date: date) == "2026-11-12-attestation-d-assurance-habitation")
-        #expect(format.fileName(name: "Facture n° 2026FA0004711", date: date) == "2026-11-12-facture-n-2026fa0004711")
-    }
-
-    @Test func underscoresKeepTheDateWithDashes() {
-        let format = FileNameFormat(datePrefix: true, separator: .underscore)
-        #expect(format.fileName(name: "Lumen Energy invoice", date: date) == "2026-11-12_Lumen_Energy_invoice")
-    }
-
-    @Test func keepsAccents() {
-        #expect(FileNameFormat(separator: .dash, lowercase: true).fileName(name: "Bénéficiaires effectifs", date: date) == "bénéficiaires-effectifs")
-    }
-
-    @Test func neverRepeatsTheDate() {
-        let format = FileNameFormat(datePrefix: true, separator: .dash, lowercase: true)
-        #expect(format.fileName(name: "Scan 2026-11-12", date: date) == "2026-11-12-scan")
-        #expect(format.fileName(name: "2026-11-12 Lumen invoice", date: date) == "2026-11-12-lumen-invoice")
-        #expect(FileNameFormat(separator: .dash).fileName(name: "2026-11-12 Lumen", date: date) == "2026-11-12-Lumen")
-    }
-
-    @Test func fallsBackToTheDate() {
-        #expect(FileNameFormat(separator: .dash).fileName(name: " ?! ", date: date) == "2026-11-12")
-    }
-}

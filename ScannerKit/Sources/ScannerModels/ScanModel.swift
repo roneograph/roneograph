@@ -48,7 +48,7 @@ public final class ScanModel: Identifiable {
 
     /// The file name a name gets with the format from the settings, before avoiding collisions.
     public func fileName(for title: String) -> String {
-        settings.value.fileNameFormat.fileName(name: title, date: scan.fileDate)
+        settings.value.fileNameFormat.fileName(name: title, documentDate: scan.documentDate, scanDate: scan.created)
     }
 
     public func previewURL(of page: ScanPage) -> URL { store.previewURL(scanID: scan.id, pageID: page.id) }

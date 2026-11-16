@@ -57,7 +57,4 @@ public struct Scan: Identifiable, Equatable, Sendable, Codable {
         self.name = name
         self.title = title ?? name
     }
-
-    /// The date a file name format puts first.
-    public var fileDate: Date { documentDate ?? created }
 }

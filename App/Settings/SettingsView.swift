@@ -44,10 +44,23 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Label("\(settings.value.fileNameFormat.fileName(name: "Lumen Energy invoice", date: .now)).pdf", systemImage: "doc")
+                    Label("\(settings.value.fileNameFormat.fileName(name: "Lumen Energy invoice", documentDate: nil, scanDate: .now)).pdf", systemImage: "doc")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
-                    Toggle("Date first", isOn: $settings.value.fileNameFormat.datePrefix)
+                    Picker("Date", selection: $settings.value.fileNameFormat.datePosition) {
+                        Text("None").tag(FileNameFormat.DatePosition.none)
+                        Text("First").tag(FileNameFormat.DatePosition.start)
+                        Text("Last").tag(FileNameFormat.DatePosition.end)
+                    }
+                    if settings.value.fileNameFormat.datePosition != .none {
+                        Picker("Date format", selection: $settings.value.fileNameFormat.dateStyle) {
+                            ForEach(FileNameFormat.DateStyle.allCases, id: \.self) { Text($0.format(.now)).tag($0) }
+                        }
+                        Picker("Date of", selection: $settings.value.fileNameFormat.dateSource) {
+                            Text("The document").tag(FileNameFormat.DateSource.document)
+                            Text("The scan").tag(FileNameFormat.DateSource.scan)
+                        }
+                    }
                     Picker("Separator", selection: $settings.value.fileNameFormat.separator) {
                         Text("a b").tag(FileNameFormat.Separator.space)
                         Text("a-b").tag(FileNameFormat.Separator.dash)
@@ -59,7 +72,7 @@ struct SettingsView: View {
                 } header: {
                     Text("File name")
                 } footer: {
-                    Text("The name is found in the text; the date is the one printed on the document, or the day of the scan.")
+                    Text("The name is found in the text. The date of the document is the one printed on it, or the day of the scan when there is none.")
                 }
 
                 Section("Scanning") {

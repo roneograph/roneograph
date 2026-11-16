@@ -125,7 +125,7 @@ struct ScanModelTests {
 
     @Test func renameUsesTheFileNameFormatAndMovesThePDF() async throws {
         let fixture = try Fixture()
-        fixture.settings.value.fileNameFormat = FileNameFormat(datePrefix: true, separator: .dash, lowercase: true)
+        fixture.settings.value.fileNameFormat = FileNameFormat(datePosition: .start, separator: .dash, lowercase: true)
         let model = await fixture.scanModel(pages: 1)
         await model.buildPDF(delay: .zero)
         let first = model.scan.name
@@ -134,7 +134,7 @@ struct ScanModelTests {
         model.rename("Lumen Energy invoice")
         #expect(model.scan.title == "Lumen Energy invoice")
         #expect(model.scan.isNamedByUser)
-        #expect(model.scan.name == "\(FileNamer.isoDate(model.scan.fileDate))-lumen-energy-invoice")
+        #expect(model.scan.name == "\(FileNamer.isoDate(model.scan.documentDate ?? model.scan.created))-lumen-energy-invoice")
         #expect(fixture.pdfExists(model.scan.name))
         #expect(!fixture.pdfExists(first))
     }
