@@ -14,6 +14,13 @@ extension ScanRetention {
     }
 }
 
+extension DocumentDetails {
+    /// The issuer in a sentence, "this issuer" when none is known.
+    public var issuerName: String {
+        issuer ?? "this issuer"
+    }
+}
+
 extension PageLook {
     /// The look of a page, in Review and in the page viewer.
     public var title: String {

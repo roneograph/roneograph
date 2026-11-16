@@ -20,6 +20,11 @@ struct WordingTests {
         #expect(ScanRetention.allCases.map(\.label) == ["1 day", "7 days", "30 days", "Forever"])
     }
 
+    @Test func namesTheIssuerInSentences() {
+        #expect(DocumentDetails(issuer: "Lumen Energy").issuerName == "Lumen Energy")
+        #expect(DocumentDetails().issuerName == "this issuer")
+    }
+
     @Test func namesPageLooks() {
         #expect(PageLook.allCases.map(\.title) == ["Gray", "Color"])
     }

@@ -32,7 +32,7 @@ struct NameView: View {
                                         Label {
                                             VStack(alignment: .leading, spacing: 1) {
                                                 Text(rememberedName)
-                                                Text("Remembered for \(issuerName)").font(.caption).foregroundStyle(.secondary)
+                                                Text("Remembered for \(scan.scan.details.issuerName)").font(.caption).foregroundStyle(.secondary)
                                             }
                                         } icon: {
                                             RememberedMark()
@@ -118,18 +118,16 @@ struct NameView: View {
         scan.scan.remembered.contains(.name) ? scan.scan.title : nil
     }
 
-    private var issuerName: String { scan.scan.details.issuer ?? "this issuer" }
-
     /// What the next documents from the same issuer will be named, when the name is a correction that can be reused.
     private var learning: String? {
         let replaces = rememberedName.map { $0 != name } ?? false
         guard let pattern = scan.learnedPattern(for: name) else {
-            return replaces && !name.isEmpty ? "The name remembered for \(issuerName) will be forgotten." : nil
+            return replaces && !name.isEmpty ? "The name remembered for \(scan.scan.details.issuerName) will be forgotten." : nil
         }
         let own = [pattern.follows.date ? "date" : nil, pattern.follows.number ? "number" : nil].compactMap { $0 }
         let with = own.isEmpty ? "" : ", with their own \(own.joined(separator: " and "))"
-        let next = "The next documents from \(issuerName) will be named the same way\(with)."
-        return replaces ? "Replaces the name remembered for \(issuerName). \(next)" : next
+        let next = "The next documents from \(scan.scan.details.issuerName) will be named the same way\(with)."
+        return replaces ? "Replaces the name remembered for \(scan.scan.details.issuerName). \(next)" : next
     }
 
     private var formatExplanation: String {

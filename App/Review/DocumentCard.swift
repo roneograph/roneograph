@@ -21,8 +21,6 @@ struct DocumentCard: View {
 
     private var details: DocumentDetails { scan.scan.details }
     private var remembered: Set<RememberedValue> { scan.scan.remembered }
-    private var issuerName: String { details.issuer ?? "this issuer" }
-
     var body: some View {
         VStack(spacing: 0) {
             nameRow
@@ -183,7 +181,7 @@ struct DocumentCard: View {
     private var legend: some View {
         HStack(spacing: 10) {
             RememberedMark().accessibilityHidden(true)
-            Text("\(remembered.listed) remembered for \(issuerName)")
+            Text("\(remembered.listed) remembered for \(details.issuerName)")
                 .foregroundStyle(.secondary)
             Spacer(minLength: 8)
             Button("Forget") { forgetting = true }
@@ -191,7 +189,7 @@ struct DocumentCard: View {
         }
         .font(.footnote)
         .padding(.horizontal, 14).padding(.vertical, 10)
-        .confirmationDialog("Remembered for \(issuerName)", isPresented: $forgetting, titleVisibility: .visible) {
+        .confirmationDialog("Remembered for \(details.issuerName)", isPresented: $forgetting, titleVisibility: .visible) {
             ForEach(remembered.sorted(), id: \.self) { value in
                 Button("Forget the \(value.rawValue.capitalized)", role: .destructive) { scan.forget([value]) }
             }
@@ -199,7 +197,7 @@ struct DocumentCard: View {
                 Button(remembered.count == 2 ? "Forget Both" : "Forget All", role: .destructive) { scan.forget(remembered) }
             }
         } message: {
-            Text("This scan goes back to what was read on the page, and so will the next documents from \(issuerName).")
+            Text("This scan goes back to what was read on the page, and so will the next documents from \(details.issuerName).")
         }
     }
 
