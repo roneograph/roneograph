@@ -3,11 +3,11 @@ import Foundation
 /// Finds the angle of the text lines: when the page is rotated by the right angle, ink piles up
 /// in a few rows separated by blank rows, so the row profile has the highest variance.
 struct SkewEstimator {
-    var maximumDegrees: Double = 10
-    var coarseStep: Double = 0.5
-    var fineStep: Double = 0.05
+    private let maximumDegrees: Double = 10
+    private let coarseStep: Double = 0.5
+    private let fineStep: Double = 0.05
     /// Below this share of ink pixels, there is not enough text to measure.
-    var minimumInk: Double = 0.003
+    private let minimumInk: Double = 0.003
 
     /// Angle in degrees, counterclockwise, of the text in an image whose row 0 is at the top.
     func skew(ink: [Bool], width: Int, height: Int) -> Double {

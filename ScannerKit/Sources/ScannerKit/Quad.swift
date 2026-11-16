@@ -26,7 +26,7 @@ public struct Quad: Equatable, Sendable, Codable {
     /// Top left, top right, bottom right, bottom left.
     public var corners: [CGPoint] { [topLeft, topRight, bottomRight, bottomLeft] }
 
-    public init(corners: [CGPoint]) {
+    init(corners: [CGPoint]) {
         precondition(corners.count == 4)
         self.init(topLeft: corners[0], topRight: corners[1], bottomRight: corners[2], bottomLeft: corners[3])
     }

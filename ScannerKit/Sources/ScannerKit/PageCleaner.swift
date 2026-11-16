@@ -136,7 +136,7 @@ public struct PageCleaner: @unchecked Sendable {
     // MARK: Lighting
 
     /// The paper without the ink: a closing removes dark details smaller than the radius while keeping the edges of shadows where they are.
-    func background(of image: CIImage) -> CIImage {
+    private func background(of image: CIImage) -> CIImage {
         let extent = image.extent
         let scale = image.scale(toLongSide: backgroundSize)
         let small = image.atOrigin.scaled(by: scale)
@@ -170,7 +170,7 @@ public struct PageCleaner: @unchecked Sendable {
             .cropped(to: image.extent)
     }
 
-    func divide(_ image: CIImage, by background: CIImage) -> CIImage {
+    private func divide(_ image: CIImage, by background: CIImage) -> CIImage {
         let filter = CIFilter.divideBlendMode()
         filter.inputImage = background
         filter.backgroundImage = image
@@ -202,7 +202,7 @@ public struct PageCleaner: @unchecked Sendable {
 
     /// Turns white the dark areas that touch a side of the page and stay close to it: the table, the next sheet or a shadow left by the crop.
     /// What reaches further in, such as a full-bleed header or picture, is kept whole.
-    func whiteningEdges(of image: CIImage) -> CIImage {
+    private func whiteningEdges(of image: CIImage) -> CIImage {
         let bitmap = Bitmap(image, longSide: edgeSize, context: context)
         let (width, height) = (bitmap.width, bitmap.height)
         let band = max(2, Int(Double(min(width, height)) * edgeBand))
