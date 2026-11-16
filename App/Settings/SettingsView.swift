@@ -30,11 +30,7 @@ struct SettingsView: View {
                     }
                     NavigationLink("Categories") { CategoriesView(settings: settings) }
                     if !settings.value.hasSeveralOwners {
-                        NavigationLink {
-                            Form { OwnersSection(app: app, settings: settings) }
-                                .navigationTitle("Owners")
-                                .navigationBarTitleDisplayMode(.inline)
-                        } label: {
+                        NavigationLink(value: Screen.owners) {
                             LabeledContent("Owners", value: "\(settings.value.owners.count)")
                         }
                     }
@@ -112,6 +108,12 @@ struct SettingsView: View {
                     }
                 }
             }
+            // Pushed by value, so adding a second owner, which removes the link, keeps the screen open.
+            .navigationDestination(for: Screen.self) { _ in
+                Form { OwnersSection(app: app, settings: settings) }
+                    .navigationTitle("Owners")
+                    .navigationBarTitleDisplayMode(.inline)
+            }
             .onAppear { storedBytes = app.store.byteCount() }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
@@ -121,6 +123,10 @@ struct SettingsView: View {
                 }
             }
         }
+    }
+
+    private enum Screen: Hashable {
+        case owners
     }
 
     private var stored: String {
