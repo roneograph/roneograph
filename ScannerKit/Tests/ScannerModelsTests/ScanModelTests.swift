@@ -466,6 +466,16 @@ struct ScanModelTests {
         #expect(second.scan.title == "Lumen bill")
     }
 
+    @Test func trimsTypedDetailsAndRemovesBlankOnes() throws {
+        let fixture = try Fixture()
+        let model = fixture.scanModel()
+        model.setDetail(\.issuer, to: "  Lumen Energy ")
+        #expect(model.scan.details.issuer == "Lumen Energy")
+        model.setDetail(\.number, to: " F-1234 ")
+        model.setDetail(\.issuer, to: "   ")
+        #expect(model.scan.details == DocumentDetails(number: "F-1234"))
+    }
+
     @Test func editingOnlyTheDateLearnsNothing() async throws {
         let fixture = try Fixture()
         var scan = Scan(name: "Scan")

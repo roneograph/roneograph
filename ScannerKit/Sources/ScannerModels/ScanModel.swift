@@ -361,6 +361,14 @@ public final class ScanModel: Identifiable {
 
     public func dismissFailure() { failure = nil }
 
+    /// Sets the issuer or the number as typed: trimmed, removed when blank.
+    public func setDetail(_ detail: WritableKeyPath<DocumentDetails, String?>, to text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespaces)
+        var details = scan.details
+        details[keyPath: detail] = trimmed.isEmpty ? nil : trimmed
+        setDetails(details)
+    }
+
     private func save() {
         guard !scan.pages.isEmpty, !isDeleted else { return }
         do {

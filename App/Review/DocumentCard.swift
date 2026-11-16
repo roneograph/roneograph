@@ -254,7 +254,7 @@ struct DetailTextView: View {
                 }
             }
             .onAppear {
-                value = (field == .issuer ? scan.scan.details.issuer : scan.scan.details.number) ?? ""
+                value = scan.scan.details[keyPath: detail] ?? ""
                 selection = TextSelection(range: value.startIndex..<value.endIndex)
                 focused = true
             }
@@ -263,6 +263,7 @@ struct DetailTextView: View {
     }
 
     private var title: String { field == .issuer ? "Issuer" : "Number" }
+    private var detail: WritableKeyPath<DocumentDetails, String?> { field == .issuer ? \.issuer : \.number }
 
     private var footer: String {
         guard field == .issuer else { return "The reference printed on the document, such as an invoice, contract or policy number." }
@@ -271,10 +272,7 @@ struct DetailTextView: View {
     }
 
     private func save() {
-        let trimmed = value.trimmingCharacters(in: .whitespaces)
-        var details = scan.scan.details
-        if field == .issuer { details.issuer = trimmed.isEmpty ? nil : trimmed } else { details.number = trimmed.isEmpty ? nil : trimmed }
-        scan.setDetails(details)
+        scan.setDetail(detail, to: value)
         dismiss()
     }
 }
