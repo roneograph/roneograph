@@ -97,7 +97,7 @@ struct AppModelTests {
         let app = AppModel(processor: fixture.processor, settings: fixture.settings, now: { now })
         let scan = await fixture.capturedScan(in: app)
 
-        app.didSend(scan, by: .email)
+        app.didSend([scan], by: .email)
         #expect(app.path.isEmpty)
         #expect(app.toast == "Emailed to me@example.com")
         #expect(app.scans.first?.sentBy == .email)
@@ -110,7 +110,7 @@ struct AppModelTests {
         fixture.settings.value.email = email
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)
         let scan = await fixture.capturedScan(in: app)
-        app.didSend(scan, by: method)
+        app.didSend([scan], by: method)
         #expect(app.toast == toast)
         #expect(app.scans.first?.sentBy == method)
     }
@@ -124,7 +124,7 @@ struct AppModelTests {
         let scan = await fixture.capturedScan(in: app)
         await scan.buildPDF(delay: .zero)
 
-        try app.saveToArchive(scan)
+        try app.saveToArchive([scan])
         #expect(FileManager.default.fileExists(atPath: folder.appending(path: "\(scan.scan.name).pdf").path(percentEncoded: false)))
         #expect(app.toast == "Saved to Paperwork")
         #expect(app.scans.first?.sentBy == .files)
@@ -141,7 +141,7 @@ struct AppModelTests {
         scan.setDetails(DocumentDetails(category: .payslip, issuer: "Acme"))
         await scan.buildPDF(delay: .zero)
 
-        try app.saveToArchive(scan)
+        try app.saveToArchive([scan])
         #expect(FileManager.default.fileExists(atPath: folder.appending(path: "Payslip/Acme.pdf").path(percentEncoded: false)))
         #expect(fixture.pdfExists("Acme"))
     }
@@ -152,7 +152,7 @@ struct AppModelTests {
         let scan = await fixture.capturedScan(in: app)
         await scan.buildPDF(delay: .zero)
 
-        #expect(throws: AppModel.ArchiveError.self) { try app.saveToArchive(scan) }
+        #expect(throws: AppModel.ArchiveError.self) { try app.saveToArchive([scan]) }
         #expect(scan.scan.sent == nil)
     }
 
@@ -178,7 +178,7 @@ struct AppModelTests {
         inProgress.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
         await inProgress.waitUntilIdle()
         app.closeCamera()
-        app.didSend(sent, by: .share)
+        app.didSend([sent], by: .share)
 
         #expect(app.notSent.map(\.id) == [waiting.id])
     }

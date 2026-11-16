@@ -76,10 +76,6 @@ public final class AppModel {
         scans.filter { $0.isFinished && $0.sent == nil }
     }
 
-    public func didSend(_ model: ScanModel, by method: SendMethod) {
-        didSend([model], by: method)
-    }
-
     public func didSend(_ models: [ScanModel], by method: SendMethod) {
         guard !models.isEmpty else { return }
         for model in models { model.markSent(method) }
@@ -96,10 +92,6 @@ public final class AppModel {
     /// Stops at the first PDF that cannot be saved; the ones saved before it are confirmed.
     public struct ArchiveError: Error {
         public let saved: [UUID]
-    }
-
-    public func saveToArchive(_ model: ScanModel) throws {
-        try saveToArchive([model])
     }
 
     /// Copies each PDF to the archive folder, in order, then confirms them like any other sending.
