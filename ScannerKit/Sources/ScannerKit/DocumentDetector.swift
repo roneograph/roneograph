@@ -403,7 +403,7 @@ public struct DocumentDetector: Sendable {
     /// The most prominent candidate, strengthened by legal forms, domains and company identifiers, and by organization names when that is not enough.
     static func issuer(among candidates: [Line], page: Page, evidence: IssuerEvidence) -> String? {
         var scored = candidates.map { line -> (line: Line, score: Double, isLikely: Bool) in
-            var score = 2 * min(line.frame.height / page.bodyHeight, 3) + (0.3 - line.frame.minY) * 5
+            let prominence = 2 * min(line.frame.height / page.bodyHeight, 3) + (0.3 - line.frame.minY) * 5
             let name = issuerName(of: line)
             let letters = Self.letters(name)
             let below = page.lines.filter { $0.frame.minY > line.frame.minY && $0.frame.minY - line.frame.maxY < line.frame.height * 2.5 }
@@ -414,7 +414,7 @@ public struct DocumentDetector: Sendable {
                 line.words.first.map { DocumentVocabulary.professionalTitles.contains($0.key.replacing(".", with: "")) } == true ? 2 : 0,
                 below.prefix(2).contains { !IssuerEvidence.identifiers(in: $0.text).isEmpty || $0.words.first.map(isLegalForm) == true } ? 2 : 0,
             ]
-            return (line, score + bonuses.reduce(0, +), bonuses.contains { $0 > 0 } || page.isLarge(line))
+            return (line, prominence + bonuses.reduce(0, +), bonuses.contains { $0 > 0 } || page.isLarge(line))
         }
         let ranked = scored.map(\.score).sorted(by: >)
         if ranked.count >= 2, ranked[0] - ranked[1] < 1 {
