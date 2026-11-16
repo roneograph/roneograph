@@ -32,7 +32,9 @@ struct SkewEstimator {
             return bins.reduce(0) { $0 + Double($1 * $1) }
         }
         func best(in range: ClosedRange<Double>, step: Double) -> Double {
-            stride(from: range.lowerBound, through: range.upperBound, by: step).max { score($0) < score($1) } ?? 0
+            stride(from: range.lowerBound, through: range.upperBound, by: step)
+                .map { (degrees: $0, score: score($0)) }
+                .max { $0.score < $1.score }?.degrees ?? 0
         }
         let coarse = best(in: -maximumDegrees...maximumDegrees, step: coarseStep)
         return best(in: (coarse - coarseStep)...(coarse + coarseStep), step: fineStep)
