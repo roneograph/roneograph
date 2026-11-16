@@ -80,8 +80,8 @@ struct DocumentCard: View {
                 icon(owner.symbol.systemImage)
                 VStack(alignment: .leading, spacing: 0) {
                     Text("Owner")
-                    if scan.hasDefaultOwner {
-                        Text("Default").font(.caption).foregroundStyle(.secondary)
+                    if let caption = scan.ownerCaption {
+                        Text(caption).font(.caption).foregroundStyle(.secondary)
                     }
                 }
                 Spacer(minLength: 12)

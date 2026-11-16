@@ -57,6 +57,8 @@ public final class ScanModel: Identifiable {
     public var owner: Owner { settings.value.owner(scan.owner?.id) }
     /// True when nothing on the page told the owner and none was chosen: the scan got the default owner.
     public var hasDefaultOwner: Bool { scan.owner?.isDefault ?? true }
+    /// Under Owner in Review: "Default" while the scan has the default owner because nothing told another one.
+    public var ownerCaption: String? { hasDefaultOwner && owner.id == settings.value.defaultOwnerID ? "Default" : nil }
     public var fileNameFormat: FileNameFormat { owner.fileNameFormat }
 
     /// The file name a name and details get with the format of the owner, before avoiding collisions.

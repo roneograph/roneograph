@@ -538,7 +538,10 @@ struct ScanModelTests {
         fixture.settings.value.defaultOwnerID = holding.id
         #expect(model.owner.id == personal)
         #expect(model.hasDefaultOwner)
-        #expect(fixture.scanModel(title: "Office rent").owner.id == holding.id)
+        #expect(model.ownerCaption == nil)
+        let rent = fixture.scanModel(title: "Office rent")
+        #expect(rent.owner.id == holding.id)
+        #expect(rent.ownerCaption == "Default")
     }
 
     @Test func aRememberedOwnerIsNotUsedWithASingleOwner() async throws {
