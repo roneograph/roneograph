@@ -28,46 +28,38 @@ struct SettingsStoreTests {
         #expect(!fixture.settings.shouldAskForEmail)
     }
 
-    @Test func learnsCorrectedNamesMostRecentFirstAndKeepsThem() throws {
+    @Test func learnsCorrectionsByAnyKeyOfTheIssuerAndKeepsTheOthers() throws {
         let fixture = try Fixture()
-        fixture.settings.learn("Lumen Energy", for: "Invoice LUMEN ENERGIE")
-        fixture.settings.learn("Water bill", for: "Facture Eau de Paris")
-        fixture.settings.learn("Lumen", for: "Invoice LUMEN ENERGIE")
-        #expect(fixture.settings.value.learnedNames.map(\.name) == ["Lumen", "Water bill"])
-        #expect(SettingsStore(defaults: fixture.defaults).learnedName(for: "Invoice LUMEN ENERGIE") == "Lumen")
-    }
-
-    @Test func forgetsANameWhenTheSuggestionIsChosenAgain() throws {
-        let fixture = try Fixture()
-        fixture.settings.learn("Lumen", for: "Invoice Lumen")
-        fixture.settings.learn("Invoice Lumen", for: "Invoice Lumen")
-        #expect(fixture.settings.learnedName(for: "Invoice Lumen") == nil)
-    }
-
-    @Test func keepsALimitedNumberOfLearnedNames() throws {
-        let fixture = try Fixture()
-        for index in 0...SettingsStore.learnedNamesLimit {
-            fixture.settings.learn("Name \(index)", for: "Suggestion \(index)")
-        }
-        #expect(fixture.settings.value.learnedNames.count == SettingsStore.learnedNamesLimit)
-        #expect(fixture.settings.learnedName(for: "Suggestion 0") == nil)
-    }
-
-    @Test func learnsAnIssuerByAnyOfItsKeys() throws {
-        let fixture = try Fixture()
-        fixture.settings.learnIssuer("Lumen Energy", category: .invoice, keys: ["lumen-energy.example", "lumen energie sas"])
+        fixture.settings.learn(keys: ["lumen-energy.example", "lumen energie sas"]) { $0.issuer = "Lumen Energy" }
         #expect(fixture.settings.learnedIssuer(for: ["lumen energie sas"])?.issuer == "Lumen Energy")
         #expect(fixture.settings.learnedIssuer(for: ["other.example"]) == nil)
         #expect(fixture.settings.learnedIssuer(for: []) == nil)
-        fixture.settings.learnIssuer("Lumen", category: DocumentCategory("House"), keys: ["lumen-energy.example"])
+        fixture.settings.learn(keys: ["lumen-energy.example"]) { $0.category = DocumentCategory("House") }
         #expect(fixture.settings.value.learnedIssuers.count == 1)
-        #expect(SettingsStore(defaults: fixture.defaults).learnedIssuer(for: ["lumen-energy.example"]) == LearnedIssuer(keys: ["lumen-energy.example"], issuer: "Lumen", category: DocumentCategory("House")))
+        #expect(SettingsStore(defaults: fixture.defaults).learnedIssuer(for: ["lumen-energy.example"]) == LearnedIssuer(keys: ["lumen-energy.example"], issuer: "Lumen Energy", category: DocumentCategory("House")))
+    }
+
+    @Test func forgetsAnIssuerWhenNothingIsLeftToReuse() throws {
+        let fixture = try Fixture()
+        fixture.settings.learn(keys: ["lumen"]) { $0.name = NamePattern(name: "Lumen bill", details: .init(), date: .now) }
+        fixture.settings.learn(keys: ["lumen"]) { $0.name = nil }
+        #expect(fixture.settings.value.learnedIssuers.isEmpty)
     }
 
     @Test func learnsNothingWithoutAKey() throws {
         let fixture = try Fixture()
-        fixture.settings.learnIssuer("Lumen", category: .invoice, keys: [])
+        fixture.settings.learn(keys: []) { $0.issuer = "Lumen" }
         #expect(fixture.settings.value.learnedIssuers.isEmpty)
+    }
+
+    @Test func keepsALimitedNumberOfIssuersMostRecentFirst() throws {
+        let fixture = try Fixture()
+        for index in 0...SettingsStore.learnedIssuersLimit {
+            fixture.settings.learn(keys: ["issuer \(index)"]) { $0.category = .invoice }
+        }
+        #expect(fixture.settings.value.learnedIssuers.count == SettingsStore.learnedIssuersLimit)
+        #expect(fixture.settings.value.learnedIssuers.first?.keys == ["issuer \(SettingsStore.learnedIssuersLimit)"])
+        #expect(fixture.settings.learnedIssuer(for: ["issuer 0"]) == nil)
     }
 
     @Test func recognizesTheUsersOwnLinesOnDocumentsFromDifferentIssuers() throws {
@@ -91,8 +83,7 @@ struct SettingsStoreTests {
 
     @Test func forgetsEverythingLearned() throws {
         let fixture = try Fixture()
-        fixture.settings.learn("Lumen", for: "Invoice Lumen")
-        fixture.settings.learnIssuer("Lumen", category: .invoice, keys: ["lumen"])
+        fixture.settings.learn(keys: ["lumen"]) { $0.category = .invoice }
         fixture.settings.recordHeaderLines(["me"], issuerEvidence: [])
         #expect(fixture.settings.hasLearned)
         fixture.settings.forgetLearned()

@@ -82,7 +82,7 @@ struct SettingsView: View {
                 } header: {
                     Text("File name")
                 } footer: {
-                    Text("The name is found in the text, and a name you correct is reused for the next document that gets the same suggestion. The date of the document is the one printed on it, or the day of the scan when there is none.")
+                    Text("The name is found in the text, and a name you correct is reused for the next documents from the same issuer, with their own date and number where yours had them. The date of the document is the one printed on it, or the day of the scan when there is none.")
                 }
 
                 Section {

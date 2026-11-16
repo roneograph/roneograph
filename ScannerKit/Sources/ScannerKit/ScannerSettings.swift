@@ -13,11 +13,9 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
     /// Opens the rename sheet when the review screen first shows.
     public var askForName = false
     public var fileNameFormat = FileNameFormat()
-    /// Names the user gave instead of a suggestion, most recent first.
-    public var learnedNames: [LearnedName] = []
     /// Categories the user added to the built-in ones.
     public var categories: [DocumentCategory] = []
-    /// The issuer and category the user gave to documents from an issuer, most recent first.
+    /// The issuer, category and name the user gave to documents from an issuer, most recent first.
     public var learnedIssuers: [LearnedIssuer] = []
     /// Header lines seen on past scans, to recognize the user's own name and address.
     public var headerLines: [HeaderLine] = []
@@ -37,7 +35,7 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case email, archiveFolder, askedForEmail, dismissedPageTip, autoCapture, askForName, fileNameFormat, learnedNames, categories, learnedIssuers, headerLines, keepDays
+        case email, archiveFolder, askedForEmail, dismissedPageTip, autoCapture, askForName, fileNameFormat, categories, learnedIssuers, headerLines, keepDays
     }
 
     /// Missing or unknown values keep their default, so settings survive app updates.
@@ -51,7 +49,6 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
         autoCapture = (try? container.decode(Bool.self, forKey: .autoCapture)) ?? defaults.autoCapture
         askForName = (try? container.decode(Bool.self, forKey: .askForName)) ?? defaults.askForName
         fileNameFormat = (try? container.decode(FileNameFormat.self, forKey: .fileNameFormat)) ?? defaults.fileNameFormat
-        learnedNames = (try? container.decode([LearnedName].self, forKey: .learnedNames)) ?? defaults.learnedNames
         categories = (try? container.decode([DocumentCategory].self, forKey: .categories)) ?? defaults.categories
         learnedIssuers = (try? container.decode([LearnedIssuer].self, forKey: .learnedIssuers)) ?? defaults.learnedIssuers
         headerLines = (try? container.decode([HeaderLine].self, forKey: .headerLines)) ?? defaults.headerLines
@@ -59,27 +56,18 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
     }
 }
 
-/// A suggested name and the name the user chose instead, reused when the same suggestion comes back.
-public struct LearnedName: Equatable, Sendable, Codable {
-    public var suggestion: String
-    public var name: String
-
-    public init(suggestion: String, name: String) {
-        self.suggestion = suggestion
-        self.name = name
-    }
-}
-
-/// What the user set for documents from one issuer, recognized by any of its keys.
+/// What the user corrected on documents from one issuer, recognized by any of its keys; nil when not corrected.
 public struct LearnedIssuer: Equatable, Sendable, Codable {
     public var keys: [String]
     public var issuer: String?
-    public var category: DocumentCategory
+    public var category: DocumentCategory?
+    public var name: NamePattern?
 
-    public init(keys: [String], issuer: String?, category: DocumentCategory) {
+    public init(keys: [String], issuer: String? = nil, category: DocumentCategory? = nil, name: NamePattern? = nil) {
         self.keys = keys
         self.issuer = issuer
         self.category = category
+        self.name = name
     }
 }
 

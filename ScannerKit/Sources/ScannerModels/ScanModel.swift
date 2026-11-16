@@ -108,18 +108,19 @@ public final class ScanModel: Identifiable {
         }).value, !isDeleted else { return }
         var document = read.document
         settings.recordHeaderLines(document.headerLines, issuerEvidence: document.issuerEvidence)
-        if let learned = settings.learnedIssuer(for: document.issuerKeys) {
-            document.details.issuer = learned.issuer
-            document.details.category = learned.category
-            document.parts.issuer = learned.issuer
+        let learned = settings.learnedIssuer(for: document.issuerKeys)
+        if let issuer = learned?.issuer {
+            document.details.issuer = issuer
+            document.parts.issuer = issuer
         }
+        if let category = learned?.category { document.details.category = category }
         let suggestions = namer.suggestions(for: document, date: date)
         scan.suggestions = suggestions.names
         scan.suggestedParts = document.parts
         scan.issuerKeys = document.issuerKeys
         if !scan.areDetailsEditedByUser { scan.details = document.details }
         if !scan.isNamedByUser, let first = suggestions.names.first {
-            scan.title = settings.learnedName(for: first) ?? first
+            scan.title = learned?.name.map { namer.finalName($0.name(details: document.details, date: document.details.date ?? date), fallback: first) } ?? first
         }
         applyFileName()
     }
@@ -190,9 +191,8 @@ public final class ScanModel: Identifiable {
     public func rename(_ title: String) {
         scan.title = namer.finalName(title, fallback: scan.suggestions.first ?? fallbackTitle)
         scan.isNamedByUser = true
-        if let suggestion = scan.suggestions.first, suggestion != fallbackTitle {
-            settings.learn(scan.title, for: suggestion)
-        }
+        let pattern = learnedPattern(for: scan.title)
+        settings.learn(keys: scan.issuerKeys) { $0.name = pattern }
         applyFileName()
     }
 
@@ -207,20 +207,24 @@ public final class ScanModel: Identifiable {
         return settings.value.fileNameFormat.segments(name: title, details: scan.details, scanDate: scan.created, suggestedParts: isSuggested ? scan.suggestedParts : nil)
     }
 
-    /// The suggestion a name would be learned for, when the name differs from it.
-    public func learnedSuggestion(for title: String) -> String? {
-        guard let suggestion = scan.suggestions.first, suggestion != fallbackTitle, suggestion != title else { return nil }
-        return suggestion
+    /// What the next documents from the same issuer will be named after this name; nil when the name is the suggestion or the issuer cannot be recognized again.
+    public func learnedPattern(for title: String) -> NamePattern? {
+        guard learnsIssuer, !title.isEmpty, title != scan.suggestions.first else { return nil }
+        return NamePattern(name: title, details: scan.details, date: scan.details.date ?? scan.created)
     }
 
-    /// Whether a new issuer or category can be reused for the next documents from the same issuer.
+    /// Whether corrections can be reused for the next documents from the same issuer.
     public var learnsIssuer: Bool { !scan.issuerKeys.isEmpty }
 
     /// Changes the details; a new issuer or category is learned for the next document from the same issuer.
     public func setDetails(_ details: DocumentDetails) {
         guard details != scan.details else { return }
-        if details.issuer != scan.details.issuer || details.category != scan.details.category {
-            settings.learnIssuer(details.issuer, category: details.category, keys: scan.issuerKeys)
+        let old = scan.details
+        if details.issuer != old.issuer || details.category != old.category {
+            settings.learn(keys: scan.issuerKeys) { learned in
+                if details.issuer != old.issuer { learned.issuer = details.issuer }
+                if details.category != old.category { learned.category = details.category }
+            }
         }
         scan.details = details
         scan.areDetailsEditedByUser = true

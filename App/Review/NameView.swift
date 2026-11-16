@@ -46,9 +46,9 @@ struct NameView: View {
                 } footer: {
                     Text(formatExplanation)
                 }
-                if let suggestion = scan.learnedSuggestion(for: name), !name.isEmpty {
+                if let learning {
                     Section {
-                        Label("Next time Roneograph suggests “\(suggestion)”, it will use “\(name)”.", systemImage: "lightbulb")
+                        Label(learning, systemImage: "lightbulb")
                             .font(.footnote)
                     }
                 }
@@ -89,6 +89,15 @@ struct NameView: View {
 
     private var segments: [FileNameSegment] {
         scan.fileNameSegments(for: name.isEmpty ? scan.scan.suggestions.first ?? scan.fallbackTitle : name) + [FileNameSegment(".pdf", .text)]
+    }
+
+    /// What the next documents from the same issuer will be named, when the name is a correction that can be reused.
+    private var learning: String? {
+        guard let pattern = scan.learnedPattern(for: name) else { return nil }
+        let issuer = scan.scan.details.issuer.map { "from \($0)" } ?? "from this issuer"
+        let own = [pattern.follows.date ? "date" : nil, pattern.follows.number ? "number" : nil].compactMap { $0 }
+        let with = own.isEmpty ? "" : ", with their own \(own.joined(separator: " and "))"
+        return "The next documents \(issuer) will be named the same way\(with)."
     }
 
     private var formatExplanation: String {

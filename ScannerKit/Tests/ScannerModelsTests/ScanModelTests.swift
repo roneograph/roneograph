@@ -177,9 +177,9 @@ struct ScanModelTests {
         #expect(model.scan.title == "Mine")
     }
 
-    @Test func reusesACorrectedNameWhenTheSameSuggestionComesBack() async throws {
+    @Test func reusesACorrectedNameForTheNextDocumentFromTheSameIssuer() async throws {
         let fixture = try Fixture()
-        let photo = try #require(PageExtractor(context: CIContext()).jpegData(of: SyntheticPage(title: "INVOICE").render(), quality: 0.9))
+        let photo = try #require(PageExtractor(context: CIContext()).jpegData(of: SyntheticPage(title: "LUMEN ENERGY SAS").render(), quality: 0.9))
         let first = fixture.scanModel()
         first.addPhoto(photo, liveQuad: nil)
         await first.waitUntilIdle()
@@ -193,6 +193,12 @@ struct ScanModelTests {
         #expect(second.scan.title == "Lumen Energy bill")
         #expect(second.scan.suggestions.first == suggestion)
         #expect(!second.scan.isNamedByUser)
+
+        second.rename(suggestion)
+        let third = fixture.scanModel()
+        third.addPhoto(photo, liveQuad: nil)
+        await third.waitUntilIdle()
+        #expect(third.scan.title == suggestion)
     }
 
     @Test func changingTheFormatRenamesTheFile() async throws {
@@ -262,14 +268,33 @@ struct ScanModelTests {
         #expect(!second.scan.areDetailsEditedByUser)
     }
 
-    @Test func tellsWhichSuggestionANameWouldBeLearnedFor() throws {
+    @Test func learnsANameOnlyWhenItDiffersAndTheIssuerCanBeRecognized() throws {
         let fixture = try Fixture()
         var scan = Scan(name: "Scan", title: "Invoice Lumen")
         scan.suggestions = ["Invoice Lumen", "Invoice 1234"]
+        scan.issuerKeys = ["lumen"]
         let model = ScanModel(scan: scan, processor: fixture.processor, settings: fixture.settings)
-        #expect(model.learnedSuggestion(for: "Lumen electricity") == "Invoice Lumen")
-        #expect(model.learnedSuggestion(for: "Invoice Lumen") == nil)
-        #expect(fixture.scanModel().learnedSuggestion(for: "Mine") == nil)
+        #expect(model.learnedPattern(for: "Lumen electricity") != nil)
+        #expect(model.learnedPattern(for: "Invoice Lumen") == nil)
+        #expect(fixture.scanModel().learnedPattern(for: "Mine") == nil)
+    }
+
+    @Test func reusesACorrectedNameAfterTheIssuerWasCorrectedToo() async throws {
+        let fixture = try Fixture()
+        let photo = try #require(PageExtractor(context: CIContext()).jpegData(of: SyntheticPage(title: "LUMEN ENERGY SAS").render(), quality: 0.9))
+        let first = fixture.scanModel()
+        first.addPhoto(photo, liveQuad: nil)
+        await first.waitUntilIdle()
+        var details = first.scan.details
+        details.issuer = "Lumen"
+        first.setDetails(details)
+        first.rename("Lumen bill")
+
+        let second = fixture.scanModel()
+        second.addPhoto(photo, liveQuad: nil)
+        await second.waitUntilIdle()
+        #expect(second.scan.details.issuer == "Lumen")
+        #expect(second.scan.title == "Lumen bill")
     }
 
     @Test func editingOnlyTheDateLearnsNothing() async throws {

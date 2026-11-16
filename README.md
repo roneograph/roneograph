@@ -37,7 +37,7 @@ Naming:
 
 - Suggests a name from the text, such as the document type, the sender and its number.
 - Reads the details of the document: its category (invoice, payslip, tax notice, or one of your own), its issuer, the date printed on it and its reference number; you can change any of them.
-- Remembers a corrected name and reuses it for the next document that gets the same suggestion, and reuses a corrected issuer and category for the next document from the same issuer.
+- Remembers a corrected name, issuer and category and reuses them for the next documents from the same issuer; a month, date or number in your name follows the next document.
 - Follows your file name format: date first or last, in three formats, from the document or the scan day, with spaces, dashes or underscores, lowercase or not.
 - Or a custom format built from variables, such as `{CATEGORY}/{YYYY}-{MM} {ISSUER}`, which can file scans into folders.
 
