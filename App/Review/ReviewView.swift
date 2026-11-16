@@ -1,4 +1,3 @@
-import MessageUI
 import ScannerKit
 import ScannerModels
 import SwiftUI
@@ -7,17 +6,8 @@ struct ReviewView: View {
     let app: AppModel
     let scan: ScanModel
     @State private var editing: DocumentField?
-    @State private var showingMail = false
-    @State private var showingShare = false
-    @State private var showingEmailQuestion = false
-    @State private var mailAfterQuestion = false
-    @State private var confirmingDelete = false
-    @State private var choosingFolder = false
-    @State private var savingFailed = false
     @State private var viewedPage: ScanPage?
     @State private var askedForName = false
-    /// Set when the PDF went out, acted on once the mail or share sheet is gone.
-    @State private var sentBy: SendMethod?
 
     private var settings: ScannerSettings { app.settings.value }
 
@@ -34,11 +24,10 @@ struct ReviewView: View {
             .padding(.horizontal)
             .padding(.bottom, 24)
         }
-        .safeAreaInset(edge: .bottom) { sendBar }
-        .navigationBarTitleDisplayMode(.inline)
-        .confirmationDialog("Delete this scan?", isPresented: $confirmingDelete, titleVisibility: .visible) {
-            Button("Delete Scan", role: .destructive) { app.delete(scan.id) }
+        .safeAreaInset(edge: .bottom) {
+            SendBar(app: app, scans: [scan], isReady: isReady) { Text(summary) }
         }
+        .navigationBarTitleDisplayMode(.inline)
         .task(id: scan.pdfInputs) { await scan.buildPDF() }
         .onChange(of: settings.fileNameFormat) { scan.applyFileName() }
         .task {
@@ -53,87 +42,14 @@ struct ReviewView: View {
             case .issuer, .number: DetailTextView(scan: scan, field: field)
             }
         }
-        .sheet(isPresented: $showingMail, onDismiss: finishSending) {
-            if case .ready(let url, _) = scan.pdf {
-                MailView(recipient: settings.hasValidEmail ? settings.email : nil, subject: scan.scan.title, attachment: url) { sent in
-                    if sent { sentBy = .email }
-                }
-                .ignoresSafeArea()
-            }
-        }
-        .sheet(isPresented: $showingEmailQuestion, onDismiss: {
-            if mailAfterQuestion {
-                mailAfterQuestion = false
-                showingMail = true
-            }
-        }) {
-            EmailQuestionView(settings: app.settings) { mailAfterQuestion = true }
-                .presentationDetents([.medium])
-        }
-        .sheet(isPresented: $showingShare, onDismiss: finishSending) {
-            if case .ready(let url, _) = scan.pdf {
-                ShareSheet(items: [url]) { completed in
-                    if completed { sentBy = .share }
-                }
-                .presentationDetents([.medium, .large])
-                .ignoresSafeArea()
-            }
-        }
         .fullScreenCover(item: $viewedPage) { page in
             PageViewer(scan: scan, selection: page.id)
-        }
-        .fileImporter(isPresented: $choosingFolder, allowedContentTypes: [.folder]) { result in
-            guard case .success(let url) = result else { return }
-            do {
-                try app.settings.chooseArchiveFolder(url)
-                saveToFiles()
-            } catch {
-                savingFailed = true
-            }
-        }
-        .alert("The folder cannot be reached", isPresented: $savingFailed) {
-            Button("Choose Folder") { choosingFolder = true }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Choose the folder for saved PDFs again.")
         }
         .alert("Something went wrong", isPresented: Binding(get: { scan.failure != nil }, set: { if !$0 { scan.dismissFailure() } })) {
             Button("OK") {}
         } message: {
             Text(scan.failure ?? "")
         }
-    }
-
-    private var sendBar: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 10) {
-                Button("Email", systemImage: "envelope", action: email)
-                    .buttonStyle(.glassProminent)
-                    .disabled(!isReady)
-                Button("Save to Files", systemImage: "folder", action: saveToFiles)
-                    .buttonStyle(.glass)
-                    .disabled(!isReady)
-                Button("Share", systemImage: "square.and.arrow.up") { showingShare = true }
-                    .buttonStyle(.glass)
-                    .disabled(!isReady)
-                Button("Delete Scan", systemImage: "trash", role: .destructive) { confirmingDelete = true }
-                    .buttonStyle(.glass)
-                    .foregroundStyle(.red)
-            }
-            .labelStyle(SendButtonLabelStyle())
-            .controlSize(.large)
-            .font(.title3)
-            VStack(spacing: 2) {
-                if settings.hasValidEmail {
-                    Text("To \(settings.email)").lineLimit(1).truncationMode(.middle)
-                }
-                Text(summary)
-            }
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-        }
-        .padding(.horizontal)
-        .padding(.top, 8)
     }
 
     private func open(_ page: ScanPage) {
@@ -154,37 +70,6 @@ struct ReviewView: View {
             return "\(count) · the PDF could not be made"
         default:
             return "\(count) · preparing the PDF…"
-        }
-    }
-
-    private func finishSending() {
-        if let sentBy {
-            self.sentBy = nil
-            app.didSend(scan, by: sentBy)
-        }
-    }
-
-    /// The first save asks for the folder; later ones go straight to it.
-    private func saveToFiles() {
-        guard settings.archiveFolder != nil else {
-            choosingFolder = true
-            return
-        }
-        do {
-            try app.saveToArchive(scan)
-        } catch {
-            savingFailed = true
-        }
-    }
-
-    /// Mail needs an account in the Mail app; without one, the share sheet lets any mail app send the PDF.
-    private func email() {
-        if !MFMailComposeViewController.canSendMail() {
-            showingShare = true
-        } else if app.settings.shouldAskForEmail {
-            showingEmailQuestion = true
-        } else {
-            showingMail = true
         }
     }
 }
@@ -265,13 +150,6 @@ private struct PageGrid: View {
             .confirmationDialog("Delete page \(number)?", isPresented: Binding(get: { deleting == page.id }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible) {
                 Button("Delete Page", role: .destructive) { withAnimation { scan.deletePage(page.id) } }
             }
-    }
-}
-
-/// Icon only, full width: the three send buttons share the row equally.
-private struct SendButtonLabelStyle: LabelStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.icon.frame(maxWidth: .infinity)
     }
 }
 

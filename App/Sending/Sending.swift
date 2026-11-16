@@ -2,11 +2,11 @@ import MessageUI
 import SwiftUI
 import UIKit
 
-/// Apple's mail composer, filled in with the recipient, the subject and the PDF; the user taps Send.
+/// Apple's mail composer, filled in with the recipient, the subject and the PDFs; the user taps Send.
 struct MailView: UIViewControllerRepresentable {
     let recipient: String?
     let subject: String
-    let attachment: URL
+    let attachments: [URL]
     let finished: (_ sent: Bool) -> Void
     @Environment(\.dismiss) private var dismiss
 
@@ -15,8 +15,10 @@ struct MailView: UIViewControllerRepresentable {
         controller.mailComposeDelegate = context.coordinator
         controller.setSubject(subject)
         if let recipient { controller.setToRecipients([recipient]) }
-        if let data = try? Data(contentsOf: attachment) {
-            controller.addAttachmentData(data, mimeType: "application/pdf", fileName: attachment.lastPathComponent)
+        for attachment in attachments {
+            if let data = try? Data(contentsOf: attachment) {
+                controller.addAttachmentData(data, mimeType: "application/pdf", fileName: attachment.lastPathComponent)
+            }
         }
         return controller
     }
@@ -43,7 +45,7 @@ struct MailView: UIViewControllerRepresentable {
     }
 }
 
-/// The system share sheet, telling whether the PDF went somewhere.
+/// The system share sheet, telling whether the PDFs went somewhere.
 struct ShareSheet: UIViewControllerRepresentable {
     let items: [Any]
     let finished: (_ completed: Bool) -> Void
