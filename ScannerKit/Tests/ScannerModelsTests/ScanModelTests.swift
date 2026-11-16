@@ -246,7 +246,7 @@ struct ScanModelTests {
 
     @Test func reusesTheIssuerAndCategoryCorrectedForTheSameIssuer() async throws {
         let fixture = try Fixture()
-        let photo = try #require(PageExtractor(context: CIContext()).jpegData(of: SyntheticPage().render(), quality: 0.9))
+        let photo = try #require(PageExtractor(context: CIContext()).jpegData(of: SyntheticPage(title: "LUMEN ENERGY SAS").render(), quality: 0.9))
         let first = fixture.scanModel()
         first.addPhoto(photo, liveQuad: nil)
         await first.waitUntilIdle()
@@ -277,7 +277,7 @@ struct ScanModelTests {
         let fixture = try Fixture()
         let model = fixture.scanModel()
         let shownName = model.scan.title, shownDetails = model.scan.details
-        let photo = try #require(PageExtractor(context: CIContext()).jpegData(of: SyntheticPage().render(), quality: 0.9))
+        let photo = try #require(PageExtractor(context: CIContext()).jpegData(of: SyntheticPage(title: "INVOICE").render(), quality: 0.9))
         model.addPhoto(photo, liveQuad: nil)
         await model.waitUntilIdle()
         let read = model.scan.title
