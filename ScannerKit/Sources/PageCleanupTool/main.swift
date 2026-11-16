@@ -29,7 +29,7 @@ for path in arguments.dropFirst() {
     let analyzed = Date()
     let name = url.deletingPathExtension().lastPathComponent
     for look in [nil] + PageLook.allCases.map(Optional.some) {
-        let image = cleaner.render(page, analysis: analysis, settings: CleanupSettings(look: look))
+        let image = cleaner.render(page, analysis: analysis, look: look ?? analysis.suggestedLook)
         if look == nil {
             let reading = Date()
             let lines = TextReader().lines(in: image)

@@ -26,7 +26,8 @@ struct PageCleanerTests {
 
     @Test func aLargePictureStaysDark() {
         let page = SyntheticPage(picture: true).render()
-        let (r, _, _) = color(of: cleaner.render(page, analysis: cleaner.analyze(page)), at: CGPoint(x: 0.5, y: 0.55))
+        let analysis = cleaner.analyze(page)
+        let (r, _, _) = color(of: cleaner.render(page, analysis: analysis, look: analysis.suggestedLook), at: CGPoint(x: 0.5, y: 0.55))
         #expect(r < 0.4)
     }
 
@@ -51,13 +52,13 @@ struct PageCleanerTests {
         let analysis = cleaner.analyze(page)
         #expect(abs(analysis.skewDegrees - degrees) < 0.3)
 
-        let straight = cleaner.render(page, analysis: analysis, settings: CleanupSettings(look: .gray))
+        let straight = cleaner.render(page, analysis: analysis, look: .gray)
         #expect(abs(cleaner.analyze(straight).skewDegrees) < 0.3)
     }
 
     @Test func evensOutAShadowAndWhitensYellowPaper() {
         let page = SyntheticPage(paper: (0.86, 0.8, 0.62), shadow: true).render()
-        let clean = cleaner.render(page, analysis: cleaner.analyze(page), settings: CleanupSettings(look: .color))
+        let clean = cleaner.render(page, analysis: cleaner.analyze(page), look: .color)
         for point in [CGPoint(x: 0.05, y: 0.5), CGPoint(x: 0.95, y: 0.5), CGPoint(x: 0.5, y: 0.97)] {
             let (r, g, b) = color(of: clean, at: point)
             #expect(min(r, g, b) > 0.93, "paper at \(point) is \(r), \(g), \(b)")
@@ -66,7 +67,7 @@ struct PageCleanerTests {
 
     @Test func removesASharpEdgedShadowWithoutAGhost() {
         let page = SyntheticPage(handShadow: true).render()
-        let clean = cleaner.render(page, analysis: cleaner.analyze(page), settings: CleanupSettings(look: .gray))
+        let clean = cleaner.render(page, analysis: cleaner.analyze(page), look: .gray)
         for x in stride(from: 0.30, through: 0.70, by: 0.02) {
             let (r, _, _) = color(of: clean, at: CGPoint(x: x, y: 0.07))
             #expect(r > 0.97, "paper at \(x) is \(r)")
@@ -80,7 +81,7 @@ struct PageCleanerTests {
         let band = CIImage(color: CIColor(red: 0.15, green: 0.15, blue: 0.15)).cropped(to: CGRect(x: width * 0.985, y: height * 0.3, width: width * 0.015, height: height * 0.4))
             .composited(over: CIImage(color: CIColor(red: 0.15, green: 0.15, blue: 0.15)).cropped(to: CGRect(x: width * 0.85, y: height * 0.45, width: width * 0.15, height: height * 0.02)))
         let photo = sliver.composited(over: band).composited(over: page)
-        let clean = cleaner.render(photo, analysis: cleaner.analyze(photo), settings: CleanupSettings(look: .gray))
+        let clean = cleaner.render(photo, analysis: cleaner.analyze(photo), look: .gray)
         #expect(color(of: clean, at: CGPoint(x: 0.007, y: 0.5)).0 > 0.95)
         #expect(color(of: clean, at: CGPoint(x: 0.993, y: 0.5)).0 < 0.4)
         #expect(color(of: clean, at: CGPoint(x: 0.9, y: 0.54)).0 < 0.4)
@@ -88,7 +89,7 @@ struct PageCleanerTests {
 
     @Test func keepsTheInkBlack() {
         let page = SyntheticPage(paper: (0.86, 0.8, 0.62), shadow: true).render()
-        let clean = cleaner.render(page, analysis: cleaner.analyze(page), settings: CleanupSettings(look: .gray))
+        let clean = cleaner.render(page, analysis: cleaner.analyze(page), look: .gray)
         let (r, _, _) = color(of: clean, at: SyntheticPage.blockCenter)
         #expect(r < 0.2)
     }

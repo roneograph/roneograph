@@ -25,7 +25,7 @@ struct ScanTests {
         let flat = SyntheticPage().render()
         var page = ScanPage(quad: nil, analysis: cleaner.analyze(flat))
         page.rotate()
-        let turned = cleaner.render(flat, analysis: page.analysis, settings: page.cleanup)
+        let turned = cleaner.render(flat, analysis: page.analysis, look: page.look)
         #expect(turned.extent.width > turned.extent.height)
         #expect(cleaner.analyze(turned).orientation == .left)
     }

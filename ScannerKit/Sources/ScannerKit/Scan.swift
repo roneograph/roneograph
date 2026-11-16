@@ -1,5 +1,14 @@
 import Foundation
 
+public struct CleanupSettings: Equatable, Codable, Sendable {
+    /// Nil picks the look from the page content.
+    public var look: PageLook?
+
+    public init(look: PageLook? = nil) {
+        self.look = look
+    }
+}
+
 public struct ScanPage: Identifiable, Equatable, Sendable, Codable {
     public let id: UUID
     /// Where the page is in the original photo, nil when the whole photo is the page.

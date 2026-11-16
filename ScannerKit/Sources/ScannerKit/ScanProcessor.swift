@@ -63,7 +63,7 @@ public struct ScanProcessor: @unchecked Sendable {
     /// Writes the small cleaned image shown in the app, after any change to the page.
     public func writePreview(of page: ScanPage, scanID: UUID, flat: CIImage? = nil) throws {
         guard let flat = flat ?? CIImage(contentsOf: store.flatURL(scanID: scanID, pageID: page.id)) else { throw ProcessingError.unreadablePage }
-        let clean = cleaner.render(flat.scaled(by: flat.scale(toLongSide: previewSize)), analysis: page.analysis, settings: page.cleanup)
+        let clean = cleaner.render(flat.scaled(by: flat.scale(toLongSide: previewSize)), analysis: page.analysis, look: page.look)
         guard let data = extractor.jpegData(of: clean, quality: 0.8) else { throw ProcessingError.cannotEncode }
         try data.write(to: store.previewURL(scanID: scanID, pageID: page.id), options: .atomic)
     }
@@ -77,7 +77,7 @@ public struct ScanProcessor: @unchecked Sendable {
     public func pdfData(of scan: Scan) throws -> Data {
         let pages = try scan.pages.map { page in
             guard let flat = CIImage(contentsOf: store.flatURL(scanID: scan.id, pageID: page.id)) else { throw ProcessingError.unreadablePage }
-            let image = cleaner.render(flat, analysis: page.analysis, settings: page.cleanup)
+            let image = cleaner.render(flat, analysis: page.analysis, look: page.look)
             return PDFPageContent(image: image, look: page.look, textLineHeight: page.analysis.textLineHeight, text: texts.lines(of: page) { reader.lines(in: image) })
         }
         return try writer.data(pages: pages, title: scan.title, defaultPaper: paper)

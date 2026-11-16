@@ -37,15 +37,6 @@ public enum PageOrientation: String, Codable, Sendable, CaseIterable {
     }
 }
 
-public struct CleanupSettings: Equatable, Codable, Sendable {
-    /// Nil picks the look from the page content.
-    public var look: PageLook?
-
-    public init(look: PageLook? = nil) {
-        self.look = look
-    }
-}
-
 public struct PageAnalysis: Equatable, Codable, Sendable {
     public var orientation: PageOrientation
     /// Angle of the text lines once upright, counterclockwise.
@@ -115,7 +106,7 @@ public struct PageCleaner: @unchecked Sendable {
         return PageAnalysis(orientation: orientation, skewDegrees: skew(of: normalized), suggestedLook: look, colorFraction: colorFraction, pictureFraction: pictureFraction, textLineHeight: textLineHeight)
     }
 
-    public func render(_ page: CIImage, analysis: PageAnalysis, settings: CleanupSettings = .init()) -> CIImage {
+    public func render(_ page: CIImage, analysis: PageAnalysis, look: PageLook) -> CIImage {
         var image = page.atOrigin.oriented(analysis.orientation.imageOrientation).atOrigin
         if abs(analysis.skewDegrees) >= minimumSkew {
             image = rotated(image, degrees: -analysis.skewDegrees)
@@ -124,7 +115,7 @@ public struct PageCleaner: @unchecked Sendable {
         let paper = analysis.pictureFraction >= pictureFractionForPaperColor ? paperColor(of: image) : background(of: image)
         image = whitePaper(divide(image, by: paper))
         image = whiteningEdges(of: image)
-        switch settings.look ?? analysis.suggestedLook {
+        switch look {
         case .color:
             break
         case .gray:
