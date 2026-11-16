@@ -134,6 +134,7 @@ public final class AppModel {
     /// Under the send buttons: where Email sends the scans, when there is something to say.
     public func destination(of models: [ScanModel]) -> String? {
         let groups = byOwner(models)
+        guard !groups.isEmpty else { return nil }
         guard settings.value.hasSeveralOwners else {
             return groups.first.flatMap { $0.owner.hasValidEmail ? "To \($0.owner.email)" : nil }
         }

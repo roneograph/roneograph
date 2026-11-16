@@ -244,6 +244,7 @@ struct AppModelTests {
         #expect(app.destination(of: [mine]) == "To me@example.com")
 
         let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
+        #expect(app.destination(of: []) == nil)
         #expect(app.destination(of: [mine]) == "Personal · To me@example.com")
         other.setOwner(holding.id)
         #expect(app.destination(of: [other]) == "Fernwood Holding")
