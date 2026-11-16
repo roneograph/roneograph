@@ -303,7 +303,7 @@ enum DocumentVocabulary {
     static let streetWords: Set<String> = [
         "rue", "avenue", "av", "boulevard", "bd", "allee", "place", "quai", "chemin", "impasse", "route", "cours", "bp", "cs", "cedex",
         "street", "st", "road", "rd", "lane", "crescent", "way", "close", "drive", "square", "walk", "po", "box",
-        "strasse", "str", "weg", "platz", "allee", "ring", "gasse", "postfach", "calle", "avenida", "paseo", "plaza", "via", "viale", "piazza",
+        "strasse", "str", "weg", "platz", "ring", "gasse", "postfach", "calle", "avenida", "paseo", "plaza", "via", "viale", "piazza",
         "corso", "vicolo",
     ]
 

@@ -106,7 +106,7 @@ struct IssuerEvidence {
     // MARK: Names
 
     private static let connectors: Set<String> = ["&", "de", "du", "des", "di", "del", "della", "delle", "y", "et", "und", "and", "of", "le", "la", "les", "il"]
-    private static let sentenceStarts: Set<String> = ["tra", "entre", "between", "zwischen", "et", "and", "und", "de", "der", "die", "das", "le", "la", "the", "el", "il", "par", "by", "from", "con", "with", "mit"]
+    private static let sentenceStarts: Set<String> = ["tra", "entre", "between", "zwischen", "der", "die", "das", "the", "el", "par", "by", "from", "con", "with", "mit"]
 
     /// The capitalized words right before a legal form: "Voltaria Énergie" in "Voltaria Énergie SAS au capital de 500 000 €".
     static func legalNames(in line: DocumentDetector.Line) -> [String] {
