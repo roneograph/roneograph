@@ -34,7 +34,7 @@ public struct DocumentDetector: Sendable {
         return DetectedDocument(
             details: details,
             parts: SuggestedParts(type: type?.word, issuer: type?.isHeading == true ? nil : issuer, number: details.number),
-            issuerKeys: keys + (issuer.map { [Self.folded($0).split(whereSeparator: \.isWhitespace).joined(separator: " ")] } ?? []),
+            issuerKeys: keys + (issuer.map { [Self.foldedWords($0)] } ?? []),
             issuerEvidence: keys,
             headerLines: candidates.map { Self.fingerprint($0.text) }
         )
@@ -42,8 +42,11 @@ public struct DocumentDetector: Sendable {
 
     /// A short, stable fingerprint of a line, so lines can be recognized without keeping their text.
     public static func fingerprint(_ text: String) -> String {
-        let folded = folded(Substring(text)).split(whereSeparator: \.isWhitespace).joined(separator: " ")
-        return SHA256.hash(data: Data(folded.utf8)).prefix(8).map { String(format: "%02x", $0) }.joined()
+        SHA256.hash(data: Data(foldedWords(text).utf8)).prefix(8).map { String(format: "%02x", $0) }.joined()
+    }
+
+    private static func foldedWords(_ text: String) -> String {
+        folded(text).split(whereSeparator: \.isWhitespace).joined(separator: " ")
     }
 
     static func folded<S: StringProtocol>(_ word: S) -> String {
@@ -64,6 +67,8 @@ public struct DocumentDetector: Sendable {
             let key = DocumentDetector.folded(text.replacing("’", with: "'"))
             self.key = Self.markers.contains(key) ? "n°" : key
         }
+
+        var undottedKey: String { key.replacing(".", with: "") }
     }
 
     struct Line {
@@ -76,6 +81,8 @@ public struct DocumentDetector: Sendable {
         var isOwn: Bool
 
         var words: [Token] { tokens.filter { !$0.key.isEmpty } }
+        var firstWordIndex: Int { tokens.firstIndex { !$0.key.isEmpty } ?? 0 }
+        var startsWithProfessionalTitle: Bool { words.first.map(DocumentDetector.isProfessionalTitle) == true }
     }
 
     /// Lines read as one, as tall as the tallest so it is not more prominent than its parts.
@@ -195,7 +202,7 @@ public struct DocumentDetector: Sendable {
 
         /// Where each phrase was found on a line, longer phrases first: "attestation d'assurance" hides "attestation".
         func matches(in line: Line) -> [(range: Range<Int>, tag: Tag)] {
-            let firstWord = line.tokens.firstIndex { !$0.key.isEmpty } ?? 0
+            let firstWord = line.firstWordIndex
             var candidates: [(range: Range<Int>, tag: Tag, rank: Int)] = []
             for (index, token) in line.tokens.enumerated() where !token.key.isEmpty {
                 let possible = (byFirstWord[token.key] ?? []) + suffixes.filter { token.key.hasSuffix($0.phrase.tokens[0]) }
@@ -290,7 +297,7 @@ public struct DocumentDetector: Sendable {
     /// A street or a postcode and city: "12 rue des Lilas", "75011 PARIS", "Bramford BR4 7QT".
     static func isAddress(_ line: Line) -> Bool {
         let text = line.text
-        return line.words.contains { DocumentVocabulary.streetWords.contains($0.key.replacing(".", with: "")) }
+        return line.words.contains { DocumentVocabulary.streetWords.contains($0.undottedKey) }
             || postcode.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
             || text.wholeMatch(of: /(?:[A-Z]-?)?\d{4,5} \p{L}.*/) != nil
     }
@@ -311,8 +318,7 @@ public struct DocumentDetector: Sendable {
                 let weight = match.tag.category == nil ? 1 : Self.weight(of: match.tag.evidence, on: line, page: page)
                 guard weight > best?.weight ?? 0 else { continue }
                 let words = line.text.split(whereSeparator: \.isWhitespace).map(String.init)
-                let firstWord = line.tokens.firstIndex { !$0.key.isEmpty } ?? 0
-                let isHeading = match.range.lowerBound == firstWord && (2...6).contains(words.count) && !line.text.contains(where: \.isNumber) && !line.text.contains(":")
+                let isHeading = match.range.lowerBound == line.firstWordIndex && (2...6).contains(words.count) && !line.text.contains(where: \.isNumber) && !line.text.contains(":")
                 let word: String
                 if isHeading {
                     word = titleCased(words, capitalizeAll: false).trimmingCharacters(in: .punctuationCharacters)
@@ -433,7 +439,7 @@ public struct DocumentDetector: Sendable {
             guard inHeader, line.confidence > 0.5 || (line.confidence >= 0.5 && isConfirmed(line, by: evidence)), (3...60).contains(text.count), line.words.count <= 8, Double(letters) >= Double(text.count) * 0.6, digits <= 2,
                   !(text.first?.isNumber ?? false), !text.contains("@"), !text.contains(":"), !text.lowercased().contains("www."), IssuerEvidence.domains(in: text).isEmpty,
                   let first = line.words.first else { return false }
-            if DocumentVocabulary.recipientPrefixes.contains(first.key.replacing(".", with: "")) || startsWithConnector(line) { return false }
+            if DocumentVocabulary.recipientPrefixes.contains(first.undottedKey) || startsWithConnector(line) { return false }
             if isAddress(line) && !page.isLarge(line) { return false }
             return !indices.contains { index in
                 clues[index].contains { match in
@@ -451,12 +457,11 @@ public struct DocumentDetector: Sendable {
 
     /// The lines stacked right under a name such as "Docteur Camille Arnaud": the specialty and titles of that person, not other issuers.
     private static func credentialLines(of page: Page) -> Set<Int> {
-        let isPerson = { (line: Line) in line.words.first.map { DocumentVocabulary.professionalTitles.contains($0.key.replacing(".", with: "")) } == true }
         var credentials = Set<Int>()
-        for (index, line) in page.lines.enumerated() where isPerson(line) {
+        for (index, line) in page.lines.enumerated() where line.startsWithProfessionalTitle {
             var last = line
             for next in page.lines.indices where next > index && isRightUnder(page.lines[next], last) && page.lines[next].frame.minX > last.frame.minX - 0.02 {
-                if isPerson(page.lines[next]) { break }
+                if page.lines[next].startsWithProfessionalTitle { break }
                 credentials.insert(next)
                 last = page.lines[next]
             }
@@ -539,7 +544,7 @@ public struct DocumentDetector: Sendable {
                 line.words.contains(where: isLegalForm) ? 3 : 0,
                 evidence.domains.contains { domain($0.domain, matches: name) } ? 3 : 0,
                 evidence.legalNames.contains { $0.line != line.text && Self.letters($0.name) == letters } ? 4 : 0,
-                line.words.first.map { DocumentVocabulary.professionalTitles.contains($0.key.replacing(".", with: "")) } == true ? 2 : 0,
+                line.startsWithProfessionalTitle ? 2 : 0,
                 below.prefix(2).contains { !IssuerEvidence.identifiers(in: $0.text).isEmpty || $0.words.first.map(isLegalForm) == true } ? 2 : 0,
             ]
             return (line, prominence + bonuses.reduce(0, +), bonuses.contains { $0 > 0 } || page.isLarge(line))
@@ -590,7 +595,7 @@ public struct DocumentDetector: Sendable {
         let isCapitals = { (word: String) in word.filter(\.isLetter).count >= 2 && word.filter(\.isLetter).allSatisfy(\.isUppercase) }
         let recased = { (word: String) in word.lowercased().split(separator: "-", omittingEmptySubsequences: false).map { $0.prefix(1).uppercased() + $0.dropFirst() }.joined(separator: "-") }
         guard let first = words.first else { return words }
-        if DocumentVocabulary.professionalTitles.contains(folded(first).replacing(".", with: "")), !isCapitals(first) {
+        if isProfessionalTitle(Token(Substring(first))), !isCapitals(first) {
             return [first] + words.dropFirst().map { isCapitals($0) ? recased($0) : $0 }
         }
         guard words.count <= 4, first.first?.isUppercase == true, first.dropFirst().contains(where: \.isLowercase),
@@ -606,8 +611,12 @@ public struct DocumentDetector: Sendable {
         return lower.prefix(1).uppercased() + lower.dropFirst()
     }
 
+    static func isProfessionalTitle(_ token: Token) -> Bool {
+        DocumentVocabulary.professionalTitles.contains(token.undottedKey)
+    }
+
     static func isLegalForm(_ token: Token) -> Bool {
-        DocumentVocabulary.legalForms.contains(token.key.replacing(".", with: "")) && token.text.contains(where: \.isUppercase) && token.text.count <= 7
+        DocumentVocabulary.legalForms.contains(token.undottedKey) && token.text.contains(where: \.isUppercase) && token.text.count <= 7
     }
 
     /// Letters only, folded, for comparing names with domains: "Lindgrün" gives "lindgrun".
