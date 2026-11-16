@@ -507,6 +507,26 @@ struct ScanModelTests {
         #expect(fixture.settings.learnedIssuer(for: second.scan.issuerKeys)?.owner == nil)
     }
 
+    @Test func readingThePageAgainKeepsSayingTheOwnerIsRemembered() async throws {
+        let fixture = try Fixture()
+        let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
+        let photo = try #require(PageExtractor(context: CIContext()).jpegData(of: SyntheticPage(title: "LUMEN ENERGY SAS").render(), quality: 0.9))
+        let first = fixture.scanModel()
+        first.addPhoto(photo, liveQuad: nil)
+        await first.waitUntilIdle()
+        first.setOwner(holding.id)
+
+        let second = fixture.scanModel()
+        second.addPhoto(photo, liveQuad: nil)
+        await second.waitUntilIdle()
+        #expect(second.scan.remembered == [.owner])
+        second.deletePage(try #require(second.scan.pages.first?.id))
+        second.addPhoto(photo, liveQuad: nil)
+        await second.waitUntilIdle()
+        #expect(second.owner.id == holding.id)
+        #expect(second.scan.remembered == [.owner])
+    }
+
     @Test func changingTheDefaultOwnerMovesNoScan() throws {
         let fixture = try Fixture()
         let personal = fixture.settings.value.defaultOwnerID

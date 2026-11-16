@@ -153,6 +153,8 @@ public final class ScanModel: Identifiable {
                 scan.owner = ScanOwner(id: owner)
                 remembered.insert(.owner)
             }
+        } else if scan.remembered.contains(.owner) {
+            remembered.insert(.owner)
         }
         scan.remembered = remembered
         applyFileName()
