@@ -18,6 +18,7 @@ public struct ArchiveFolder: Equatable, Sendable, Codable {
     }
 
     /// Copies the file into the folder without replacing anything there: a taken name gets a number.
+    /// The folders of a name such as "Invoice/2026 Lumen" are created inside the folder when missing; nothing is ever written outside it.
     /// Refreshes the bookmark when the system says it is stale, so callers should store the folder again.
     @discardableResult
     public mutating func save(_ file: URL, as name: String, separator: String = " ") throws -> URL {
@@ -31,7 +32,11 @@ public struct ArchiveFolder: Equatable, Sendable, Codable {
         var result: Result<URL, Error> = .failure(SaveError.unavailable)
         NSFileCoordinator().coordinate(writingItemAt: folder, options: [], error: &coordinationError) { folder in
             result = Result {
-                let destination = Self.availableURL(in: folder, name: name, separator: separator)
+                var components = name.split(separator: "/").map { FileNamer().finalName(String($0), fallback: "") }.filter { !$0.isEmpty && $0 != "." && $0 != ".." }
+                guard let fileName = components.popLast() else { throw SaveError.unavailable }
+                let directory = components.reduce(folder) { $0.appending(path: $1, directoryHint: .isDirectory) }
+                try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+                let destination = Self.availableURL(in: directory, name: fileName, separator: separator)
                 try FileManager.default.copyItem(at: file, to: destination)
                 return destination
             }

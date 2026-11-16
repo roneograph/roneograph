@@ -7,7 +7,7 @@ struct FileNameFormatTests {
     let scanDate = ISO8601DateFormatter().date(from: "2026-11-16T12:00:00Z")!
 
     private func name(_ format: FileNameFormat, _ name: String) -> String {
-        format.fileName(name: name, documentDate: date, scanDate: scanDate)
+        format.fileName(name: name, details: DocumentDetails(date: date), scanDate: scanDate)
     }
 
     @Test func keepsTheNameByDefault() {
@@ -36,7 +36,7 @@ struct FileNameFormatTests {
 
     @Test func usesTheScanDayWhenAsked() {
         #expect(name(FileNameFormat(datePosition: .start, dateSource: .scan), "Lumen") == "2026-11-16 Lumen")
-        #expect(FileNameFormat(datePosition: .start).fileName(name: "Lumen", documentDate: nil, scanDate: scanDate) == "2026-11-16 Lumen")
+        #expect(FileNameFormat(datePosition: .start).fileName(name: "Lumen", scanDate: scanDate) == "2026-11-16 Lumen")
     }
 
     @Test func keepsAccents() {
@@ -62,5 +62,85 @@ struct FileNameFormatTests {
         #expect(legacy == FileNameFormat(datePosition: .start, separator: .dash, lowercase: true))
         let format = FileNameFormat(datePosition: .end, dateStyle: .month, dateSource: .scan, separator: .underscore, lowercase: true)
         #expect(try decoder.decode(FileNameFormat.self, from: JSONEncoder().encode(format)) == format)
+    }
+
+    // MARK: Custom format
+
+    let lumen = DocumentDetails(category: .invoice, issuer: "Lumen Energy", date: ISO8601DateFormatter().date(from: "2026-11-12T12:00:00Z")!, number: "2026-0042")
+
+    private func custom(_ template: String, separator: FileNameFormat.Separator = .space, lowercase: Bool = false, dateSource: FileNameFormat.DateSource = .document) -> FileNameFormat {
+        FileNameFormat(dateSource: dateSource, separator: separator, lowercase: lowercase, isCustom: true, template: template)
+    }
+
+    @Test func fillsTheVariablesOfACustomFormat() {
+        let details = DocumentDetails(date: date)
+        #expect(custom("{YYYY}-{MM} archive {NAME}").fileName(name: "Lumen Energy invoice", details: details, scanDate: scanDate) == "2026-11 archive Lumen Energy invoice")
+        #expect(custom("{YYYY}-{MM} archive {NAME}", separator: .dash, lowercase: true).fileName(name: "Lumen Energy invoice", details: details, scanDate: scanDate) == "2026-11-archive-lumen-energy-invoice")
+        #expect(custom("{YY}{MM}{DD} {CATEGORY} {ISSUER} {NUMBER}").fileName(name: "x", details: lumen, scanDate: scanDate) == "261112 Invoice Lumen Energy 2026-0042")
+        #expect(custom("{YYYY}-{MM}-{DD} {NAME}", dateSource: .scan).fileName(name: "Lumen", details: lumen, scanDate: scanDate) == "2026-11-16 Lumen")
+    }
+
+    @Test func putsScansInFolders() {
+        #expect(custom("{CATEGORY}/{YYYY} {ISSUER}").fileName(name: "x", details: lumen, scanDate: scanDate) == "Invoice/2026 Lumen Energy")
+        #expect(custom("{CATEGORY}/{YYYY}/{MM} {NAME}").fileName(name: "Bill", details: lumen, scanDate: scanDate) == "Invoice/2026/11 Bill")
+        #expect(custom("Paperwork/{CATEGORY}/{NAME}", separator: .underscore, lowercase: true).fileName(name: "Lumen bill", details: DocumentDetails(category: .bankStatement), scanDate: scanDate) == "Paperwork/bank_statement/lumen_bill")
+    }
+
+    @Test func dropsEmptyValuesWithTheirSeparator() {
+        let noIssuer = DocumentDetails(category: .invoice, date: date)
+        #expect(custom("{CATEGORY}/{YYYY} {ISSUER}").fileName(name: "x", details: noIssuer, scanDate: scanDate) == "Invoice/2026")
+        #expect(custom("{ISSUER} - {NAME}").fileName(name: "Bill", details: noIssuer, scanDate: scanDate) == "Bill")
+        #expect(custom("{YYYY}-{MM} {ISSUER} {NUMBER} {NAME}").fileName(name: "Bill", details: noIssuer, scanDate: scanDate) == "2026-11 Bill")
+        #expect(custom("{ISSUER}/{NAME}").fileName(name: "Bill", details: noIssuer, scanDate: scanDate) == "Bill")
+        #expect(custom("{ISSUER}").fileName(name: "Bill", details: noIssuer, scanDate: scanDate) == "2026-11-12")
+    }
+
+    @Test func aSlashInAValueNeverMakesAFolder() {
+        let details = DocumentDetails(issuer: "A/B Services", number: "../12")
+        #expect(custom("{ISSUER} {NUMBER}").fileName(name: "x", details: details, scanDate: scanDate) == "A-B Services -12")
+        #expect(custom("{ISSUER}/{NAME}").fileName(name: "..", details: DocumentDetails(issuer: ".."), scanDate: scanDate) == "2026-11-16")
+    }
+
+    @Test func aSuggestedNameLeavesOutWhatTheFormatShows() {
+        let parts = SuggestedParts(type: "Facture", issuer: "Lumen Energy", number: "2026-0042")
+        let format = custom("{CATEGORY} {ISSUER} {NAME}")
+        #expect(format.fileName(name: "Facture Lumen Energy", details: lumen, scanDate: scanDate, suggestedParts: parts) == "Invoice Lumen Energy")
+        #expect(custom("{ISSUER} {NAME}").fileName(name: "Facture Lumen Energy", details: lumen, scanDate: scanDate, suggestedParts: parts) == "Lumen Energy Facture")
+        #expect(custom("{CATEGORY} {NUMBER} {NAME}").fileName(name: "Facture 2026-0042", details: lumen, scanDate: scanDate, suggestedParts: parts) == "Invoice 2026-0042")
+        #expect(custom("{YYYY}-{MM}-{DD} {NAME}").fileName(name: "Scan 2026-11-16", details: lumen, scanDate: scanDate, suggestedParts: SuggestedParts()) == "2026-11-12 Scan")
+        #expect(format.fileName(name: "Facture Lumen Energy", details: lumen, scanDate: scanDate) == "Invoice Lumen Energy Facture Lumen Energy")
+    }
+
+    @Test func theSimpleFormatIgnoresSuggestedParts() {
+        let parts = SuggestedParts(type: "Facture", issuer: "Lumen Energy")
+        let format = FileNameFormat(datePosition: .start, separator: .dash, template: "{ISSUER}")
+        #expect(format.fileName(name: "Facture Lumen Energy", details: lumen, scanDate: scanDate, suggestedParts: parts) == "2026-11-12-Facture-Lumen-Energy")
+    }
+
+    @Test(arguments: [
+        ("", FileNameFormat.Template.ParseError.empty),
+        ("{NAME} {FOO}", .unknownVariable("FOO")),
+        ("{name}", .unknownVariable("name")),
+        ("{NAME", .unclosedBrace),
+        ("{NAME}: {YYYY}", .forbiddenCharacter(":")),
+        ("/{NAME}", .emptyFolder),
+        ("{CATEGORY}//{NAME}", .emptyFolder),
+        ("{NAME}/", .emptyFolder),
+        ("../{NAME}", .relativeFolder),
+        ("{CATEGORY}/ . /{NAME}", .relativeFolder),
+    ])
+    func rejectsInvalidTemplates(template: String, error: FileNameFormat.Template.ParseError) {
+        #expect(throws: error) { try FileNameFormat.Template(template) }
+    }
+
+    @Test func ignoresAnExtensionTypedInTheFormat() throws {
+        #expect(custom("{NAME}.pdf").fileName(name: "Bill", scanDate: scanDate) == "Bill")
+    }
+
+    @Test func keepsTheCustomFormatAndDropsAnInvalidOne() throws {
+        let format = custom("{CATEGORY}/{NAME}", separator: .dash)
+        #expect(try JSONDecoder().decode(FileNameFormat.self, from: JSONEncoder().encode(format)) == format)
+        let invalid = try JSONDecoder().decode(FileNameFormat.self, from: Data(#"{"isCustom":true,"template":"{FOO}"}"#.utf8))
+        #expect(invalid == FileNameFormat())
     }
 }

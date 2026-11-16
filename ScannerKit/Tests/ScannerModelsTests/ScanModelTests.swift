@@ -216,4 +216,18 @@ struct ScanModelTests {
         #expect(url == fixture.store.pdfURL(of: model.scan))
         #expect(size > 1000)
     }
+
+    @Test func aSuggestedNameLeavesOutTheDetailsTheFormatShows() throws {
+        let fixture = try Fixture()
+        fixture.settings.value.fileNameFormat = FileNameFormat(isCustom: true, template: "{CATEGORY} {ISSUER} {NAME}")
+        var scan = Scan(name: "Scan", title: "Facture Lumen Energy")
+        scan.suggestions = ["Facture Lumen Energy"]
+        scan.suggestedParts = SuggestedParts(type: "Facture", issuer: "Lumen Energy")
+        scan.details = DocumentDetails(category: .invoice, issuer: "Lumen Energy")
+        let model = ScanModel(scan: scan, processor: fixture.processor, settings: fixture.settings)
+        #expect(model.fileName(for: "Facture Lumen Energy") == "Invoice Lumen Energy")
+        #expect(model.fileName(for: "December") == "Invoice Lumen Energy December")
+        model.rename("Facture Lumen Energy")
+        #expect(model.scan.name == "Invoice Lumen Energy")
+    }
 }

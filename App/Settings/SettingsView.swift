@@ -44,7 +44,7 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Label("\(settings.value.fileNameFormat.fileName(name: "Lumen Energy invoice", documentDate: nil, scanDate: .now)).pdf", systemImage: "doc")
+                    Label("\(settings.value.fileNameFormat.fileName(name: "Lumen Energy invoice", scanDate: .now)).pdf", systemImage: "doc")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                     Picker("Date", selection: $settings.value.fileNameFormat.datePosition) {

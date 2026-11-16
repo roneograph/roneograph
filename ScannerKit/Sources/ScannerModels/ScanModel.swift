@@ -13,6 +13,7 @@ public final class ScanModel: Identifiable {
     /// What the PDF depends on; a change triggers a new PDF.
     public struct PDFInputs: Equatable {
         var name: String
+        var title: String
         var pages: [ScanPage]
     }
 
@@ -42,13 +43,15 @@ public final class ScanModel: Identifiable {
     }
 
     public var store: ScanStore { processor.store }
-    public var pdfInputs: PDFInputs { PDFInputs(name: scan.name, pages: scan.pages) }
+    public var pdfInputs: PDFInputs { PDFInputs(name: scan.fileName, title: scan.title, pages: scan.pages) }
     public var fallbackTitle: String { namer.fallback(for: scan.created) }
     public var isBusy: Bool { processing > 0 || updating > 0 }
 
-    /// The file name a name gets with the format from the settings, before avoiding collisions.
-    public func fileName(for title: String) -> String {
-        settings.value.fileNameFormat.fileName(name: title, documentDate: scan.details.date, scanDate: scan.created)
+    /// The file name a name and details get with the format from the settings, before avoiding collisions.
+    /// A name the user typed is kept as typed; a suggested one leaves out what a custom format already shows.
+    public func fileName(for title: String, details: DocumentDetails? = nil) -> String {
+        let isSuggested = (!scan.isNamedByUser && title == scan.title) || scan.suggestions.contains(title)
+        return settings.value.fileNameFormat.fileName(name: title, details: details ?? scan.details, scanDate: scan.created, suggestedParts: isSuggested ? scan.suggestedParts : nil)
     }
 
     public func previewURL(of page: ScanPage) -> URL { store.previewURL(scanID: scan.id, pageID: page.id) }
@@ -104,6 +107,7 @@ public final class ScanModel: Identifiable {
             processor.nameSuggestions(for: page, scanID: scanID, date: date)
         }).value, !isDeleted else { return }
         scan.suggestions = suggestions.names
+        scan.suggestedParts = suggestions.document.parts
         scan.details.date = suggestions.date
         if !scan.isNamedByUser, let first = suggestions.names.first {
             scan.title = settings.learnedName(for: first) ?? first
@@ -183,9 +187,9 @@ public final class ScanModel: Identifiable {
         applyFileName()
     }
 
-    /// Derives the file name from the name, after a rename or a change of format in Settings.
+    /// Derives the file name from the name and details, after a change of either or of the format in Settings.
     public func applyFileName() {
-        let old = scan.name
+        let old = scan.fileName
         scan.name = store.availableName(fileName(for: scan.title), for: scan, separator: settings.value.fileNameFormat.separator.character)
         if !old.isEmpty { store.movePDF(from: old, to: scan) }
         save()
