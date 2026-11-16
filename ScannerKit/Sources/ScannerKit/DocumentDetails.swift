@@ -12,15 +12,6 @@ public struct DocumentCategory: Hashable, Sendable, Codable, RawRepresentable, C
         rawValue = name
     }
 
-    public init(from decoder: Decoder) throws {
-        rawValue = try decoder.singleValueContainer().decode(String.self)
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        try container.encode(rawValue)
-    }
-
     public static func < (lhs: Self, rhs: Self) -> Bool {
         lhs.rawValue.localizedStandardCompare(rhs.rawValue) == .orderedAscending
     }
@@ -39,8 +30,6 @@ public struct DocumentCategory: Hashable, Sendable, Codable, RawRepresentable, C
     public static let other = Self("Other")
 
     public static let builtIn: [Self] = [.invoice, .receipt, .quote, .contract, .payslip, .bankStatement, .taxNotice, .insurance, .medical, .certificate, .letter, .other]
-
-    public var isBuiltIn: Bool { Self.builtIn.contains(self) }
 }
 
 /// The details of a document, detected from its text and editable by the user.

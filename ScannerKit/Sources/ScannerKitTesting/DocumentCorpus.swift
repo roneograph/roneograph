@@ -40,15 +40,6 @@ public struct CorpusDocument: Sendable {
 }
 
 public enum DocumentCorpus {
-    /// The names and addresses of the people receiving the corpus documents, one per language.
-    public static let ownTexts = [
-        "Jordan Ellery", "14 Willow Crescent", "Bramford BR4 7QT",
-        "Camille Rouvière", "8 rue des Glycines", "69007 Lyon",
-        "Lena Brückner", "Lindenweg 12", "04109 Leipzig",
-        "Lucía Ferrándiz Soler", "Calle del Olmo 23, 3º B", "28014 Madrid",
-        "Giulia Fabbretti", "Via dei Gelsomini 9", "40125 Bologna",
-    ]
-
     /// The fingerprints of the lines a user would have learned as their own: their name and address lines.
     public static var ownLines: Set<String> {
         let markers = ["Ellery", "14 Willow Crescent", "BR4 7QT", "Rouvière", "Glycines", "69007 Lyon", "Brückner", "Lindenweg", "04109 Leipzig", "Ferrándiz", "Calle del Olmo", "28014 Madrid", "Fabbretti", "Gelsomini", "40125 Bologna"]

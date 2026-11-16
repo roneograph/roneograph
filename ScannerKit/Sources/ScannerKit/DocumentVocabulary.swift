@@ -274,8 +274,7 @@ enum DocumentVocabulary {
         "déposé le", "posted", "aufgegeben am", "imbucato",
     ]
 
-    /// Words between two dates of a period, or before its first date.
-    static let periodStarts = ["du", "from", "vom", "dal", "del", "période", "period", "zeitraum", "periodo"]
+    /// Words between the two dates of a period.
     static let periodEnds = ["au", "to", "bis", "al", "-", "–", "hasta"]
 
     // MARK: Issuer
