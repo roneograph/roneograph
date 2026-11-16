@@ -1,5 +1,6 @@
 import Foundation
 import ScannerKit
+import ScannerKitTesting
 import ScannerModels
 import Testing
 
@@ -52,6 +53,42 @@ struct WordingTests {
         #expect(remembered.learning(forName: "Lumen electricity") == "Replaces the name remembered for Lumen Energy. The next documents from Lumen Energy will be named the same way.")
         #expect(remembered.learning(forName: "Invoice Lumen Energy") == "The name remembered for Lumen Energy will be forgotten.")
         #expect(remembered.learning(forName: "") == nil)
+    }
+
+    @Test func saysWhereEachScanIsOnHome() {
+        var scan = Scan(name: "bill", title: "Water bill")
+        scan.pages = [ScanPage(quad: nil, analysis: .sample)]
+        #expect(scan.status == "In progress · 1 page")
+        scan.isFinished = true
+        #expect(scan.status == "Not sent · now · 1 page")
+        scan.sent = Date()
+        scan.sentBy = .share
+        #expect(scan.status == "Shared now · 1 page")
+        scan.sent = Date().addingTimeInterval(-3 * 86400)
+        #expect(scan.status.hasPrefix("Shared "))
+        #expect(!scan.status.contains("now"))
+    }
+
+    @MainActor
+    @Test func summarizesThePDFsToSend() async throws {
+        let fixture = try Fixture()
+        let first = await fixture.scanModel(pages: 1)
+        let second = await fixture.scanModel(pages: 2)
+        #expect([ScanModel]().selectionSummary == "Select the scans to send")
+        #expect(second.summary == "2 pages · preparing the PDF…")
+        #expect([first, second].selectionSummary == "2 documents · 3 pages · preparing the PDFs…")
+
+        await first.preparePDF()
+        await second.preparePDF()
+        guard case .ready(_, let firstSize) = first.pdf, case .ready(_, let secondSize) = second.pdf else {
+            Issue.record("PDFs not ready")
+            return
+        }
+        #expect(second.summary == "2 pages · \(ByteCountFormatter.string(fromByteCount: Int64(secondSize), countStyle: .file))")
+        #expect([first, second].selectionSummary == "2 documents · 3 pages · \(ByteCountFormatter.string(fromByteCount: Int64(firstSize + secondSize), countStyle: .file))")
+
+        second.rename("Water bill")
+        #expect(second.summary == "2 pages · preparing the PDF…")
     }
 
     @Test func namesPageLooks() {

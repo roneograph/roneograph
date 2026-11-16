@@ -145,23 +145,11 @@ struct HomeView: View {
     @ViewBuilder
     private var selectionSummary: some View {
         let selected = selected
-        if selected.isEmpty {
-            Text("Select the scans to send")
-        } else {
-            let documents = selected.count.counted("document"), pages = selected.reduce(0) { $0 + $1.scan.pages.count }.counted("page")
-            if isReady {
-                let size = selected.reduce(0) { total, model in
-                    if case .ready(_, let size) = model.pdf { total + size } else { total }
-                }
-                Text("\(documents) · \(pages) · \(ByteCountFormatter.string(fromByteCount: Int64(size), countStyle: .file))")
-            } else {
-                Text("\(documents) · \(pages) · preparing the PDFs…")
-            }
-            if let warning = selected.map(\.scan).alreadySent {
-                Label(warning, systemImage: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.orange)
-                    .lineLimit(1)
-            }
+        Text(selected.selectionSummary)
+        if let warning = selected.map(\.scan).alreadySent {
+            Label(warning, systemImage: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+                .lineLimit(1)
         }
     }
 
@@ -262,22 +250,17 @@ private struct ScanRow: View {
 
     @ViewBuilder
     private var status: some View {
-        let pages = scan.pages.count.counted("page")
         if !scan.isFinished {
-            Text("In progress · \(pages)").foregroundStyle(.tint)
-        } else if let sent = scan.sent {
+            Text(scan.status).foregroundStyle(.tint)
+        } else if scan.sent != nil {
             HStack(spacing: 4) {
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                Text("\((scan.sentBy ?? .email).pastTense) \(Self.relative(sent)) · \(pages)").foregroundStyle(.secondary)
+                Text(scan.status).foregroundStyle(.secondary)
             }
             .lineLimit(1)
         } else {
-            Text("Not sent · \(Self.relative(scan.created)) · \(pages)").foregroundStyle(.orange).lineLimit(1)
+            Text(scan.status).foregroundStyle(.orange).lineLimit(1)
         }
-    }
-
-    private static func relative(_ date: Date) -> String {
-        date.timeIntervalSinceNow > -60 ? "now" : date.formatted(.relative(presentation: .named))
     }
 }
 

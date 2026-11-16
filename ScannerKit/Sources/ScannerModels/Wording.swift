@@ -1,3 +1,4 @@
+import Foundation
 import ScannerKit
 
 extension Int {
@@ -84,6 +85,54 @@ extension Collection<RememberedValue> {
         let words = sorted().map(\.rawValue)
         let text = words.count <= 1 ? words.joined() : words.dropLast().joined(separator: ", ") + " and " + words.last!
         return text.prefix(1).uppercased() + text.dropFirst()
+    }
+}
+
+extension Scan {
+    /// Under the scan's name on Home: "In progress · 2 pages", "Emailed yesterday · 1 page", "Not sent · now · 3 pages".
+    public var status: String {
+        let pages = pages.count.counted("page")
+        if !isFinished { return "In progress · \(pages)" }
+        if let sent { return "\((sentBy ?? .email).pastTense) \(Self.relative(sent)) · \(pages)" }
+        return "Not sent · \(Self.relative(created)) · \(pages)"
+    }
+
+    private static func relative(_ date: Date) -> String {
+        date.timeIntervalSinceNow > -60 ? "now" : date.formatted(.relative(presentation: .named))
+    }
+}
+
+extension Int {
+    /// A size in bytes, as for files: "1.2 MB".
+    var fileSize: String {
+        ByteCountFormatter.string(fromByteCount: Int64(self), countStyle: .file)
+    }
+}
+
+extension ScanModel {
+    /// Under the send buttons in Review: "3 pages · 1.2 MB", or where the PDF is at.
+    public var summary: String {
+        let pages = (scan.pages.count + processing).counted("page")
+        if let size = [self].currentPDFSize { return "\(pages) · \(size.fileSize)" }
+        return pdf == .failed ? "\(pages) · the PDF could not be made" : "\(pages) · preparing the PDF…"
+    }
+}
+
+@MainActor
+extension Collection<ScanModel> {
+    /// Under the send buttons on Home: "2 documents · 5 pages · 1.2 MB", or that the PDFs are being made.
+    public var selectionSummary: String {
+        guard !isEmpty else { return "Select the scans to send" }
+        let pages = reduce(0) { $0 + $1.scan.pages.count }.counted("page")
+        return "\(count.counted("document")) · \(pages) · \(currentPDFSize?.fileSize ?? "preparing the PDFs…")"
+    }
+
+    /// The size of the PDFs, once each is made from its scan as it is now.
+    var currentPDFSize: Int? {
+        guard !isEmpty, allSatisfy(\.hasCurrentPDF) else { return nil }
+        return reduce(0) { total, model in
+            if case .ready(_, let size) = model.pdf { total + size } else { total }
+        }
     }
 }
 
