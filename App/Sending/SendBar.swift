@@ -14,14 +14,13 @@ struct SendBar<Summary: View>: View {
     @State private var showingMail = false
     @State private var showingShare = false
     @State private var showingEmailQuestion = false
-    @State private var mailAfterQuestion = false
+    @State private var answeredQuestion = false
     @State private var confirmingDelete = false
     @State private var choosingFolder = false
     @State private var savingFailed = false
     /// The owner the folder picker and the email question are for.
     @State private var ownerID: UUID?
-    /// The scans still to email, one mail per owner, the first one being sent.
-    @State private var mails: [[ScanModel]] = []
+    @State private var mails: MailQueue?
     /// Set when the PDFs went out, acted on once the mail or share sheet is gone.
     @State private var sentBy: SendMethod?
 
@@ -66,22 +65,18 @@ struct SendBar<Summary: View>: View {
             Button(scans.count > 1 ? "Delete \(scans.count) Scans" : "Delete Scan", role: .destructive, action: delete)
         }
         .sheet(isPresented: $showingMail, onDismiss: finishMail) {
-            let group = mails.first ?? []
-            let owner = group.first?.owner
-            MailView(recipient: owner?.hasValidEmail == true ? owner?.email : nil, subject: group.map(\.scan).mailSubject, attachments: pdfs(of: group)) { sent in
+            let mail = mails?.scans ?? []
+            MailView(recipient: mails?.recipient, subject: mail.map(\.scan).mailSubject, attachments: pdfs(of: mail)) { sent in
                 if sent { sentBy = .email }
             }
             .ignoresSafeArea()
         }
         .sheet(isPresented: $showingEmailQuestion, onDismiss: {
-            if mailAfterQuestion {
-                mailAfterQuestion = false
-                showingMail = true
-            } else {
-                mails = []
-            }
+            mails?.closeQuestion(answered: answeredQuestion)
+            answeredQuestion = false
+            nextMail()
         }) {
-            EmailQuestionView(settings: app.settings, ownerID: ownerID) { mailAfterQuestion = true }
+            EmailQuestionView(settings: app.settings, ownerID: ownerID) { answeredQuestion = true }
                 .presentationDetents([.medium])
         }
         .sheet(isPresented: $showingShare, onDismiss: finishSharing) {
@@ -115,16 +110,10 @@ struct SendBar<Summary: View>: View {
         finished(Set(scans.map(\.id)))
     }
 
-    /// Confirms the mail just sent, then opens the next owner's; a cancelled mail stops the others.
     private func finishMail() {
-        guard sentBy != nil, let group = mails.first else {
-            mails = []
-            return
-        }
+        let sent = mails?.closeMail(sent: sentBy != nil) ?? []
         sentBy = nil
-        mails.removeFirst()
-        app.didSend(group, by: .email)
-        finished(Set(group.map(\.id)))
+        if !sent.isEmpty { finished(Set(sent.map(\.id))) }
         nextMail()
     }
 
@@ -152,18 +141,20 @@ struct SendBar<Summary: View>: View {
         if !MFMailComposeViewController.canSendMail() {
             showingShare = true
         } else {
-            mails = app.byOwner(scans).map(\.scans)
+            mails = MailQueue(scans, app: app)
             nextMail()
         }
     }
 
     private func nextMail() {
-        guard let owner = mails.first?.first?.owner else { return }
-        if app.settings.shouldAskForEmail(for: owner.id) {
-            ownerID = owner.id
+        switch mails?.step {
+        case .askEmail(let id):
+            ownerID = id
             showingEmailQuestion = true
-        } else {
+        case .compose:
             showingMail = true
+        case .done, nil:
+            mails = nil
         }
     }
 
