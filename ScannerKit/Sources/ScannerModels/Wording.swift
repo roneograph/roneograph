@@ -121,11 +121,17 @@ extension ScanModel {
 
 @MainActor
 extension Collection<ScanModel> {
-    /// Under the send buttons on Home: "2 documents · 5 pages · 1.2 MB", or that the PDFs are being made.
+    /// Under the send buttons on Home: "2 documents · 5 pages · 1.2 MB", or where the PDFs are at.
     public var selectionSummary: String {
         guard !isEmpty else { return "Select the scans to send" }
         let pages = reduce(0) { $0 + $1.scan.pages.count }.counted("page")
-        return "\(count.counted("document")) · \(pages) · \(currentPDFSize?.fileSize ?? "preparing the PDFs…")"
+        let failed = filter { $0.pdf == .failed }.count
+        let state = switch failed {
+        case 0: currentPDFSize?.fileSize ?? "preparing the PDFs…"
+        case 1: count == 1 ? "the PDF could not be made" : "a PDF could not be made"
+        default: "\(failed) PDFs could not be made"
+        }
+        return "\(count.counted("document")) · \(pages) · \(state)"
     }
 
     /// The size of the PDFs, once each is made from its scan as it is now.

@@ -91,6 +91,23 @@ struct WordingTests {
         #expect(second.summary == "2 pages · preparing the PDF…")
     }
 
+    @MainActor
+    @Test func saysWhenAPDFCouldNotBeMade() async throws {
+        let fixture = try Fixture()
+        let first = await fixture.scanModel(pages: 1)
+        let second = await fixture.scanModel(pages: 1)
+        await first.preparePDF()
+        for model in [first, second] {
+            for page in model.scan.pages { try FileManager.default.removeItem(at: fixture.store.flatURL(scanID: model.id, pageID: page.id)) }
+        }
+        await second.preparePDF()
+        #expect(second.summary == "1 page · the PDF could not be made")
+        #expect([second].selectionSummary == "1 document · 1 page · the PDF could not be made")
+        #expect([first, second].selectionSummary == "2 documents · 2 pages · a PDF could not be made")
+        await first.buildPDF(delay: .zero)
+        #expect([first, second].selectionSummary == "2 documents · 2 pages · 2 PDFs could not be made")
+    }
+
     @Test func namesPageLooks() {
         #expect(PageLook.allCases.map(\.title) == ["Gray", "Color"])
     }
