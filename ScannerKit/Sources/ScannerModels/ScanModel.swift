@@ -33,7 +33,6 @@ public final class ScanModel: Identifiable {
     var didSave: (() -> Void)?
     private var queue: Task<Void, Never>?
     private var isDeleted = false
-    private let namer = FileNamer()
     private let now: @Sendable () -> Date
 
     public init(scan: Scan, processor: ScanProcessor, settings: SettingsStore, now: @escaping @Sendable () -> Date = Date.init) {
@@ -46,9 +45,9 @@ public final class ScanModel: Identifiable {
 
     private var store: ScanStore { processor.store }
     public var pdfInputs: PDFInputs { PDFInputs(name: scan.fileName, title: scan.title, pages: scan.pages) }
-    public var fallbackTitle: String { namer.fallback(for: scan.created) }
+    public var fallbackTitle: String { FileNamer.fallback(for: scan.created) }
     /// The name a typed name becomes: trimmed, with single spaces, the first suggestion or the date when empty.
-    public func finalName(_ name: String) -> String { namer.finalName(name, fallback: scan.suggestions.first ?? fallbackTitle) }
+    public func finalName(_ name: String) -> String { FileNamer.finalName(name, fallback: scan.suggestions.first ?? fallbackTitle) }
     public var isBusy: Bool { processing > 0 || updating > 0 }
     /// The name remembered for the issuer, while it is the name of the scan.
     public var rememberedName: String? { scan.remembered.contains(.name) ? scan.title : nil }
@@ -125,7 +124,7 @@ public final class ScanModel: Identifiable {
             if category != document.details.category { remembered.insert(.category) }
             document.details.category = category
         }
-        let names = namer.names(for: document.parts, date: date)
+        let names = FileNamer.names(for: document.parts, date: date)
         scan.suggestions = names
         scan.suggestedParts = document.parts
         scan.issuerKeys = document.issuerKeys
@@ -135,7 +134,7 @@ public final class ScanModel: Identifiable {
             scan.details = document.details
         }
         if !scan.isNamedByUser, let first = names.first {
-            let learnedName = learned?.name.map { namer.finalName($0.name(details: document.details, date: document.details.date ?? date), fallback: first) }
+            let learnedName = learned?.name.map { FileNamer.finalName($0.name(details: document.details, date: document.details.date ?? date), fallback: first) }
             scan.title = learnedName ?? first
             if let learnedName, learnedName != first { remembered.insert(.name) }
         }
@@ -239,7 +238,7 @@ public final class ScanModel: Identifiable {
             if restored.contains(.category) { details.category = read.details.category }
         }
         let followsSuggestion = restored.contains(.name) || (!scan.isNamedByUser && scan.title == scan.suggestions.first)
-        let names = namer.names(for: parts, date: scan.created)
+        let names = FileNamer.names(for: parts, date: scan.created)
         scan.details = details
         scan.suggestedParts = parts
         scan.suggestions = names
@@ -294,7 +293,7 @@ public final class ScanModel: Identifiable {
         if details.number != old.number { parts.number = details.number }
         guard parts != scan.suggestedParts else { return }
         let followsSuggestion = !scan.isNamedByUser && scan.title == scan.suggestions.first
-        let names = namer.names(for: parts, date: scan.created)
+        let names = FileNamer.names(for: parts, date: scan.created)
         scan.suggestedParts = parts
         scan.suggestions = names
         if followsSuggestion, let first = names.first { scan.title = first }

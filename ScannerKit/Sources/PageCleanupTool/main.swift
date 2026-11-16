@@ -16,7 +16,6 @@ let context = CIContext()
 let cleaner = PageCleaner(context: context)
 let extractor = PageExtractor(context: context)
 let writer = PDFWriter(context: context)
-let namer = FileNamer()
 var pdfPages: [PDFPageContent] = []
 
 for path in arguments.dropFirst() {
@@ -38,7 +37,7 @@ for path in arguments.dropFirst() {
             pdfPages.append(PDFPageContent(image: image, look: analysis.suggestedLook, textLineHeight: analysis.textLineHeight, text: lines))
             let document = DocumentDetector().detect(lines: lines, aspectRatio: image.extent.width / image.extent.height)
             let details = document.details
-            print("  names: \(namer.names(for: document.parts, date: .now))")
+            print("  names: \(FileNamer.names(for: document.parts, date: .now))")
             print("  details: \(details.category.rawValue) · issuer \(details.issuer ?? "-") · date \(details.date.map(FileNamer.isoDate) ?? "-") · number \(details.number ?? "-") · keys \(document.issuerKeys)")
         }
         guard let data = extractor.jpegData(of: image, quality: 0.8) else { continue }

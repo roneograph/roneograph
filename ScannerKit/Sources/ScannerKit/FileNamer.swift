@@ -16,31 +16,29 @@ public struct TextLine: Equatable, Sendable {
 }
 
 /// Suggests file names from what was read on a page and keeps names valid for file systems and mail apps.
-public struct FileNamer: Sendable {
+public enum FileNamer {
     public static let forbidden = Set("/\\:*?\"<>|")
-    public var maximumLength = 80
-
-    public init() {}
+    public static let maximumLength = 80
 
     /// Replaces the characters file systems or mail apps reject by a dash, as the user types.
-    public func sanitize(_ name: String) -> String {
+    public static func sanitize(_ name: String) -> String {
         var result = String(name.map { Self.forbidden.contains($0) || $0.isNewline ? "-" : $0 }.filter { !$0.unicodeScalars.allSatisfy(\.properties.isDefaultIgnorableCodePoint) })
         while result.hasPrefix(".") { result.removeFirst() }
         return String(result.prefix(maximumLength))
     }
 
     /// The final name: sanitized, trimmed, never empty.
-    public func finalName(_ name: String, fallback: String) -> String {
+    public static func finalName(_ name: String, fallback: String) -> String {
         let trimmed = sanitize(name).trimmingCharacters(in: .whitespaces).replacing(/\ {2,}/, with: " ")
         return trimmed.isEmpty ? fallback : trimmed
     }
 
-    public func fallback(for date: Date) -> String {
-        "Scan \(Self.isoDate(date))"
+    public static func fallback(for date: Date) -> String {
+        "Scan \(isoDate(date))"
     }
 
     /// Up to two names, best first, or the fallback name when the page says nothing useful.
-    public func names(for parts: SuggestedParts, date: Date) -> [String] {
+    public static func names(for parts: SuggestedParts, date: Date) -> [String] {
         let typeAndIssuer = [parts.type, parts.issuer].compactMap { $0 }.joined(separator: " ")
         let typeAndNumber = parts.type.flatMap { type in parts.number.map { "\(type) \($0)" } }
         let best = parts.issuer == nil ? typeAndNumber ?? parts.type : typeAndIssuer

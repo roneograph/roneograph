@@ -12,7 +12,6 @@ struct NameView: View {
     @State private var selection: TextSelection?
     @FocusState private var focused: Bool
     @Environment(\.dismiss) private var dismiss
-    private let namer = FileNamer()
 
     var body: some View {
         NavigationStack {
@@ -90,7 +89,7 @@ struct NameView: View {
                 }
             }
             .onChange(of: name) { _, value in
-                let sanitized = namer.sanitize(value)
+                let sanitized = FileNamer.sanitize(value)
                 if sanitized != value { name = sanitized }
             }
             .onChange(of: scan.scan.title) { _, title in

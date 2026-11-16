@@ -32,7 +32,7 @@ public struct ArchiveFolder: Equatable, Sendable, Codable {
         var result: Result<URL, Error> = .failure(SaveError.unavailable)
         NSFileCoordinator().coordinate(writingItemAt: folder, options: [], error: &coordinationError) { folder in
             result = Result {
-                var components = name.split(separator: "/").map { FileNamer().finalName(String($0), fallback: "") }.filter { !$0.isEmpty && $0 != "." && $0 != ".." }
+                var components = name.split(separator: "/").map { FileNamer.finalName(String($0), fallback: "") }.filter { !$0.isEmpty && $0 != "." && $0 != ".." }
                 guard let fileName = components.popLast() else { throw SaveError.unavailable }
                 let directory = components.reduce(folder) { $0.appending(path: $1, directoryHint: .isDirectory) }
                 try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)

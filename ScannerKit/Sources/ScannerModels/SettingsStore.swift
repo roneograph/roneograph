@@ -108,7 +108,7 @@ public final class SettingsStore {
     /// Adds a category of the user's; returns it, or the existing category with the same name.
     @discardableResult
     public func addCategory(_ name: String) -> DocumentCategory? {
-        let name = FileNamer().finalName(name, fallback: "")
+        let name = FileNamer.finalName(name, fallback: "")
         guard !name.isEmpty else { return nil }
         if let existing = value.allCategories.first(where: { $0.rawValue.caseInsensitiveCompare(name) == .orderedSame }) { return existing }
         let category = DocumentCategory(name)

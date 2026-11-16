@@ -3,43 +3,42 @@ import ScannerKit
 import Testing
 
 struct FileNamerTests {
-    let namer = FileNamer()
     let today = Date(timeIntervalSince1970: 1_794_700_000)
 
     @Test func replacesForbiddenCharactersByADash() {
-        #expect(namer.sanitize("Invoice 12/2026: \"final\"?") == "Invoice 12-2026- -final--")
-        #expect(namer.sanitize("..hidden") == "hidden")
-        #expect(namer.sanitize("line\nbreak") == "line-break")
+        #expect(FileNamer.sanitize("Invoice 12/2026: \"final\"?") == "Invoice 12-2026- -final--")
+        #expect(FileNamer.sanitize("..hidden") == "hidden")
+        #expect(FileNamer.sanitize("line\nbreak") == "line-break")
     }
 
     @Test func finalNameIsTrimmedAndNeverEmpty() {
-        #expect(namer.finalName("  Lumen   invoice ", fallback: "Scan") == "Lumen invoice")
-        #expect(namer.finalName("   ", fallback: "Scan") == "Scan")
+        #expect(FileNamer.finalName("  Lumen   invoice ", fallback: "Scan") == "Lumen invoice")
+        #expect(FileNamer.finalName("   ", fallback: "Scan") == "Scan")
     }
 
     @Test func limitsTheLength() {
-        #expect(namer.sanitize(String(repeating: "a", count: 200)).count == 80)
+        #expect(FileNamer.sanitize(String(repeating: "a", count: 200)).count == 80)
     }
 
     @Test func suggestsTheTypeWithTheIssuerThenWithTheNumber() {
         let parts = SuggestedParts(type: "Facture", issuer: "Office du Tourisme", number: "2026FA0004711")
-        #expect(namer.names(for: parts, date: today) == ["Facture Office du Tourisme", "Facture 2026FA0004711"])
+        #expect(FileNamer.names(for: parts, date: today) == ["Facture Office du Tourisme", "Facture 2026FA0004711"])
     }
 
     @Test func suggestsTheTypeWithTheNumberWithoutAnIssuer() {
-        #expect(namer.names(for: SuggestedParts(type: "Invoice", number: "1234"), date: today) == ["Invoice 1234"])
+        #expect(FileNamer.names(for: SuggestedParts(type: "Invoice", number: "1234"), date: today) == ["Invoice 1234"])
     }
 
     @Test func usesTheIssuerAloneWithoutAType() {
-        #expect(namer.names(for: SuggestedParts(issuer: "Lumen Energy", number: "1234"), date: today) == ["Lumen Energy"])
+        #expect(FileNamer.names(for: SuggestedParts(issuer: "Lumen Energy", number: "1234"), date: today) == ["Lumen Energy"])
     }
 
     @Test func keepsSuggestionsValid() {
-        #expect(namer.names(for: SuggestedParts(type: "Invoice", issuer: "Lumen: Energy"), date: today) == ["Invoice Lumen- Energy"])
+        #expect(FileNamer.names(for: SuggestedParts(type: "Invoice", issuer: "Lumen: Energy"), date: today) == ["Invoice Lumen- Energy"])
     }
 
     @Test func fallsBackToTheDateWithoutParts() {
-        #expect(namer.names(for: SuggestedParts(), date: today) == ["Scan \(isoToday)"])
+        #expect(FileNamer.names(for: SuggestedParts(), date: today) == ["Scan \(isoToday)"])
     }
 
     private var isoToday: String { today.formatted(Date.ISO8601FormatStyle(timeZone: .current).year().month().day()) }

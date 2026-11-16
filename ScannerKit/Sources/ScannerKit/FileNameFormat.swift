@@ -243,7 +243,6 @@ extension FileNameFormat {
 
         func render(name: String, details: DocumentDetails, date: Date, scanDate: Date, suggestedParts: SuggestedParts?, format: FileNameFormat) -> [FileNameSegment] {
             let iso = FileNamer.isoDate(date)
-            let namer = FileNamer()
             let values: [Variable: String] = [
                 .name: suggestedParts.map { strip($0, dates: [date, scanDate], from: name) } ?? name,
                 .year: String(iso.prefix(4)),
@@ -253,7 +252,7 @@ extension FileNameFormat {
                 .category: details.category.rawValue,
                 .issuer: details.issuer ?? "",
                 .number: details.number ?? "",
-            ].mapValues { format.words(namer.sanitize($0)).joined(separator: format.separator.character) }
+            ].mapValues { format.words(FileNamer.sanitize($0)).joined(separator: format.separator.character) }
 
             let rendered = components.map { component in
                 var pieces = component.map { token -> (text: String?, source: FileNameSegment.Source) in
@@ -294,7 +293,7 @@ extension FileNameFormat {
             if variables.contains(.number), let number = parts.number { shown.append(number) }
             if !variables.isDisjoint(with: [.year, .shortYear, .month, .day]) { shown += dates.map(FileNamer.isoDate) }
             var result = name
-            for part in shown.map({ FileNamer().sanitize($0) }) where !part.isEmpty {
+            for part in shown.map(FileNamer.sanitize) where !part.isEmpty {
                 result = result.replacingOccurrences(of: part, with: " ", options: .caseInsensitive)
             }
             return result.split(whereSeparator: \.isWhitespace).joined(separator: " ").trimmingCharacters(in: .punctuationCharacters.union(.whitespaces))
@@ -326,7 +325,7 @@ public struct FileNameSegment: Equatable, Sendable {
             segments[last].text = String(segments[last].text.reversed().drop(while: \.isWhitespace).reversed())
         }
         let joined = segments.map(\.text).joined()
-        let final = FileNamer().finalName(joined, fallback: fallback)
+        let final = FileNamer.finalName(joined, fallback: fallback)
         return final == joined ? segments : [FileNameSegment(final, .text)]
     }
 }

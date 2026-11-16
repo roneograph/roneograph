@@ -45,7 +45,7 @@ public final class AppModel {
     @discardableResult
     public func startScan() -> ScanModel {
         let created = now()
-        let model = makeModel(Scan(created: created, name: "", title: FileNamer().fallback(for: created)))
+        let model = makeModel(Scan(created: created, name: "", title: FileNamer.fallback(for: created)))
         model.applyFileName()
         camera = model
         return model
