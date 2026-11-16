@@ -33,6 +33,17 @@ public enum FileNamer {
         return names.isEmpty ? [fallback(for: date)] : names
     }
 
+    /// The name, or the first of "name 2", "name 3" and so on that is not taken.
+    public static func available(_ name: String, separator: String, isTaken: (String) -> Bool) -> String {
+        var candidate = name
+        var number = 2
+        while isTaken(candidate) {
+            candidate = "\(name)\(separator)\(number)"
+            number += 1
+        }
+        return candidate
+    }
+
     /// "é" becomes "e", "œ" becomes "oe" and "ß" becomes "ss"; other scripts are kept.
     public static func withoutAccents(_ text: String) -> String {
         text.applyingTransform(StringTransform("Latin-ASCII"), reverse: false) ?? text

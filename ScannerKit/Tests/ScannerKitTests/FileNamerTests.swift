@@ -20,6 +20,12 @@ struct FileNamerTests {
         #expect(FileNamer.sanitize(String(repeating: "a", count: 200)).count == 80)
     }
 
+    @Test func numbersANameThatIsTaken() {
+        let taken: Set = ["Invoice", "Invoice-2"]
+        #expect(FileNamer.available("Invoice", separator: "-") { taken.contains($0) } == "Invoice-3")
+        #expect(FileNamer.available("Quote", separator: "-") { taken.contains($0) } == "Quote")
+    }
+
     @Test func suggestsTheTypeWithTheIssuerThenWithTheNumber() {
         let parts = SuggestedParts(type: "Facture", issuer: "Office du Tourisme", number: "2026FA0004711")
         #expect(FileNamer.names(for: parts, date: today) == ["Facture Office du Tourisme", "Facture 2026FA0004711"])

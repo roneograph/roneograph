@@ -46,12 +46,7 @@ public struct ArchiveFolder: Equatable, Sendable, Codable {
     }
 
     private static func availableURL(in folder: URL, name: String, separator: String) -> URL {
-        var url = folder.appending(path: "\(name).pdf")
-        var number = 2
-        while FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) {
-            url = folder.appending(path: "\(name)\(separator)\(number).pdf")
-            number += 1
-        }
-        return url
+        let url = { (name: String) in folder.appending(path: "\(name).pdf") }
+        return url(FileNamer.available(name, separator: separator) { FileManager.default.fileExists(atPath: url($0).path(percentEncoded: false)) })
     }
 }

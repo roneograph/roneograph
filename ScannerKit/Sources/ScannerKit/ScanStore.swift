@@ -72,13 +72,9 @@ public struct ScanStore: Sendable {
         let taken = Set(all().filter { $0.id != scan.id }.map { $0.fileName.lowercased() })
         let folders = name.split(separator: "/").dropLast().map { "\($0)/" }.joined()
         let fileName = Scan(name: name).fileName
-        var candidate = fileName
-        var counter = 2
-        while taken.contains(candidate.lowercased()) || (candidate != scan.fileName && FileManager.default.fileExists(atPath: documentsDirectory.appending(path: "\(candidate).pdf").path(percentEncoded: false))) {
-            candidate = "\(fileName)\(separator)\(counter)"
-            counter += 1
+        return folders + FileNamer.available(fileName, separator: separator) { candidate in
+            taken.contains(candidate.lowercased()) || (candidate != scan.fileName && FileManager.default.fileExists(atPath: documentsDirectory.appending(path: "\(candidate).pdf").path(percentEncoded: false)))
         }
-        return folders + candidate
     }
 
     /// Moves the PDF along with a renamed scan.
