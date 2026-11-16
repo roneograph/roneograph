@@ -3,7 +3,7 @@ import ScannerModels
 import SwiftUI
 
 /// What a row of the document card edits in a sheet.
-enum DocumentField: String, Identifiable {
+enum DocumentField: Identifiable {
     case name, issuer, number
 
     var id: Self { self }
