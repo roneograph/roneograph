@@ -39,8 +39,15 @@ struct FileNameFormatTests {
         #expect(FileNameFormat(datePosition: .start).fileName(name: "Lumen", scanDate: scanDate) == "2026-11-16 Lumen")
     }
 
-    @Test func keepsAccents() {
-        #expect(name(FileNameFormat(separator: .dash, lowercase: true), "Bénéficiaires effectifs") == "bénéficiaires-effectifs")
+    @Test func dropsAccents() {
+        #expect(name(FileNameFormat(separator: .dash, lowercase: true), "Facture d’électricité") == "facture-d-electricite")
+        #expect(name(FileNameFormat(), "Œuvre Straße Москва") == "OEuvre Strasse Москва")
+    }
+
+    @Test func dropsAccentsInACustomFormat() {
+        let format = FileNameFormat(isCustom: true, template: "Santé/{CATEGORY} {ISSUER} {NAME}")
+        let details = DocumentDetails(category: DocumentCategory(rawValue: "Reçu"), issuer: "Société Générale", date: date)
+        #expect(format.fileName(name: "Prêt", details: details, scanDate: scanDate) == "Sante/Recu Societe Generale Pret")
     }
 
     @Test func neverRepeatsTheDate() {

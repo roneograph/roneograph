@@ -73,6 +73,11 @@ public struct FileNamer: Sendable {
         return NameSuggestions(names: names.isEmpty ? [fallback(for: date)] : names, document: document)
     }
 
+    /// "é" becomes "e", "œ" becomes "oe" and "ß" becomes "ss"; other scripts are kept.
+    public static func withoutAccents(_ text: String) -> String {
+        text.applyingTransform(StringTransform("Latin-ASCII"), reverse: false) ?? text
+    }
+
     public static func isoDate(_ date: Date) -> String {
         date.formatted(Date.ISO8601FormatStyle(timeZone: .current).year().month().day())
     }

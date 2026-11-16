@@ -143,6 +143,7 @@ public struct FileNameFormat: Equatable, Sendable, Codable {
     }
 
     fileprivate func words(_ text: String) -> [String] {
+        let text = FileNamer.withoutAccents(text)
         let words = separator == .space
             ? text.split(whereSeparator: \.isWhitespace).map(String.init)
             : text.split { !($0.isLetter || $0.isNumber) }.map(String.init)
@@ -257,7 +258,7 @@ extension FileNameFormat {
             let rendered = components.map { component in
                 var pieces = component.map { token -> (text: String?, source: FileNameSegment.Source) in
                     switch token {
-                    case .text(let text): (format.separator == .space ? text : text.replacing(/\s+/, with: format.separator.character), .text)
+                    case .text(let text): (FileNamer.withoutAccents(format.separator == .space ? text : text.replacing(/\s+/, with: format.separator.character)), .text)
                     case .variable(let variable): (values[variable].flatMap { $0.isEmpty ? nil : $0 }, variable.source)
                     }
                 }
