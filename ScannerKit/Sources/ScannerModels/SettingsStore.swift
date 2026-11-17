@@ -5,10 +5,12 @@ import ScannerKit
 @MainActor @Observable
 public final class SettingsStore {
     public var value: ScannerSettings {
-        didSet { save() }
+        didSet { scheduleSave() }
     }
 
     private let defaults: UserDefaults
+    private let saveDelay: Duration
+    @ObservationIgnored private var pendingSave: Task<Void, Never>?
     /// The app's own folder in Files, where scan PDFs are deleted with their scans.
     private let appFolder: URL?
     private static let key = "settings"
@@ -25,9 +27,11 @@ public final class SettingsStore {
         }
     }
 
-    public init(defaults: UserDefaults = .standard, appFolder: URL? = nil) {
+    /// Changes are saved once they stop for `saveDelay`, or when `save()` is called.
+    public init(defaults: UserDefaults = .standard, appFolder: URL? = nil, saveDelay: Duration = .milliseconds(500)) {
         self.defaults = defaults
         self.appFolder = appFolder
+        self.saveDelay = saveDelay
         value = defaults.data(forKey: Self.key).flatMap { try? JSONDecoder().decode(ScannerSettings.self, from: $0) } ?? ScannerSettings()
     }
 
@@ -235,7 +239,21 @@ public final class SettingsStore {
         if !value.dismissedPageTip { value.dismissedPageTip = true }
     }
 
-    private func save() {
+    /// Saving encodes every setting, learned issuers and header lines included, so a burst of changes such as typing is saved once.
+    private func scheduleSave() {
+        pendingSave?.cancel()
+        pendingSave = Task { [weak self, saveDelay] in
+            try? await Task.sleep(for: saveDelay)
+            guard !Task.isCancelled else { return }
+            self?.save()
+        }
+    }
+
+    /// Saves the changes not saved yet, as when the app leaves the foreground, where it can be stopped at any time.
+    public func save() {
+        guard let pendingSave else { return }
+        pendingSave.cancel()
+        self.pendingSave = nil
         defaults.set(try? JSONEncoder().encode(value), forKey: Self.key)
     }
 }

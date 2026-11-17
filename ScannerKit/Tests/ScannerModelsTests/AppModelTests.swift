@@ -156,6 +156,17 @@ struct AppModelTests {
         #expect(second.scan.name == "Receipt 2")
     }
 
+    @Test func leavingTheForegroundSavesTheSettingsAtOnce() throws {
+        let fixture = try Fixture()
+        let settings = SettingsStore(defaults: fixture.defaults, saveDelay: .seconds(3600))
+        let app = AppModel(processor: fixture.processor, settings: settings)
+        settings.value.defaultOwner.email = "me@example.com"
+        #expect(SettingsStore(defaults: fixture.defaults).value.defaultOwner.email != "me@example.com")
+
+        app.setActive(false)
+        #expect(SettingsStore(defaults: fixture.defaults).value.defaultOwner.email == "me@example.com")
+    }
+
     @Test func doneOpensReview() async throws {
         let fixture = try Fixture()
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)

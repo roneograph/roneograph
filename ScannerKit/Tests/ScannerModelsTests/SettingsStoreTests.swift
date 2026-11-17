@@ -23,6 +23,32 @@ struct SettingsStoreTests {
         #expect(fixture.settings.value.defaultOwner.archiveFolder?.name == "Documents archive")
     }
 
+    @Test(.timeLimit(.minutes(1)))
+    func savesABurstOfChangesOnceTheyStop() async throws {
+        let fixture = try Fixture()
+        let defaults = try #require(CountingDefaults(suiteName: fixture.suite))
+        let settings = SettingsStore(defaults: defaults, saveDelay: .milliseconds(20))
+        for typed in ["m", "me", "me@", "me@example.com"] { settings.value.defaultOwner.email = typed }
+        #expect(defaults.writes == 0)
+
+        while defaults.writes == 0 { try await Task.sleep(for: .milliseconds(5)) }
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(defaults.writes == 1)
+        #expect(SettingsStore(defaults: defaults).value.defaultOwner.email == "me@example.com")
+    }
+
+    @Test func savingWithoutChangesWritesNothing() throws {
+        let fixture = try Fixture()
+        let defaults = try #require(CountingDefaults(suiteName: fixture.suite))
+        let settings = SettingsStore(defaults: defaults, saveDelay: .seconds(3600))
+        settings.save()
+        #expect(defaults.writes == 0)
+        settings.dismissPageTip()
+        settings.save()
+        settings.save()
+        #expect(defaults.writes == 1)
+    }
+
     @Test func asksForAnEmailOnlyWhenNoneIsSet() throws {
         let fixture = try Fixture()
         #expect(fixture.settings.shouldAskForEmail(for: nil))
@@ -34,6 +60,7 @@ struct SettingsStoreTests {
         let fixture = try Fixture()
         fixture.settings.answerEmailQuestion(" me@example.com ", for: nil)
         #expect(fixture.settings.value.defaultOwner.email == "me@example.com")
+        fixture.settings.save()
         #expect(!SettingsStore(defaults: fixture.defaults).shouldAskForEmail(for: nil))
     }
 
@@ -53,6 +80,7 @@ struct SettingsStoreTests {
         #expect(fixture.settings.learnedIssuer(for: []) == nil)
         fixture.settings.learn(keys: ["lumen-energy.example"]) { $0.category = DocumentCategory("House") }
         #expect(fixture.settings.value.learnedIssuers.count == 1)
+        fixture.settings.save()
         #expect(SettingsStore(defaults: fixture.defaults).learnedIssuer(for: ["lumen-energy.example"]) == LearnedIssuer(keys: ["lumen-energy.example"], issuer: "Lumen Energy", category: DocumentCategory("House")))
     }
 
@@ -86,6 +114,7 @@ struct SettingsStoreTests {
         #expect(fixture.settings.ownLines.isEmpty)
         fixture.settings.recordHeaderLines(["me", "street", "lumen"], issuerEvidence: ["lumen-energy.example"])
         #expect(fixture.settings.ownLines == ["me", "street"])
+        fixture.settings.save()
         #expect(SettingsStore(defaults: fixture.defaults).ownLines == ["me", "street"])
     }
 
@@ -140,6 +169,7 @@ struct SettingsStoreTests {
         #expect(holding.fileNameFormat == FileNameFormat(separator: .dash))
         #expect(fixture.settings.addOwner("fernwood holding")?.id == holding.id)
         #expect(fixture.settings.addOwner("  ") == nil)
+        fixture.settings.save()
         #expect(SettingsStore(defaults: fixture.defaults).value.owners.map(\.name) == ["Personal", "Fernwood Holding"])
     }
 
@@ -275,6 +305,7 @@ struct SettingsStoreTests {
         fixture.settings.addCategory("Apartment")
         #expect(fixture.settings.value.allCategories.suffix(3) == [DocumentCategory("Apartment"), DocumentCategory("Car"), .other])
         fixture.settings.removeCategory(DocumentCategory("Car"))
+        fixture.settings.save()
         #expect(SettingsStore(defaults: fixture.defaults).value.categories == [DocumentCategory("Apartment")])
     }
 
@@ -283,6 +314,16 @@ struct SettingsStoreTests {
         #expect(fixture.settings.showsPageTip)
         fixture.settings.dismissPageTip()
         #expect(!fixture.settings.showsPageTip)
+        fixture.settings.save()
         #expect(!SettingsStore(defaults: fixture.defaults).showsPageTip)
+    }
+}
+
+private final class CountingDefaults: UserDefaults, @unchecked Sendable {
+    private(set) var writes = 0
+
+    override func set(_ value: Any?, forKey key: String) {
+        writes += 1
+        super.set(value, forKey: key)
     }
 }

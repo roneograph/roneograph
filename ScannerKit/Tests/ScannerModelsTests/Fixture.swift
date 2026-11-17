@@ -12,7 +12,7 @@ final class Fixture {
     let settings: SettingsStore
     let processor: ScanProcessor
     let defaults: UserDefaults
-    private let suite = "ScannerModelsTests-\(UUID().uuidString)"
+    let suite = "ScannerModelsTests-\(UUID().uuidString)"
     /// Keeps the models alive, as the app model does.
     private var models: [ScanModel] = []
 
