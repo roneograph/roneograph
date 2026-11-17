@@ -33,9 +33,7 @@ struct SendBar: View {
     @State private var attachments: [MailAttachment] = []
     /// Set when the PDFs went out, acted on once the mail or share sheet is gone.
     @State private var sentBy: SendMethod?
-    @State private var settingUpSending = false
-    /// The owners the sending setup is for, kept while it is open.
-    @State private var sendingOwners: [UUID] = []
+    @State private var settingUpSending: SendingSetup?
 
     private func pdfs(of scans: [ScanModel]) -> [URL] {
         scans.compactMap { scan in
@@ -49,8 +47,7 @@ struct SendBar: View {
                 let methods = app.sendMethods(for: scans)
                 if methods.isEmpty {
                     Button("Set Up Sending…", systemImage: "paperplane") {
-                        sendingOwners = app.sendingOwners(for: scans).map(\.id)
-                        settingUpSending = true
+                        settingUpSending = SendingSetup(ownerIDs: app.sendingOwners(for: scans).map(\.id))
                     }
                     .buttonStyle(.glass)
                     .labelStyle(SendButtonLabelStyle(showsTitle: true))
@@ -102,8 +99,8 @@ struct SendBar: View {
             Button(scans.count > 1 ? "Delete \(scans.count) Scans" : "Delete Scan", role: .destructive, action: delete)
         }
         // Not on the button, which goes as soon as a way to send is set.
-        .sheet(isPresented: $settingUpSending) {
-            SendingSetupView(app: app, ownerIDs: sendingOwners)
+        .sheet(item: $settingUpSending) { setup in
+            SendingSetupView(app: app, ownerIDs: setup.ownerIDs)
         }
         .sheet(isPresented: $showingMail, onDismiss: finishMail) {
             MailView(recipient: mails?.recipient, subject: (mails?.scans ?? []).map(\.scan).mailSubject, attachments: attachments) { result in
@@ -287,6 +284,12 @@ private extension View {
     }
 }
 
+/// The owners whose ways to send are being set up, kept while the sheet is open.
+private struct SendingSetup: Identifiable {
+    let id = UUID()
+    let ownerIDs: [UUID]
+}
+
 /// Icon only, full width: the send buttons share the row equally.
 private struct SendButtonLabelStyle: LabelStyle {
     var showsTitle = false
@@ -295,7 +298,10 @@ private struct SendButtonLabelStyle: LabelStyle {
     func makeBody(configuration: Configuration) -> some View {
         Group {
             if showsTitle {
-                Label { configuration.title } icon: { configuration.icon }
+                HStack(spacing: 8) {
+                    configuration.icon
+                    configuration.title
+                }
             } else {
                 Label { configuration.title } icon: { configuration.icon }
                     .labelStyle(.iconOnly)
