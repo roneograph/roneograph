@@ -62,10 +62,12 @@ struct OwnerSections: View {
                     Button { settingUpPaperless = true } label: {
                         LabeledContent("Server", value: server.url.host() ?? server.url.absoluteString)
                     }
+                    .sheet(isPresented: $settingUpPaperless) { PaperlessSetupView(ownerID: owner.id, settings: settings, archiver: archiver) }
                     LabeledContent("Storage path", value: server.storagePath?.name ?? "Chosen by Paperless")
                     Button("Disconnect", role: .destructive) { PaperlessSetup.disconnect(owner.id, settings: settings, archiver: archiver) }
                 } else {
                     Button("Connect…") { settingUpPaperless = true }
+                        .sheet(isPresented: $settingUpPaperless) { PaperlessSetupView(ownerID: owner.id, settings: settings, archiver: archiver) }
                 }
             } header: {
                 Text("Paperless")
@@ -75,9 +77,6 @@ struct OwnerSections: View {
                 } else {
                     Text("The Archive button sends PDFs to this Paperless-ngx server, with their title and date.")
                 }
-            }
-            .sheet(isPresented: $settingUpPaperless) {
-                PaperlessSetupView(ownerID: owner.id, settings: settings, archiver: archiver)
             }
         }
 
