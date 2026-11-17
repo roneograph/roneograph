@@ -844,11 +844,29 @@ struct ScanModelTests {
     /// A scan whose first page reads as these lines from the top, instead of what is on its photo.
     private func scan(reading texts: [String], in fixture: Fixture) async -> ScanModel {
         let model = fixture.scanModel()
-        let lines = texts.enumerated().map { TextLine(text: $1, frame: CGRect(x: 0.08, y: 0.04 + Double($0) * 0.03, width: 0.4, height: 0.012)) }
+        let lines = textLines(texts)
         model.readDocument = { _, _, owners in DocumentDetector().detect(lines: lines, owners: owners) }
         model.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
         await model.waitUntilIdle()
         return model
+    }
+
+    /// These lines from the top of a page.
+    private func textLines(_ texts: [String]) -> [TextLine] {
+        texts.enumerated().map { TextLine(text: $1, frame: CGRect(x: 0.08, y: 0.04 + Double($0) * 0.03, width: 0.4, height: 0.012)) }
+    }
+
+    /// Makes the page read as these lines only once the returned closure is called, after `started` tells that the reading began.
+    private func holdReading(of model: ScanModel, reading texts: [String]) -> (started: AsyncStream<Void>, release: () -> Void) {
+        let lines = textLines(texts)
+        let (started, didStart) = AsyncStream<Void>.makeStream()
+        let (released, release) = AsyncStream<Void>.makeStream()
+        model.readDocument = { _, _, owners in
+            didStart.yield()
+            for await _ in released {}
+            return DocumentDetector().detect(lines: lines, owners: owners)
+        }
+        return (started, { release.finish() })
     }
 
     @Test func anOwnerNamedOnThePageWinsOverTheOneRememberedForTheIssuer() async throws {
@@ -969,6 +987,61 @@ struct ScanModelTests {
         model.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
         await model.waitUntilIdle()
         #expect(reads.count == 2)
+    }
+
+    @Test(.timeLimit(.minutes(1)))
+    func isReadingFromTheFirstPhotoUntilThePageIsRead() async throws {
+        let fixture = try Fixture()
+        let model = fixture.scanModel()
+        #expect(!model.isReading)
+        let reading = holdReading(of: model, reading: ["LUMEN ENERGY SAS", "Invoice"])
+
+        model.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
+        #expect(model.isReading)
+        for await _ in reading.started { break }
+        #expect(model.processing == 0)
+        #expect(model.isReading)
+
+        reading.release()
+        await model.waitUntilIdle()
+        #expect(model.scan.read != nil)
+        #expect(!model.isReading)
+    }
+
+    @Test(.timeLimit(.minutes(1)))
+    func isReadingAgainWhileTheNextPageIsReadAfterReadingFailed() async throws {
+        let fixture = try Fixture()
+        let model = fixture.scanModel()
+        model.readDocument = { _, _, _ in throw CancellationError() }
+        model.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
+        await model.waitUntilIdle()
+        #expect(model.scan.read == nil)
+        #expect(!model.isReading)
+
+        let reading = holdReading(of: model, reading: ["LUMEN ENERGY SAS", "Invoice"])
+        model.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
+        #expect(model.isReading)
+        for await _ in reading.started { break }
+        #expect(model.processing == 0)
+        #expect(model.isReading)
+
+        reading.release()
+        await model.waitUntilIdle()
+        #expect(model.scan.read != nil)
+        #expect(!model.isReading)
+    }
+
+    @Test func aStoredScanNeverReadIsNotBeingRead() async throws {
+        let fixture = try Fixture()
+        let model = fixture.scanModel()
+        model.readDocument = { _, _, _ in nil }
+        model.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
+        await model.waitUntilIdle()
+
+        let reopened = ScanModel(scan: try #require(fixture.store.all().first), processor: fixture.processor, settings: fixture.settings)
+        #expect(reopened.scan.pages.count == 1)
+        #expect(reopened.scan.read == nil)
+        #expect(!reopened.isReading)
     }
 
     @Test func closingTheSheetWithoutChangesKeepsWhatWasReadMeanwhile() async throws {

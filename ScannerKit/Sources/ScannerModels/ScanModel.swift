@@ -68,6 +68,10 @@ public final class ScanModel: Identifiable {
     public var processing: Int { scan.pending.count }
     public var isEmpty: Bool { scan.pages.isEmpty && scan.pending.isEmpty }
     public var isBusy: Bool { processing > 0 || updating > 0 }
+    /// Whether the first page is being read.
+    private var readsPage = false
+    /// True until the first page is read, while a page is still being processed or read; false once reading failed with nothing left in flight.
+    public var isReading: Bool { scan.read == nil && (processing > 0 || readsPage) }
     /// The name remembered for the issuer, while it is the name of the scan.
     public var rememberedName: String? { scan.remembered.contains(.name) ? scan.title : nil }
     /// Where the PDF goes and how it is named.
@@ -180,6 +184,8 @@ public final class ScanModel: Identifiable {
     /// When the page cannot be read, it is read again after the next page.
     private func suggestNames(from page: ScanPage) async {
         let readDocument = readDocument, scanID = scan.id, date = scan.created, owners = settings.value.ownerMatcher
+        readsPage = true
+        defer { readsPage = false }
         guard var document = try? await readDocument(page, scanID, owners), !isDeleted else { return }
         scan.read = ReadDocument(details: document.details, parts: document.parts)
         let learned = settings.learnedIssuer(for: document.issuerKeys)
