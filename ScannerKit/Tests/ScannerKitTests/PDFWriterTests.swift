@@ -20,6 +20,21 @@ struct PDFWriterTests {
         #expect(document.documentAttributes?[PDFDocumentAttribute.creatorAttribute] as? String == "Roneograph")
     }
 
+    @Test func writesPagesOneAtATimeLikeAllAtOnce() throws {
+        let writer = PDFWriter(context: context)
+        let pages = [PDFPageContent(image: SyntheticPage().render(), look: .gray), PDFPageContent(image: SyntheticPage(stamp: true).render(), look: .color)]
+        let document = try writer.document(title: "Invoice", defaultPaper: .a4)
+        for page in pages {
+            try document.add(page)
+        }
+        let streamed = document.close()
+        let whole = try writer.data(pages: pages, title: "Invoice", defaultPaper: .a4)
+        #expect(try #require(PDFDocument(data: streamed)).pageCount == 2)
+        for number in 1...2 {
+            #expect(try pixels(ofPage: number, of: streamed) == pixels(ofPage: number, of: whole))
+        }
+    }
+
     @Test func declaresPDFAWithAnOutputIntent() throws {
         let data = try PDFWriter(context: context).data(pages: [PDFPageContent(image: SyntheticPage().render(), look: .color)], title: "Invoice", defaultPaper: .a4)
         let document = try #require(CGPDFDocument(CGDataProvider(data: data as CFData)!))
@@ -104,7 +119,11 @@ struct PDFWriterTests {
     }
 
     private func pixels(ofFirstPageOf data: Data) throws -> [UInt8] {
-        let page = try #require(CGPDFDocument(CGDataProvider(data: data as CFData)!)?.page(at: 1))
+        try pixels(ofPage: 1, of: data)
+    }
+
+    private func pixels(ofPage number: Int, of data: Data) throws -> [UInt8] {
+        let page = try #require(CGPDFDocument(CGDataProvider(data: data as CFData)!)?.page(at: number))
         let box = page.getBoxRect(.mediaBox)
         let width = Int(box.width), height = Int(box.height)
         var pixels = [UInt8](repeating: 0, count: width * height)

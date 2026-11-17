@@ -39,23 +39,49 @@ public struct PDFWriter: Sendable {
     }
 
     public func data(pages: [PDFPageContent], title: String, defaultPaper: Paper) throws -> Data {
-        let data = NSMutableData()
-        guard let consumer = CGDataConsumer(data: data as CFMutableData),
-              let pdf = CGContext(consumer: consumer, mediaBox: nil, [kCGPDFContextTitle: title, kCGPDFContextCreator: creator, kCGPDFContextCreatePDFA: true] as CFDictionary) else {
-            throw PDFWriterError.cannotCreateDocument
-        }
+        let document = try document(title: title, defaultPaper: defaultPaper)
         for page in pages {
+            try document.add(page)
+        }
+        return document.close()
+    }
+
+    /// A PDF written one page at a time, so the image of a page can be released once it is added.
+    public func document(title: String, defaultPaper: Paper) throws -> Document {
+        try Document(writer: self, title: title, defaultPaper: defaultPaper)
+    }
+
+    public final class Document {
+        private let writer: PDFWriter
+        private let defaultPaper: Paper
+        private let data = NSMutableData()
+        private let pdf: CGContext
+
+        fileprivate init(writer: PDFWriter, title: String, defaultPaper: Paper) throws {
+            self.writer = writer
+            self.defaultPaper = defaultPaper
+            guard let consumer = CGDataConsumer(data: data as CFMutableData),
+                  let pdf = CGContext(consumer: consumer, mediaBox: nil, [kCGPDFContextTitle: title, kCGPDFContextCreator: writer.creator, kCGPDFContextCreatePDFA: true] as CFDictionary) else {
+                throw PDFWriterError.cannotCreateDocument
+            }
+            self.pdf = pdf
+        }
+
+        public func add(_ page: PDFPageContent) throws {
             let image = page.image.atOrigin
-            var box = CGRect(origin: .zero, size: sizing.pageSize(forImage: image.extent.size, textLineHeight: page.textLineHeight, defaultPaper: defaultPaper))
-            let resized = resample(image, to: CGSize(width: box.width / 72 * dpi, height: box.height / 72 * dpi))
-            let encoded = try jpeg(resized, gray: page.look == .gray)
+            var box = CGRect(origin: .zero, size: writer.sizing.pageSize(forImage: image.extent.size, textLineHeight: page.textLineHeight, defaultPaper: defaultPaper))
+            let resized = writer.resample(image, to: CGSize(width: box.width / 72 * writer.dpi, height: box.height / 72 * writer.dpi))
+            let encoded = try writer.jpeg(resized, gray: page.look == .gray)
             pdf.beginPDFPage([kCGPDFContextMediaBox: Data(bytes: &box, count: MemoryLayout<CGRect>.size)] as CFDictionary)
             pdf.draw(encoded, in: box)
-            drawInvisibly(page.text, in: pdf, pageSize: box.size)
+            writer.drawInvisibly(page.text, in: pdf, pageSize: box.size)
             pdf.endPDFPage()
         }
-        pdf.closePDF()
-        return data as Data
+
+        public func close() -> Data {
+            pdf.closePDF()
+            return data as Data
+        }
     }
 
     /// Stretches each line over the box where it was read, so a selection covers the printed words.

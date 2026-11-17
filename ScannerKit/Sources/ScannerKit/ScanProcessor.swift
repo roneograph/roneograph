@@ -74,14 +74,15 @@ public struct ScanProcessor: Sendable {
         return DocumentDetector().detect(lines: await reader.lines(in: preview), ownLines: ownLines, aspectRatio: preview.extent.width / preview.extent.height)
     }
 
+    /// Renders, reads and writes one page after the other, so only one page image is in memory at a time.
     public func pdfData(of scan: Scan) async throws -> Data {
-        var pages: [PDFPageContent] = []
+        let document = try writer.document(title: scan.title, defaultPaper: paper)
         for page in scan.pages {
             guard let flat = CIImage(contentsOf: store.flatURL(scanID: scan.id, pageID: page.id)) else { throw ProcessingError.unreadablePage }
             let image = cleaner.render(flat, analysis: page.analysis, look: page.look)
             let text = await texts.lines(of: page) { await reader.lines(in: image) }
-            pages.append(PDFPageContent(image: image, look: page.look, textLineHeight: page.analysis.textLineHeight, text: text))
+            try document.add(PDFPageContent(image: image, look: page.look, textLineHeight: page.analysis.textLineHeight, text: text))
         }
-        return try writer.data(pages: pages, title: scan.title, defaultPaper: paper)
+        return document.close()
     }
 }
