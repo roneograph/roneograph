@@ -69,6 +69,7 @@ RONEOGRAPH_DEVELOPMENT_TEAM = ABCDE12345
 Then:
 
 - `make test`: runs the ScannerKit tests on the Mac and builds the app
+- `make ui-test`: runs the UI tests on an iOS simulator (`SIMULATOR=<name>` to pick one, iPhone 17 Pro Max by default)
 - `make install`: builds and installs the app on the first paired iPhone (`IPHONE=<name>` to pick one)
 - `make scans-pull`: copies the scans from the iPhone to `build/scans`, to tune the page cleanup on real pages
 - `make app-icon-preview`: renders the app icon in every appearance to `build/app-icon`

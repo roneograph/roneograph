@@ -39,6 +39,9 @@ targets:
       path: App/Roneograph.entitlements
       properties:
         com.apple.developer.default-data-protection: NSFileProtectionComplete
+    scheme:
+      testTargets:
+        - UITests
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: ${RONEOGRAPH_BUNDLE_ID}
@@ -48,5 +51,20 @@ targets:
         CURRENT_PROJECT_VERSION: "1"
         SWIFT_VERSION: "6.0"
         TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: ${RONEOGRAPH_DEVELOPMENT_TEAM}
+  UITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [UITests]
+    dependencies:
+      - target: Roneograph
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ${RONEOGRAPH_BUNDLE_ID}.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: "6.0"
+        TARGETED_DEVICE_FAMILY: "1"
+        TEST_TARGET_NAME: Roneograph
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: ${RONEOGRAPH_DEVELOPMENT_TEAM}
