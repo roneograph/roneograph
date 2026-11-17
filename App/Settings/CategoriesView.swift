@@ -28,7 +28,7 @@ struct CategoriesView: View {
                 Text("Pick your categories in the details of a scan. The next document from the same issuer gets the same category.")
             }
             Section("Built-in") {
-                ForEach(DocumentCategory.builtIn, id: \.self) { Text($0.rawValue) }
+                ForEach(DocumentCategory.alphabetical(DocumentCategory.builtIn), id: \.self) { Text($0.rawValue) }
             }
         }
         .navigationTitle("Categories")

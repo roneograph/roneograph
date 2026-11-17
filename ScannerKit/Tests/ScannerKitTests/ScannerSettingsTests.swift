@@ -72,12 +72,21 @@ struct ScannerSettingsTests {
         }
     }
 
+    @Test func listsCategoriesAlphabeticallyWithOtherLast() {
+        var settings = ScannerSettings()
+        settings.categories = [DocumentCategory("Car"), DocumentCategory("Apartment")]
+        let names = settings.allCategories.map(\.rawValue)
+        #expect(names == ["Apartment", "Bank statement", "Car", "Certificate", "Contract", "Insurance", "Invoice", "Letter", "Medical", "Payslip", "Quote", "Receipt", "Tax notice", "Other"])
+    }
+
     @Test func keepsTheCurrentCategoryEvenWhenRemoved() {
         var settings = ScannerSettings()
         settings.categories = [DocumentCategory("Car")]
         #expect(settings.categories(keeping: .invoice) == settings.allCategories)
         #expect(settings.categories(keeping: DocumentCategory("Car")) == settings.allCategories)
-        #expect(settings.categories(keeping: DocumentCategory("Boat")) == settings.allCategories + [DocumentCategory("Boat")])
+        let kept = settings.categories(keeping: DocumentCategory("Boat"))
+        #expect(kept == DocumentCategory.alphabetical(settings.allCategories + [DocumentCategory("Boat")]))
+        #expect(kept[1] == DocumentCategory("Boat"))
     }
 
     @Test(arguments: [("me@example.com", true), ("me@example", false), ("", false), ("a b@example.com", false), ("me@example.c", false)])

@@ -83,15 +83,15 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
         owners.removeAll { $0.id == id }
     }
 
-    /// The built-in categories, then the user's, Other last.
+    /// The built-in categories and the user's in alphabetical order, Other last.
     public var allCategories: [DocumentCategory] {
-        DocumentCategory.builtIn.dropLast() + categories.sorted() + [.other]
+        DocumentCategory.alphabetical(DocumentCategory.builtIn + categories)
     }
 
     /// The categories to pick from, with the current one even when the user removed it since.
     public func categories(keeping current: DocumentCategory) -> [DocumentCategory] {
         let all = allCategories
-        return all.contains(current) ? all : all + [current]
+        return all.contains(current) ? all : DocumentCategory.alphabetical(all + [current])
     }
 
     public static func isValidEmail(_ email: String) -> Bool {

@@ -30,6 +30,12 @@ public struct DocumentCategory: Hashable, Sendable, Codable, RawRepresentable, C
     public static let other = Self("Other")
 
     public static let builtIn: [Self] = [.invoice, .receipt, .quote, .contract, .payslip, .bankStatement, .taxNotice, .insurance, .medical, .certificate, .letter, .other]
+
+    /// The categories sorted by name, Other last.
+    public static func alphabetical(_ categories: [Self]) -> [Self] {
+        let sorted = categories.filter { $0 != .other }.sorted()
+        return categories.contains(.other) ? sorted + [.other] : sorted
+    }
 }
 
 /// The details of a document, detected from its text and editable by the user.
