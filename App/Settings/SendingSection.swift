@@ -7,6 +7,8 @@ struct SendingSection: View {
     let app: AppModel
     let ownerID: UUID
     let title: String
+    /// Whether the footer says what the colors and the send bar show; once is enough when several owners are listed.
+    var explains = true
     @State private var settingUpPaperless = false
     @State private var choosingFolder = false
     @State private var folderFailed = false
@@ -52,7 +54,9 @@ struct SendingSection: View {
                 if !current.email.isEmpty, !current.hasValidEmail {
                     Text("This is not a valid email address.").foregroundStyle(.red)
                 }
-                Text("Ways in green send in a single tap. The send bar shows Archive and Email once they are set, Save to Files and Share when turned on.")
+                if explains {
+                    Text("Ways in green send in a single tap. The send bar shows Archive and Email once they are set, Save to Files and Share when turned on.")
+                }
             }
         }
     }

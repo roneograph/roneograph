@@ -3,8 +3,8 @@ import ScannerKit
 import ScannerModels
 import SwiftUI
 
-/// Archive and Email when the owners of the scans have a Paperless server or an address, Save to Files and Share unless turned off in Settings, and Delete, for the scan under review or the scans selected on Home.
-/// A button that sends in a single tap is filled with the accent color.
+/// Archive and Email when the owners of the scans have a Paperless server or an address, Save to Files and Share unless turned off for one of them, and Delete, for the scan under review or the scans selected on Home.
+/// A button that sends in a single tap is filled with the accent color; with nothing to send with, a button sets up sending instead.
 struct SendBar: View {
     let app: AppModel
     let scans: [ScanModel]
@@ -33,6 +33,9 @@ struct SendBar: View {
     @State private var attachments: [MailAttachment] = []
     /// Set when the PDFs went out, acted on once the mail or share sheet is gone.
     @State private var sentBy: SendMethod?
+    @State private var settingUpSending = false
+    /// The owners the sending setup is for, kept while it is open.
+    @State private var sendingOwners: [UUID] = []
 
     private func pdfs(of scans: [ScanModel]) -> [URL] {
         scans.compactMap { scan in
@@ -43,7 +46,17 @@ struct SendBar: View {
     var body: some View {
         VStack(spacing: 8) {
             HStack(spacing: 10) {
-                ForEach(app.sendMethods(for: scans), id: \.self) { method in
+                let methods = app.sendMethods(for: scans)
+                if methods.isEmpty {
+                    Button("Set Up Sending…", systemImage: "paperplane") {
+                        sendingOwners = app.sendingOwners(for: scans).map(\.id)
+                        settingUpSending = true
+                    }
+                    .buttonStyle(.glass)
+                    .labelStyle(SendButtonLabelStyle(showsTitle: true))
+                    .font(.body.weight(.semibold))
+                }
+                ForEach(methods, id: \.self) { method in
                     switch method {
                     case .paperless:
                         Button("Archive", systemImage: "archivebox", action: archive)
@@ -67,6 +80,7 @@ struct SendBar: View {
                     .buttonStyle(.glass)
                     .foregroundStyle(.red.opacity(scans.isEmpty ? 0.4 : 1))
                     .disabled(scans.isEmpty)
+                    .labelStyle(SendButtonLabelStyle(fills: !methods.isEmpty))
             }
             .labelStyle(SendButtonLabelStyle())
             .controlSize(.large)
@@ -86,6 +100,10 @@ struct SendBar: View {
         .padding(.top, 8)
         .confirmationDialog(scans.count > 1 ? "Delete \(scans.count) scans?" : "Delete this scan?", isPresented: $confirmingDelete, titleVisibility: .visible) {
             Button(scans.count > 1 ? "Delete \(scans.count) Scans" : "Delete Scan", role: .destructive, action: delete)
+        }
+        // Not on the button, which goes as soon as a way to send is set.
+        .sheet(isPresented: $settingUpSending) {
+            SendingSetupView(app: app, ownerIDs: sendingOwners)
         }
         .sheet(isPresented: $showingMail, onDismiss: finishMail) {
             MailView(recipient: mails?.recipient, subject: (mails?.scans ?? []).map(\.scan).mailSubject, attachments: attachments) { result in
@@ -271,9 +289,18 @@ private extension View {
 
 /// Icon only, full width: the send buttons share the row equally.
 private struct SendButtonLabelStyle: LabelStyle {
+    var showsTitle = false
+    var fills = true
+
     func makeBody(configuration: Configuration) -> some View {
-        Label { configuration.title } icon: { configuration.icon }
-            .labelStyle(.iconOnly)
-            .frame(maxWidth: .infinity)
+        Group {
+            if showsTitle {
+                Label { configuration.title } icon: { configuration.icon }
+            } else {
+                Label { configuration.title } icon: { configuration.icon }
+                    .labelStyle(.iconOnly)
+            }
+        }
+        .frame(maxWidth: fills ? .infinity : nil)
     }
 }
