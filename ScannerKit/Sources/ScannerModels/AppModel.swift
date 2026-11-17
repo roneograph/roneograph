@@ -140,15 +140,30 @@ public final class AppModel {
         Self.owners(of: models).first { $0.archiveFolder == nil }
     }
 
-    /// The send buttons for these scans, in the order of the bar: Archive and Email when every owner of the scans has a server or an address, every owner when no scan is selected yet; Save to Files and Share unless turned off in Settings.
+    /// The owners the send bar is for: those of the scans, every owner when no scan is selected yet.
+    public func sendingOwners(for models: [ScanModel]) -> [Owner] {
+        models.isEmpty ? settings.value.owners : Self.owners(of: models)
+    }
+
+    /// The send buttons for these scans, in the order of the bar, each when every owner of the scans has it: Archive and Email once it has a server or an address, Save to Files and Share unless turned off.
     public func sendMethods(for models: [ScanModel]) -> [SendMethod] {
-        let owners = models.isEmpty ? settings.value.owners : Self.owners(of: models)
+        let owners = sendingOwners(for: models)
         var methods: [SendMethod] = []
         if let archiver, owners.allSatisfy(archiver.isConnected) { methods.append(.paperless) }
         if owners.allSatisfy(\.hasValidEmail) { methods.append(.email) }
-        if settings.value.showsSaveToFiles { methods.append(.files) }
-        if settings.value.showsShare { methods.append(.share) }
+        if owners.allSatisfy(\.showsSaveToFiles) { methods.append(.files) }
+        if owners.allSatisfy(\.showsShare) { methods.append(.share) }
         return methods
+    }
+
+    /// Whether the owner's documents go out this way in a single tap: a connected Paperless server, a valid address, Save to Files shown with a folder chosen, Share shown.
+    public func isSet(_ method: SendMethod, for owner: Owner) -> Bool {
+        switch method {
+        case .paperless: archiver?.isConnected(owner) == true
+        case .email: owner.hasValidEmail
+        case .files: owner.showsSaveToFiles && owner.archiveFolder != nil
+        case .share: owner.showsShare
+        }
     }
 
     /// Whether every owner of these scans has a folder, so Save to Files needs a single tap.

@@ -414,16 +414,55 @@ struct AppModelTests {
         #expect(app.toast == "2 scans saved to Files")
     }
 
-    @Test func showsSaveToFilesAndShareUnlessTurnedOff() async throws {
+    @Test func showsSaveToFilesAndShareUnlessTurnedOffForAnOwnerOfTheScans() async throws {
         let fixture = try Fixture()
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)
         let scan = await fixture.capturedScan(in: app)
         #expect(app.sendMethods(for: [scan]) == [.files, .share])
         fixture.settings.value.defaultOwner.email = "me@example.com"
-        fixture.settings.value.showsSaveToFiles = false
+        fixture.settings.value.defaultOwner.showsSaveToFiles = false
         #expect(app.sendMethods(for: [scan]) == [.email, .share])
-        fixture.settings.value.showsShare = false
+        fixture.settings.value.defaultOwner.showsShare = false
         #expect(app.sendMethods(for: [scan]) == [.email])
+
+        var holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
+        let theirs = await fixture.capturedScan(in: app)
+        theirs.setOwner(holding.id)
+        #expect(app.sendMethods(for: [theirs]) == [.files, .share])
+        #expect(app.sendMethods(for: [scan, theirs]) == [])
+        #expect(app.sendMethods(for: []) == [], "Every owner when none is selected")
+        holding.email = "accounts@example.com"
+        holding.showsSaveToFiles = false
+        fixture.settings.value.updateOwner(holding)
+        #expect(app.sendMethods(for: [scan, theirs]) == [.email])
+        #expect(app.sendingOwners(for: [theirs, scan, theirs]).map(\.id) == [holding.id, scan.owner.id])
+        #expect(app.sendingOwners(for: []).count == 2)
+    }
+
+    @Test func tellsWhichWaysSendAnOwnersDocumentsInOneTap() async throws {
+        let fixture = try Fixture()
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+        var owner = fixture.settings.value.defaultOwner
+        #expect(SendMethod.inBarOrder.filter { app.isSet($0, for: owner) } == [.share])
+        #expect(app.summary(of: owner) == "Personal, default, sends by Share")
+        owner.showsShare = false
+        owner.email = "me@example"
+        #expect(app.summary(of: owner) == "Personal, default, nothing set to send")
+        owner.email = "me@example.com"
+        owner.archiveFolder = try ArchiveFolder(url: fixture.root)
+        #expect(app.summary(of: owner) == "Personal, default, sends by Email, Save to Files")
+        owner.showsSaveToFiles = false
+        #expect(!app.isSet(.files, for: owner), "A folder without the button sends nothing")
+        owner.paperless = PaperlessServer(url: URL(string: "https://paperless.example.com/")!)
+        #expect(!app.isSet(.paperless, for: owner), "Not connected without an archiver")
+        let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
+        #expect(app.summary(of: holding) == "Fernwood Holding, sends by Share")
+
+        let tokens = MemoryTokens()
+        let connected = AppModel(processor: fixture.processor, settings: fixture.settings, archiver: Archiver(uploader: FakeUploader(), tokens: tokens, directory: fixture.root.appending(path: "Uploads"), fetch: FakeServer().fetch))
+        #expect(!connected.isSet(.paperless, for: owner), "No token")
+        try tokens.setToken("secret", for: owner.id)
+        #expect(connected.summary(of: owner) == "Personal, default, sends by Archive, Email")
     }
 
     @Test func suggestsSettingUpSendingUntilAnOwnerHasAnAddressOrServer() throws {

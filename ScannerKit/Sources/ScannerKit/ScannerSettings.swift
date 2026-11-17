@@ -19,9 +19,6 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
     /// Header lines seen on past scans, to recognize the user's own name and address.
     public var headerLines: [HeaderLine] = []
     public var keepScans = ScanRetention.week
-    /// Whether the send bar has Save to Files and Share; Archive and Email show once the owner has a server or an address.
-    public var showsSaveToFiles = true
-    public var showsShare = true
     /// Set once the Home card pointing to Settings for Email and Paperless was closed.
     public var dismissedSendSetup = false
 
@@ -46,9 +43,30 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
         learnedIssuers = try container.decode(.learnedIssuers, or: learnedIssuers)
         headerLines = try container.decode(.headerLines, or: headerLines)
         keepScans = try container.decode(.keepScans, or: keepScans)
-        showsSaveToFiles = try container.decode(.showsSaveToFiles, or: showsSaveToFiles)
-        showsShare = try container.decode(.showsShare, or: showsShare)
         dismissedSendSetup = try container.decode(.dismissedSendSetup, or: dismissedSendSetup)
+        try decodeSharedSendBar(from: decoder)
+    }
+
+    private enum SharedSendBarKeys: String, CodingKey {
+        case owners, showsSaveToFiles, showsShare
+    }
+
+    /// Save to Files and Share were turned on or off for all owners before each owner had its own: an owner saved without them takes those.
+    private mutating func decodeSharedSendBar(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: SharedSendBarKeys.self)
+        let savesToFiles = try container.decodeIfPresent(Bool.self, forKey: .showsSaveToFiles)
+        let shares = try container.decodeIfPresent(Bool.self, forKey: .showsShare)
+        guard savesToFiles != nil || shares != nil,
+              let saved = try container.decodeIfPresent([OwnerSendBar].self, forKey: .owners), saved.count == owners.count else { return }
+        for index in owners.indices {
+            if saved[index].showsSaveToFiles == nil, let savesToFiles { owners[index].showsSaveToFiles = savesToFiles }
+            if saved[index].showsShare == nil, let shares { owners[index].showsShare = shares }
+        }
+    }
+
+    private struct OwnerSendBar: Decodable {
+        var showsSaveToFiles: Bool?
+        var showsShare: Bool?
     }
 
     public var hasSeveralOwners: Bool { owners.count > 1 }

@@ -29,7 +29,16 @@ struct OwnerSections: View {
             }
         }
 
-        if settings.value.showsSaveToFiles {
+        Section {
+            Toggle("Save to Files", isOn: $owner.showsSaveToFiles)
+            Toggle("Share", isOn: $owner.showsShare)
+        } header: {
+            Text("Send bar")
+        } footer: {
+            Text("Archive and Email show once the owner has a Paperless server or an email address.")
+        }
+
+        if owner.showsSaveToFiles {
             Section {
                 Button { choosingFolder = true } label: {
                     LabeledContent("Folder", value: owner.archiveFolder?.name ?? "Choose…")

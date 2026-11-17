@@ -16,6 +16,9 @@ public struct Owner: Identifiable, Equatable, Sendable, Codable {
     /// Where the Archive button sends PDFs; nil until a server is connected.
     public var paperless: PaperlessServer?
     public var fileNameFormat = FileNameFormat()
+    /// Whether the send bar has Save to Files and Share for this owner's documents; Archive and Email show once it has a server or an address.
+    public var showsSaveToFiles = true
+    public var showsShare = true
 
     public init(id: UUID = UUID(), name: String, symbol: Symbol = .building, fileNameFormat: FileNameFormat = FileNameFormat()) {
         self.id = id
@@ -32,6 +35,8 @@ public struct Owner: Identifiable, Equatable, Sendable, Codable {
         archiveFolder = try container.decode(.archiveFolder, or: archiveFolder)
         paperless = try container.decode(.paperless, or: paperless)
         fileNameFormat = try container.decode(.fileNameFormat, or: fileNameFormat)
+        showsSaveToFiles = try container.decode(.showsSaveToFiles, or: showsSaveToFiles)
+        showsShare = try container.decode(.showsShare, or: showsShare)
     }
 
     public var hasValidEmail: Bool { ScannerSettings.isValidEmail(email) }

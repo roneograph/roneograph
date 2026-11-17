@@ -19,8 +19,22 @@ struct ScannerSettingsTests {
         #expect(settings.defaultOwner.email == "accounting@fernwood.example")
         #expect(settings.defaultOwner.fileNameFormat == FileNameFormat())
         #expect(settings.askForName)
-        #expect(settings.showsShare)
+        #expect(settings.defaultOwner.showsSaveToFiles)
+        #expect(settings.defaultOwner.showsShare)
         #expect(settings.keepScans == .week)
+    }
+
+    @Test func givesEachOwnerTheSendBarSavedForAllOwners() throws {
+        let json = #"""
+            {"owners":[{"id":"3F2504E0-4F89-11D3-9A0C-0305E82C3301","name":"Personal"},{"id":"3F2504E0-4F89-11D3-9A0C-0305E82C3302","name":"Fernwood Holding","showsShare":true}],"showsSaveToFiles":false,"showsShare":false}
+            """#
+        let settings = try JSONDecoder().decode(ScannerSettings.self, from: Data(json.utf8))
+        #expect(settings.owners.map(\.showsSaveToFiles) == [false, false])
+        #expect(settings.owners.map(\.showsShare) == [false, true])
+        let saved = try JSONEncoder().encode(settings)
+        let keys = try #require(JSONSerialization.jsonObject(with: saved) as? [String: Any]).keys
+        #expect(!keys.contains("showsSaveToFiles") && !keys.contains("showsShare"))
+        #expect(try JSONDecoder().decode(ScannerSettings.self, from: saved) == settings)
     }
 
     @Test func keepsTheDefaultOwnerAmongTheOwners() throws {
@@ -45,6 +59,8 @@ struct ScannerSettingsTests {
         owner.email = "accounting@fernwood.example"
         owner.archiveFolder = try ArchiveFolder(url: root)
         owner.paperless = PaperlessServer(url: URL(string: "https://paperless.example.com/")!, storagePath: PaperlessStoragePath(id: 7, name: "Fernwood"))
+        owner.showsSaveToFiles = false
+        owner.showsShare = false
         var settings = ScannerSettings()
         settings.addOwner(owner)
         settings.defaultOwnerID = owner.id
@@ -55,8 +71,6 @@ struct ScannerSettingsTests {
         settings.learnedIssuers = [LearnedIssuer(keys: ["lumen"], issuer: "Lumen Energy")]
         settings.headerLines = [HeaderLine(fingerprint: "abc", scans: 2)]
         settings.keepScans = .forever
-        settings.showsSaveToFiles = false
-        settings.showsShare = false
         settings.dismissedSendSetup = true
 
         expectEveryPropertyChanged(settings, from: ScannerSettings())

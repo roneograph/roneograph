@@ -25,15 +25,6 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Toggle("Save to Files", isOn: $settings.value.showsSaveToFiles)
-                    Toggle("Share", isOn: $settings.value.showsShare)
-                } header: {
-                    Text("Send bar")
-                } footer: {
-                    Text("Archive and Email show once the owner has a Paperless server or an email address.")
-                }
-
-                Section {
                     if !settings.value.hasSeveralOwners {
                         Toggle("Custom format", isOn: $settings.value.defaultOwner.fileNameFormat.isCustom)
                     }

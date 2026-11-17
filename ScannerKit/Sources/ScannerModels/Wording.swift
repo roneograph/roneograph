@@ -85,6 +85,19 @@ extension PageLook {
 }
 
 extension SendMethod {
+    /// The ways to send, in the order of the send bar.
+    public static let inBarOrder: [SendMethod] = [.paperless, .email, .files, .share]
+
+    /// The send button, as Settings names it.
+    public var title: String {
+        switch self {
+        case .paperless: "Archive"
+        case .email: "Email"
+        case .files: "Save to Files"
+        case .share: "Share"
+        }
+    }
+
     /// How a scan went out, on Home and in the confirmation.
     public var pastTense: String {
         switch self {
@@ -184,5 +197,18 @@ extension Collection<Scan> {
         guard let first = sent.first, let method = first.sent?.method else { return nil }
         if sent.count > 1 { return "\(sent.count) were already sent" }
         return "“\(first.title)” was already \(method.pastTense.lowercased())"
+    }
+}
+
+extension AppModel {
+    /// An owner's row in Settings, read by VoiceOver: "Personal, default, sends by Archive, Email".
+    public func summary(of owner: Owner) -> String {
+        let methods = SendMethod.inBarOrder.filter { isSet($0, for: owner) }.map(\.title)
+        let parts: [String?] = [
+            owner.name,
+            owner.id == settings.value.defaultOwnerID ? "default" : nil,
+            methods.isEmpty ? "nothing set to send" : "sends by \(methods.joined(separator: ", "))",
+        ]
+        return parts.compactMap(\.self).joined(separator: ", ")
     }
 }
