@@ -32,8 +32,31 @@ final class ScanStoreTests {
         try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: json.path(percentEncoded: false))
         defer { try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: json.path(percentEncoded: false)) }
 
-        store.deleteUnreadableScans(keeping: [])
+        store.deleteUnsavedScans(keeping: [])
         #expect(FileManager.default.fileExists(atPath: json.path(percentEncoded: false)))
+    }
+
+    @Test func deletesOnlyTheFoldersOfScansNeverSavedUntilAllAreDeleted() throws {
+        let scan = Scan(name: "Invoice")
+        try store.save(scan)
+        let json = store.directory(of: scan.id).appending(path: "scan.json")
+        var object = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: json)) as? [String: Any])
+        object["title"] = nil
+        try JSONSerialization.data(withJSONObject: object).write(to: json)
+        let unsaved = UUID()
+        try store.savePhoto(Data(count: 10), scanID: unsaved, pageID: UUID())
+        let kept = UUID()
+        try store.savePhoto(Data(count: 10), scanID: kept, pageID: UUID())
+
+        store.deleteUnsavedScans(keeping: [kept])
+        #expect(store.all().isEmpty)
+        #expect(FileManager.default.fileExists(atPath: json.path(percentEncoded: false)))
+        #expect(!FileManager.default.fileExists(atPath: store.directory(of: unsaved).path(percentEncoded: false)))
+        #expect(FileManager.default.fileExists(atPath: store.directory(of: kept).path(percentEncoded: false)))
+
+        store.deleteAllScanFolders(keeping: [kept])
+        #expect(!FileManager.default.fileExists(atPath: json.path(percentEncoded: false)))
+        #expect(FileManager.default.fileExists(atPath: store.directory(of: kept).path(percentEncoded: false)))
     }
 
     @Test func countsTheBytesOfScansAndTheirPDFs() async throws {

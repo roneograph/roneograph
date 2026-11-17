@@ -655,18 +655,21 @@ struct AppModelTests {
         #expect(app.model(for: reviewed.id) == nil)
     }
 
-    @Test func retentionDeletesScanFoldersWithoutAReadableScan() throws {
+    @Test func retentionDeletesOnlyTheFoldersOfScansNeverSaved() throws {
         let fixture = try Fixture()
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)
         let capturing = app.startScan()
         let unsaved = try unreadableScanFolder(in: fixture.store)
+        let olderFormat = try unreadableScanFolder(in: fixture.store, json: olderFormatJSON())
         let corrupt = try unreadableScanFolder(in: fixture.store, json: Data("{".utf8))
         let processing = try unreadableScanFolder(in: fixture.store, id: capturing.id)
 
         app.refresh()
         #expect(!exists(unsaved))
-        #expect(!exists(corrupt))
+        #expect(exists(olderFormat))
+        #expect(exists(corrupt))
         #expect(exists(processing))
+        #expect(app.scans.isEmpty)
     }
 
     @Test func deletingAllScansDeletesScanFoldersWithoutAReadableScan() async throws {
@@ -674,12 +677,22 @@ struct AppModelTests {
         fixture.settings.value.keepScans = .forever
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)
         let unsaved = try unreadableScanFolder(in: fixture.store)
+        let olderFormat = try unreadableScanFolder(in: fixture.store, json: olderFormatJSON())
         app.refresh()
         #expect(exists(unsaved))
 
         app.deleteAllScans()
         #expect(!exists(unsaved))
+        #expect(!exists(olderFormat))
         #expect(await fixture.store.byteCount() == 0)
+    }
+
+    private func olderFormatJSON() throws -> Data {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        var json = try #require(JSONSerialization.jsonObject(with: encoder.encode(Scan(name: "Invoice"))) as? [String: Any])
+        json["title"] = nil
+        return try JSONSerialization.data(withJSONObject: json)
     }
 
     private func unreadableScanFolder(in store: ScanStore, id: UUID = UUID(), json: Data? = nil) throws -> URL {

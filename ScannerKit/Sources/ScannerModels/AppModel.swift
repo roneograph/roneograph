@@ -47,12 +47,12 @@ public final class AppModel {
         archiver?.isActive = isActive
     }
 
-    /// Deletes the scans sent longer ago than the retention, except the one open in Review or in the camera, and unreadable scan folders, then reloads the list.
+    /// Deletes the scans sent longer ago than the retention, except the one open in Review or in the camera, and the folders of scans never saved, then reloads the list.
     /// A scan never sent is never deleted: it is the only copy of the document.
     public func refresh() {
         reload()
         guard let days = settings.value.keepScans.days else { return }
-        store.deleteUnreadableScans(keeping: Set(models.keys))
+        store.deleteUnsavedScans(keeping: Set(models.keys))
         let cutoff = now().addingTimeInterval(-Double(days) * 86400)
         delete(Set(scans.filter { scan in
             guard let sent = scan.sent else { return false }
@@ -259,7 +259,7 @@ public final class AppModel {
     public func deleteAllScans() {
         reload()
         delete(Set(scans.map(\.id)))
-        store.deleteUnreadableScans(keeping: Set(models.keys))
+        store.deleteAllScanFolders(keeping: Set(models.keys))
     }
 
     private func makeModel(_ scan: Scan) -> ScanModel {

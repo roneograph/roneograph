@@ -44,22 +44,21 @@ public struct ScanStore: Sendable {
         folders().compactMap(read).sorted { $0.created > $1.created }
     }
 
-    /// Deletes the scan folders whose scan.json is missing, as left when the app quits before a scan is first saved, or cannot be decoded, except the kept ones.
-    /// A scan.json that cannot be read for now, as while the iPhone is locked, is kept.
-    public func deleteUnreadableScans(keeping kept: Set<UUID>) {
-        for folder in folders() where isBroken(folder) {
-            guard let id = UUID(uuidString: folder.lastPathComponent), !kept.contains(id) else { continue }
-            try? FileManager.default.removeItem(at: folder)
-        }
+    /// Deletes the scan folders without a scan.json, as left when the app quits before a scan is first saved, except the kept ones.
+    /// A scan.json that cannot be decoded, as one written by another version of the app, or read for now, as while the iPhone is locked, is kept.
+    public func deleteUnsavedScans(keeping kept: Set<UUID>) {
+        deleteFolders(keeping: kept) { !FileManager.default.fileExists(atPath: $0.appending(path: "scan.json").path(percentEncoded: false)) }
     }
 
-    private func isBroken(_ folder: URL) -> Bool {
-        do {
-            return decode(try Data(contentsOf: folder.appending(path: "scan.json"))) == nil
-        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
-            return true
-        } catch {
-            return false
+    /// Deletes every scan folder, the ones that cannot be decoded too, except the kept ones.
+    public func deleteAllScanFolders(keeping kept: Set<UUID>) {
+        deleteFolders(keeping: kept) { _ in true }
+    }
+
+    private func deleteFolders(keeping kept: Set<UUID>, where shouldDelete: (URL) -> Bool) {
+        for folder in folders() where shouldDelete(folder) {
+            guard let id = UUID(uuidString: folder.lastPathComponent), !kept.contains(id) else { continue }
+            try? FileManager.default.removeItem(at: folder)
         }
     }
 
