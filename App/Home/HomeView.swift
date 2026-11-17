@@ -89,10 +89,13 @@ struct HomeView: View {
     private var recent: some View {
         List(selection: isSelecting ? $selection : nil) {
             if !isSelecting {
-                AppIcon(size: 64)
-                    .frame(maxWidth: .infinity)
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 4, trailing: 0))
+                Section {
+                    AppIcon(size: 112)
+                        .frame(maxWidth: .infinity)
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 4, trailing: 0))
+                }
+                .listSectionSpacing(.compact)
                 let notSent = app.notSent
                 if notSent.count > 1 {
                     Section {
@@ -129,6 +132,7 @@ struct HomeView: View {
             }
         }
         .environment(\.editMode, .constant(isSelecting ? .active : .inactive))
+        .contentMargins(.top, 0, for: .scrollContent)
     }
 
     /// Scans in progress have no PDF to send yet.
