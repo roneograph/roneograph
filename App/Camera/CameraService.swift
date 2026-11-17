@@ -120,8 +120,8 @@ final class CameraService: NSObject, CameraDevice, @unchecked Sendable {
         if session.canAddOutput(photoOutput) {
             session.addOutput(photoOutput)
             photoOutput.maxPhotoQualityPrioritization = .balanced
-            if let largest = device.activeFormat.supportedMaxPhotoDimensions.max(by: { $0.width * $0.height < $1.width * $1.height }) {
-                photoOutput.maxPhotoDimensions = largest
+            if let dimensions = CMVideoDimensions.photoSize(among: device.activeFormat.supportedMaxPhotoDimensions) {
+                photoOutput.maxPhotoDimensions = dimensions
             }
             if let connection = photoOutput.connection(with: .video), connection.isVideoRotationAngleSupported(90) {
                 connection.videoRotationAngle = 90
