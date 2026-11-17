@@ -34,6 +34,10 @@ targets:
           - UIInterfaceOrientationPortrait
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true
+    entitlements:
+      path: App/Roneograph.entitlements
+      properties:
+        com.apple.developer.default-data-protection: NSFileProtectionComplete
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: ${RONEOGRAPH_BUNDLE_ID}
