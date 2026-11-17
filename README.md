@@ -30,6 +30,7 @@ Cleaning up:
 The PDF:
 
 - Gives pages their real paper size: A4 or Letter from their proportions, otherwise estimated from the size of the text.
+- Keeps files small without changing a letter: gray pages of text in 16 gray levels compressed without loss, pictures and color pages as JPEG.
 - Makes every PDF searchable, with the recognized text invisible under each page.
 - Writes PDF/A, the ISO standard for long-term archiving, and shows the file size before sending.
 
