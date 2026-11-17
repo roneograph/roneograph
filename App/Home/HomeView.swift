@@ -240,11 +240,16 @@ private struct SendSetupCard: View {
                 .buttonStyle(.borderedProminent)
                 .buttonBorderShape(.capsule)
                 .fontWeight(.semibold)
-            Button("Close", systemImage: "xmark", action: close)
-                .labelStyle(.iconOnly)
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .buttonStyle(.borderless)
+            Button(action: close) {
+                Label("Close", systemImage: "xmark")
+                    .labelStyle(.iconOnly)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.borderless)
+            .padding(-12)
         }
     }
 }
