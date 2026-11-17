@@ -14,7 +14,7 @@ The [manifesto](MANIFESTO.md) says what Roneograph is for and how features are c
 
 Capturing:
 
-- Opens on the camera and captures a page on its own once it is held still; a Manual mode leaves it to the shutter.
+- Scan opens the camera, which captures a page on its own once it is held still; a Manual mode leaves it to the shutter.
 - Captures each page once: turning pages in a pile does not take the same page twice.
 - Tells you what to fix: move closer or farther, more light, a dirty lens; a flash helps in dark rooms.
 - Adds pages to a scan at any time, even days later.
