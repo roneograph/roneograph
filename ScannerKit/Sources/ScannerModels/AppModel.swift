@@ -48,6 +48,15 @@ public final class AppModel {
         scans = store.all()
     }
 
+    /// Puts a saved scan in the list, newest first.
+    private func list(_ scan: Scan) {
+        if let index = scans.firstIndex(where: { $0.id == scan.id }) {
+            if scans[index] != scan { scans[index] = scan }
+        } else {
+            scans.insert(scan, at: scans.firstIndex { $0.created < scan.created } ?? scans.endIndex)
+        }
+    }
+
     public func model(for id: UUID) -> ScanModel? {
         models[id] ?? scans.first { $0.id == id }.map(makeModel)
     }
@@ -71,7 +80,6 @@ public final class AppModel {
             models[camera.id] = nil
         }
         camera = nil
-        reload()
     }
 
     public func finishCapture(_ model: ScanModel) {
@@ -202,7 +210,8 @@ public final class AppModel {
 
     private func makeModel(_ scan: Scan) -> ScanModel {
         let model = ScanModel(scan: scan, processor: processor, settings: settings, now: now)
-        model.didSave = { [weak self] in self?.reload() }
+        model.didSave = { [weak self] in self?.list($0) }
+        model.didDeleteStoredScan = { [weak self] id in self?.scans.removeAll { $0.id == id } }
         models[scan.id] = model
         return model
     }

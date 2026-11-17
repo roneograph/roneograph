@@ -33,8 +33,10 @@ public final class ScanModel: Identifiable {
     public private(set) var failure: String?
     private let processor: ScanProcessor
     private let settings: SettingsStore
-    /// Called after every save, so the list of scans stays current.
-    var didSave: (() -> Void)?
+    /// Called with the scan after every save, so the list of scans stays current without reading the store again.
+    var didSave: ((Scan) -> Void)?
+    /// Called when the stored scan is deleted because no page is left.
+    var didDeleteStoredScan: ((UUID) -> Void)?
     private var queue: Task<Void, Never>?
     private var isDeleted = false
     private let now: @Sendable () -> Date
@@ -147,8 +149,7 @@ public final class ScanModel: Identifiable {
                 scan.pending.removeAll { $0.id == pending.id }
                 store.deletePageFiles(scanID: scanID, pageID: pending.id)
                 if isEmpty {
-                    store.delete(scan)
-                    didSave?()
+                    deleteStoredScan()
                 } else {
                     save()
                 }
@@ -233,8 +234,7 @@ public final class ScanModel: Identifiable {
         guard isEmpty || save() else { return }
         enqueue { [self] in
             if isEmpty {
-                store.delete(scan)
-                didSave?()
+                deleteStoredScan()
             } else {
                 store.deletePageFiles(scanID: scan.id, pageID: id)
             }
@@ -501,12 +501,17 @@ public final class ScanModel: Identifiable {
         setDetails(details)
     }
 
+    private func deleteStoredScan() {
+        store.delete(scan)
+        didDeleteStoredScan?(id)
+    }
+
     @discardableResult
     private func save() -> Bool {
         guard !isEmpty, !isDeleted else { return false }
         do {
             try store.save(scan)
-            didSave?()
+            didSave?(scan)
             return true
         } catch {
             failure = "The scan could not be saved."

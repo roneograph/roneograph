@@ -106,7 +106,7 @@ struct ScanModelTests {
         let model = await fixture.scanModel(pages: 3)
         let photo = model.photoURL(of: model.scan.pages[0]).path(percentEncoded: false)
         var photoWhenSaved: Bool?
-        model.didSave = { photoWhenSaved = FileManager.default.fileExists(atPath: photo) }
+        model.didSave = { _ in photoWhenSaved = FileManager.default.fileExists(atPath: photo) }
         model.deletePage(model.scan.pages[0].id)
         #expect(photoWhenSaved == true)
         await model.waitUntilIdle()
@@ -528,7 +528,7 @@ struct ScanModelTests {
         let model = fixture.scanModel()
         model.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
         var savedWhileRunning: [Bool] = []
-        model.didSave = { savedWhileRunning.append(background.running == 1) }
+        model.didSave = { _ in savedWhileRunning.append(background.running == 1) }
         await model.waitUntilIdle()
         #expect(!savedWhileRunning.isEmpty)
         #expect(!savedWhileRunning.contains(false))

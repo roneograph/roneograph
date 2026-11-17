@@ -111,6 +111,30 @@ struct AppModelTests {
         #expect(built.hasCurrentPDF)
     }
 
+    @Test func keepsTheListCurrentFromSavesWithoutReadingTheStoreAgain() async throws {
+        let fixture = try Fixture()
+        var old = Scan(created: Date().addingTimeInterval(-3600), name: "Old")
+        old.pages = [ScanPage(quad: nil, analysis: .sample)]
+        try fixture.store.save(old)
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+        var elsewhere = Scan(name: "Elsewhere")
+        elsewhere.pages = [ScanPage(quad: nil, analysis: .sample)]
+        try fixture.store.save(elsewhere)
+
+        let scan = await fixture.capturedScan(in: app)
+        try #require(app.model(for: old.id)).rename("Water bill")
+        #expect(app.scans.map(\.id) == [scan.id, old.id])
+        #expect(app.scans.first == scan.scan)
+        #expect(app.scans.last?.name == "Water bill")
+
+        scan.deletePage(scan.scan.pages[0].id)
+        await scan.waitUntilIdle()
+        #expect(app.scans.map(\.id) == [old.id])
+
+        app.refresh()
+        #expect(app.scans.map(\.id) == [elsewhere.id, old.id])
+    }
+
     @Test func doneOpensReview() async throws {
         let fixture = try Fixture()
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)
