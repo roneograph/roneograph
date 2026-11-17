@@ -14,6 +14,7 @@ struct CameraView: View {
     @State private var showingLastPage = false
     /// The name of the scan when the camera opened on a scan that already had pages.
     @State private var addingTo: String?
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         ZStack {
@@ -48,11 +49,18 @@ struct CameraView: View {
         }
         .onAppear {
             if !scan.scan.pages.isEmpty { addingTo = scan.scan.title }
+            UIApplication.shared.isIdleTimerDisabled = true
         }
         .preferredColorScheme(.dark)
         .statusBarHidden()
         .task(id: scan.scan.id) { await camera.start(scan: scan) }
-        .onDisappear { camera.stop() }
+        .onDisappear {
+            camera.stop()
+            UIApplication.shared.isIdleTimerDisabled = false
+        }
+        .onChange(of: scenePhase) { _, phase in
+            UIApplication.shared.isIdleTimerDisabled = phase == .active
+        }
         .onChange(of: showingLastPage) { _, showing in camera.isPaused = showing }
         .onChange(of: camera.captures) {
             withAnimation(.easeOut(duration: 0.08)) { flashOverlay = true }
