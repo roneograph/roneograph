@@ -6,6 +6,8 @@ public protocol PaperlessTokens: Sendable {
     func token(for ownerID: UUID) -> String?
     /// Nil deletes the token.
     func setToken(_ token: String?, for ownerID: UUID) throws
+    /// The owners that have a token.
+    func ownerIDs() -> Set<UUID>
 }
 
 /// The answer to an upload, or the error that stopped it.
@@ -84,6 +86,12 @@ public final class Archiver {
 
     func setToken(_ token: String?, for ownerID: UUID) throws {
         try tokens.setToken(token, for: ownerID)
+    }
+
+    /// Deletes the tokens no owner with a server uses, such as the ones the Keychain keeps after the app is deleted and installed again.
+    func forgetTokens(keeping owners: [Owner]) {
+        let kept = Set(owners.filter { $0.paperless != nil }.map(\.id))
+        for id in tokens.ownerIDs().subtracting(kept) { try? tokens.setToken(nil, for: id) }
     }
 
     /// Throws when a scan cannot be archived: its owner has no server, or its PDF is not ready.

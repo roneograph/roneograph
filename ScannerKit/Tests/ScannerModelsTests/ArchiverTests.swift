@@ -34,6 +34,19 @@ struct ArchiverTests {
         return scan
     }
 
+    @Test func forgetsTheTokensNoOwnerWithAServerUsesOnLaunch() throws {
+        try connect()
+        let leftOver = UUID()
+        try tokens.setToken("old", for: leftOver)
+        let disconnected = try #require(fixture.settings.addOwner("Holding"))
+        try tokens.setToken("stale", for: disconnected.id)
+        let archiver = Archiver(uploader: uploader, tokens: tokens, directory: fixture.root.appending(path: "Uploads"), fetch: server.fetch)
+
+        _ = AppModel(processor: fixture.processor, settings: fixture.settings, archiver: archiver)
+
+        #expect(tokens.ownerIDs() == [fixture.settings.value.defaultOwnerID])
+    }
+
     @Test func showsArchiveAndEmailOnlyWhenEveryOwnerOfTheScansHasThem() async throws {
         let holding = try #require(fixture.settings.addOwner("Holding"))
         let personal = await readyScan()
@@ -337,6 +350,10 @@ final class MemoryTokens: PaperlessTokens {
 
     func setToken(_ token: String?, for ownerID: UUID) throws {
         tokens.withLock { $0[ownerID] = token }
+    }
+
+    func ownerIDs() -> Set<UUID> {
+        tokens.withLock { Set($0.keys) }
     }
 }
 

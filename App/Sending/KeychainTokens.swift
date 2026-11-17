@@ -26,6 +26,18 @@ struct KeychainTokens: PaperlessTokens {
         guard added == errSecSuccess else { throw KeychainError(status: added) }
     }
 
+    func ownerIDs() -> Set<UUID> {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecReturnAttributes as String: true,
+            kSecMatchLimit as String: kSecMatchLimitAll,
+        ]
+        var items: CFTypeRef?
+        guard SecItemCopyMatching(query as CFDictionary, &items) == errSecSuccess, let items = items as? [[String: Any]] else { return [] }
+        return Set(items.compactMap { ($0[kSecAttrAccount as String] as? String).flatMap(UUID.init(uuidString:)) })
+    }
+
     private func query(_ ownerID: UUID) -> [String: Any] {
         [
             kSecClass as String: kSecClassGenericPassword,
