@@ -26,7 +26,7 @@ public enum PDFWriterError: Error {
     case cannotEncodePage
 }
 
-/// Writes one image per page, encoded for its look as a grayscale or color JPEG, under the invisible text of the page.
+/// Writes one image per page under the invisible text of the page: a color page as a JPEG, a gray page as 16 lossless gray levels or as a JPEG, whichever is smaller.
 public struct PDFWriter: Sendable {
     private let context: CIContext
     private let sizing = PageSizing()
@@ -71,7 +71,7 @@ public struct PDFWriter: Sendable {
             let image = page.image.atOrigin
             var box = CGRect(origin: .zero, size: writer.sizing.pageSize(forImage: image.extent.size, textLineHeight: page.textLineHeight, defaultPaper: defaultPaper))
             let resized = writer.resample(image, to: CGSize(width: box.width / 72 * writer.dpi, height: box.height / 72 * writer.dpi))
-            let encoded = try writer.jpeg(resized, gray: page.look == .gray)
+            let encoded = try writer.encoded(resized, look: page.look)
             pdf.beginPDFPage([kCGPDFContextMediaBox: Data(bytes: &box, count: MemoryLayout<CGRect>.size)] as CFDictionary)
             pdf.draw(encoded, in: box)
             writer.drawInvisibly(page.text, in: pdf, pageSize: box.size)
@@ -117,11 +117,47 @@ public struct PDFWriter: Sendable {
         return scaled.cropped(to: CGRect(x: 0, y: 0, width: width, height: height))
     }
 
-    private func jpeg(_ image: CIImage, gray: Bool) throws -> CGImage {
+    /// Text on white paper is smaller in 16 gray levels, without the ringing of a JPEG around the letters; pictures are smaller as a JPEG.
+    private func encoded(_ image: CIImage, look: PageLook) throws -> CGImage {
+        let gray = look == .gray
         let space = gray ? CGColorSpace(name: CGColorSpace.genericGrayGamma2_2)! : CGColorSpace(name: CGColorSpace.sRGB)!
         guard let pixels = context.createCGImage(image, from: image.extent, format: gray ? .L8 : .RGBA8, colorSpace: space) else {
             throw PDFWriterError.cannotEncodePage
         }
+        let jpeg = try jpeg(pixels)
+        guard gray, let levels = sixteenLevels(of: pixels, space: space), embeddedSize(of: levels) < embeddedSize(of: jpeg) else { return jpeg }
+        return levels
+    }
+
+    /// The gray image with 4 bits per pixel, which the PDF stores as it is, compressed without loss.
+    private func sixteenLevels(of pixels: CGImage, space: CGColorSpace) -> CGImage? {
+        guard pixels.bitsPerPixel == 8, let data = pixels.dataProvider?.data, let bytes = CFDataGetBytePtr(data) else { return nil }
+        let width = pixels.width, height = pixels.height, sourceRow = pixels.bytesPerRow
+        let row = (width + 1) / 2
+        var packed = [UInt8](repeating: 0, count: row * height)
+        for y in 0..<height {
+            for x in 0..<width {
+                let level = UInt8((Int(bytes[y * sourceRow + x]) * 15 + 127) / 255)
+                packed[y * row + x / 2] |= x.isMultiple(of: 2) ? level << 4 : level
+            }
+        }
+        guard let provider = CGDataProvider(data: Data(packed) as CFData) else { return nil }
+        return CGImage(width: width, height: height, bitsPerComponent: 4, bitsPerPixel: 4, bytesPerRow: row, space: space, bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.none.rawValue), provider: provider, decode: nil, shouldInterpolate: true, intent: .defaultIntent)
+    }
+
+    /// The size of a PDF with only this image, to compare two encodings of a page as the PDF stores them.
+    private func embeddedSize(of image: CGImage) -> Int {
+        let data = NSMutableData()
+        var box = CGRect(x: 0, y: 0, width: image.width, height: image.height)
+        guard let consumer = CGDataConsumer(data: data as CFMutableData), let pdf = CGContext(consumer: consumer, mediaBox: &box, nil) else { return .max }
+        pdf.beginPDFPage(nil)
+        pdf.draw(image, in: box)
+        pdf.endPDFPage()
+        pdf.closePDF()
+        return data.count
+    }
+
+    private func jpeg(_ pixels: CGImage) throws -> CGImage {
         let data = NSMutableData()
         guard let destination = CGImageDestinationCreateWithData(data as CFMutableData, UTType.jpeg.identifier as CFString, 1, nil) else {
             throw PDFWriterError.cannotEncodePage

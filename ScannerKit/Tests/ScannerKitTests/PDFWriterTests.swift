@@ -54,9 +54,40 @@ struct PDFWriterTests {
         #expect(subtype.map { String(cString: $0) } == "GTS_PDFA1")
     }
 
-    @Test func embedsPagesAsJPEG() throws {
-        let gray = try PDFWriter(context: context).data(pages: [PDFPageContent(image: SyntheticPage().render(), look: .gray)], title: "", defaultPaper: .a4)
-        #expect(gray.range(of: Data("/DCTDecode".utf8)) != nil)
+    @Test func writesAGrayPageOfTextInSixteenLosslessLevels() throws {
+        let text = whitePaper(SyntheticPage().render())
+        let levels = try PDFWriter(context: context).data(pages: [PDFPageContent(image: text, look: .gray)], title: "", defaultPaper: .a4)
+        #expect(levels.range(of: Data("/BitsPerComponent 4".utf8)) != nil)
+        #expect(levels.range(of: Data("/DCTDecode".utf8)) == nil)
+    }
+
+    @Test func writesAColorPageAndAGrayPictureAsJPEG() throws {
+        let color = try PDFWriter(context: context).data(pages: [PDFPageContent(image: whitePaper(SyntheticPage().render()), look: .color)], title: "", defaultPaper: .a4)
+        #expect(color.range(of: Data("/DCTDecode".utf8)) != nil)
+
+        let noise = CIFilter(name: "CIRandomGenerator")!.outputImage!.applyingGaussianBlur(sigma: 6).cropped(to: CGRect(x: 0, y: 0, width: 1240, height: 1754))
+        let picture = try PDFWriter(context: context).data(pages: [PDFPageContent(image: noise, look: .gray)], title: "", defaultPaper: .a4)
+        #expect(picture.range(of: Data("/DCTDecode".utf8)) != nil)
+        #expect(picture.range(of: Data("/BitsPerComponent 4".utf8)) == nil)
+    }
+
+    @Test func keepsAFaintMarkOnAGrayPageOfText() throws {
+        let faint: UInt8 = 230
+        let width = 620, height = 877
+        var gray = [UInt8](repeating: 255, count: width * height)
+        for y in 400..<440 { for x in 100..<520 { gray[y * width + x] = faint } }
+        for y in stride(from: 100, to: 300, by: 20) { for x in 100..<520 { gray[y * width + x] = 0 } }
+        let space = CGColorSpace(name: CGColorSpace.genericGrayGamma2_2)!
+        let bitmap = try #require(CGContext(data: &gray, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width, space: space, bitmapInfo: CGImageAlphaInfo.none.rawValue))
+        let page = CIImage(cgImage: try #require(bitmap.makeImage()))
+        let data = try PDFWriter(context: context).data(pages: [PDFPageContent(image: page, look: .gray)], title: "", defaultPaper: .a4)
+        #expect(data.range(of: Data("/BitsPerComponent 4".utf8)) != nil)
+
+        let rendered = try pixels(ofFirstPageOf: data)
+        let size = Paper.a4.size
+        let mark = rendered[Int(size.height) * 420 / height * Int(size.width) + Int(size.width) / 2]
+        #expect(abs(Int(mark) - Int(faint)) <= 9)
+        #expect(rendered[Int(size.height) * 700 / height * Int(size.width) + Int(size.width) / 2] == 255)
     }
 
     @Test(arguments: [(PageLook.gray, 1), (.color, 3)])
@@ -116,6 +147,11 @@ struct PDFWriterTests {
               CGPDFArrayGetStream(array, 1, &profile), let profile,
               CGPDFDictionaryGetInteger(try #require(CGPDFStreamGetDictionary(profile)), "N", &count) else { return nil }
         return count
+    }
+
+    /// The page as the cleanup leaves it: white where the paper is.
+    private func whitePaper(_ page: CIImage) -> CIImage {
+        PageCleaner(context: context).render(page, analysis: .sample, look: .gray)
     }
 
     private func pixels(ofFirstPageOf data: Data) throws -> [UInt8] {
