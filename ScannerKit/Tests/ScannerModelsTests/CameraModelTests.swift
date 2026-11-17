@@ -12,6 +12,7 @@ final class FakeCamera: CameraDevice, @unchecked Sendable {
     var failsPhotos = false
     var onFrame: (@Sendable (LiveFrame) -> Void)?
     var onSmudge: (@Sendable (Float) -> Void)?
+    var onInterruption: (@Sendable (Bool) -> Void)?
     private(set) var isRunning = false
     private(set) var photos = 0
 
@@ -154,6 +155,56 @@ final class CameraModelTests {
         await camera.start(scan: fixture.scanModel())
         #expect(camera.access == access)
         #expect(device.isRunning == (access == .granted))
+    }
+
+    @Test func ignoresFramesAndTheShutterOnceStopped() async {
+        camera.stop()
+        holdStill(camera, from: 0)
+        camera.shutter()
+        await camera.waitUntilIdle()
+        #expect(device.photos == 0)
+        #expect(camera.quad == nil)
+    }
+
+    @Test func capturesNothingWhilePaused() async {
+        camera.isPaused = true
+        holdStill(camera, from: 0)
+        camera.shutter()
+        await camera.waitUntilIdle()
+        #expect(device.photos == 0)
+
+        camera.isPaused = false
+        holdStill(camera, from: 2)
+        await camera.waitUntilIdle()
+        #expect(device.photos == 1)
+    }
+
+    @Test func saysWhenTheCameraIsInterruptedAndCapturesNothing() async {
+        camera.handle(LiveFrame(quad: page, imageSize: size, time: 0))
+        camera.handleInterruption(true)
+        #expect(camera.hint == .cameraUnavailable)
+        #expect(camera.quad == nil)
+        #expect(!camera.canCapture)
+        holdStill(camera, from: 1)
+        camera.shutter()
+        await camera.waitUntilIdle()
+        #expect(device.photos == 0)
+
+        camera.handleInterruption(false)
+        #expect(camera.canCapture)
+        holdStill(camera, from: 3)
+        await camera.waitUntilIdle()
+        #expect(device.photos == 1)
+    }
+
+    @Test func forgetsWhatTheLastSessionSawWhenStartedAgain() async {
+        camera.handleSmudge(1)
+        camera.handle(LiveFrame(quad: page, imageSize: size, time: 0, lowLight: true))
+        camera.handleInterruption(true)
+        camera.stop()
+        await camera.start(scan: scan)
+        #expect(camera.quad == nil)
+        #expect(camera.hint == .pointAtPage)
     }
 
     /// Frames of the same page for one second.

@@ -53,6 +53,7 @@ struct CameraView: View {
         .statusBarHidden()
         .task(id: scan.scan.id) { await camera.start(scan: scan) }
         .onDisappear { camera.stop() }
+        .onChange(of: showingLastPage) { _, showing in camera.isPaused = showing }
         .onChange(of: camera.captures) {
             withAnimation(.easeOut(duration: 0.08)) { flashOverlay = true }
             withAnimation(.easeIn(duration: 0.3).delay(0.08)) { flashOverlay = false }
@@ -62,7 +63,7 @@ struct CameraView: View {
         }
         .sensoryFeedback(.impact, trigger: camera.captures)
         .sensoryFeedback(.selection, trigger: camera.locks)
-        .onCameraCaptureEvent { event in
+        .onCameraCaptureEvent(isEnabled: camera.canCapture) { event in
             if event.phase == .ended { camera.shutter() }
         }
         .sheet(isPresented: $showingLastPage) {
@@ -90,7 +91,10 @@ struct CameraView: View {
     }
 
     private var closeButton: some View {
-        Button("Close", systemImage: "xmark", action: close)
+        Button("Close", systemImage: "xmark") {
+            camera.stop()
+            close()
+        }
             .labelStyle(.iconOnly)
             .buttonStyle(.glass)
             .buttonBorderShape(.circle)
@@ -129,9 +133,13 @@ struct CameraView: View {
                 }
                 .frame(width: 72, height: 72)
             }
+            .disabled(!camera.canCapture)
             .accessibilityLabel("Capture")
 
-            Button("Done", action: done)
+            Button("Done") {
+                camera.stop()
+                done()
+            }
                 .buttonStyle(.glassProminent)
                 .controlSize(.large)
                 .fontWeight(.semibold)

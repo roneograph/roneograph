@@ -42,6 +42,8 @@ public protocol CameraDevice: AnyObject, Sendable {
     var onFrame: (@Sendable (LiveFrame) -> Void)? { get set }
     /// Called with the probability that the lens is smudged.
     var onSmudge: (@Sendable (Float) -> Void)? { get set }
+    /// Called with true when the system takes the camera away, such as for a call, and false when it gives it back.
+    var onInterruption: (@Sendable (Bool) -> Void)? { get set }
     func requestAccess() async -> Bool
     func start()
     func stop()
@@ -52,7 +54,7 @@ public protocol CameraDevice: AnyObject, Sendable {
 @MainActor @Observable
 public final class CameraModel {
     public enum Hint: Equatable, Sendable {
-        case pointAtPage, moveFarther, moveCloser, moreLight, cleanLens, holdStill, tapToCapture, captureFailed, added(Int)
+        case pointAtPage, moveFarther, moveCloser, moreLight, cleanLens, holdStill, tapToCapture, captureFailed, cameraUnavailable, added(Int)
 
         public var text: String {
             switch self {
@@ -64,6 +66,7 @@ public final class CameraModel {
             case .holdStill: "Hold still"
             case .tapToCapture: "Tap to capture"
             case .captureFailed: "The photo failed · try again"
+            case .cameraUnavailable: "Camera unavailable"
             case .added(let page): "Page \(page) added · next page"
             }
         }
@@ -75,6 +78,7 @@ public final class CameraModel {
             case .moreLight: "sun.max"
             case .cleanLens: "hand.wave"
             case .captureFailed: "exclamationmark.triangle.fill"
+            case .cameraUnavailable: "video.slash"
             case .added: "checkmark.circle.fill"
             default: nil
             }
@@ -91,6 +95,10 @@ public final class CameraModel {
     private var lowLight = false
     private var smudged = false
     private var captureFailed = false
+    private var isRunning = false
+    private var isInterrupted = false
+    /// Set while something covers the camera, such as the last page sheet: nothing is captured.
+    public var isPaused = false
     /// Bumped on each capture, for the flash and the haptic.
     public private(set) var captures = 0
     /// Bumped when a page gets locked, for the haptic.
@@ -114,7 +122,13 @@ public final class CameraModel {
         device.onSmudge = { [weak self] confidence in
             Task { @MainActor in self?.handleSmudge(confidence) }
         }
+        device.onInterruption = { [weak self] interrupted in
+            Task { @MainActor in self?.handleInterruption(interrupted) }
+        }
     }
+
+    /// The shutter can take a photo: the camera runs and nothing covers it.
+    public var canCapture: Bool { isRunning && !isInterrupted && !isPaused }
 
     public var autoCapture: Bool {
         get { settings.value.autoCapture }
@@ -122,6 +136,7 @@ public final class CameraModel {
     }
 
     public var hint: Hint {
+        if isInterrupted { return .cameraUnavailable }
         switch state {
         case .pageCutOff: return .moveFarther
         case .pageTooSmall: return .moveCloser
@@ -148,7 +163,12 @@ public final class CameraModel {
         self.scan = scan
         trigger.reset()
         state = .searching
+        quad = nil
+        signature = nil
+        lowLight = false
+        smudged = false
         captureFailed = false
+        isInterrupted = false
         if !device.isAvailable {
             access = .unavailable
         } else if !device.isAuthorized {
@@ -156,14 +176,20 @@ public final class CameraModel {
         } else {
             access = .granted
         }
-        if access == .granted { device.start() }
+        if access == .granted {
+            isRunning = true
+            device.start()
+        }
     }
 
     public func stop() {
+        isRunning = false
+        quad = nil
         device.stop()
     }
 
     public func shutter() {
+        guard canCapture else { return }
         trigger.didCapture(quad: quad, signature: signature)
         capture()
     }
@@ -180,6 +206,7 @@ public final class CameraModel {
     }
 
     func handle(_ frame: LiveFrame) {
+        guard isRunning, !isInterrupted else { return }
         let wasLocked = quad != nil
         quad = frame.quad
         imageSize = frame.imageSize
@@ -187,6 +214,7 @@ public final class CameraModel {
         lowLight = frame.lowLight
         if !wasLocked, frame.quad != nil { locks += 1 }
 
+        guard !isPaused else { return }
         trigger.isAutomatic = autoCapture
         state = trigger.update(quad: frame.quad, signature: frame.signature, at: frame.time)
         if case .capture = state {
@@ -198,8 +226,16 @@ public final class CameraModel {
         smudged = confidence >= 0.9
     }
 
+    func handleInterruption(_ interrupted: Bool) {
+        isInterrupted = interrupted
+        quad = nil
+        signature = nil
+        trigger.reset()
+        state = .searching
+    }
+
     private func capture() {
-        guard let scan else { return }
+        guard let scan, canCapture else { return }
         let quad = quad, flash = flash, device = device
         captures += 1
         captureFailed = false
