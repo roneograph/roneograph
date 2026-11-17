@@ -76,6 +76,19 @@ final class ScanStoreTests {
         #expect(!FileManager.default.fileExists(atPath: root.appending(path: "Documents/Scan.pdf").path(percentEncoded: false)))
     }
 
+    @Test func deletesThePDFItCannotMoveRatherThanLeaveItUnderItsOldName() throws {
+        var scan = Scan(name: "Scan")
+        try Data("%PDF".utf8).write(to: store.pdfURL(of: scan))
+        scan.name = "Invoice"
+        let locked = store.pdfURL(of: scan).path(percentEncoded: false)
+        try Data().write(to: store.pdfURL(of: scan))
+        try FileManager.default.setAttributes([.immutable: true], ofItemAtPath: locked)
+        defer { try? FileManager.default.setAttributes([.immutable: false], ofItemAtPath: locked) }
+
+        store.movePDF(from: "Scan", to: scan)
+        #expect(!FileManager.default.fileExists(atPath: root.appending(path: "Documents/Scan.pdf").path(percentEncoded: false)))
+    }
+
     @Test func keepsLocalPDFsOutOfTheFoldersOfTheName() throws {
         var scan = Scan(name: "Scan")
         try Data("%PDF".utf8).write(to: store.pdfURL(of: scan))

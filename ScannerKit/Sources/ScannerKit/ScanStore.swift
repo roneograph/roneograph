@@ -83,11 +83,14 @@ public struct ScanStore: Sendable {
         }
     }
 
-    /// Moves the PDF along with a renamed scan.
+    /// Moves the PDF along with a renamed scan; one that cannot be moved is deleted, as nothing would delete it under its old name.
     public func movePDF(from oldFileName: String, to scan: Scan) {
         let old = documentsDirectory.appending(path: "\(oldFileName).pdf")
         guard oldFileName != scan.fileName, FileManager.default.fileExists(atPath: old.path(percentEncoded: false)) else { return }
-        try? FileManager.default.removeItem(at: pdfURL(of: scan))
-        try? FileManager.default.moveItem(at: old, to: pdfURL(of: scan))
+        do {
+            try FileManager.default.moveItem(at: old, to: pdfURL(of: scan))
+        } catch {
+            try? FileManager.default.removeItem(at: old)
+        }
     }
 }

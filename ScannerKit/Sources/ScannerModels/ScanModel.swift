@@ -167,13 +167,15 @@ public final class ScanModel: Identifiable {
     /// Without pages left, the stored scan goes too, unless a page still being processed comes in.
     public func deletePage(_ id: UUID) {
         scan.pages.removeAll { $0.id == id }
-        store.deletePageFiles(scanID: scan.id, pageID: id)
         if !scan.pages.isEmpty {
-            save()
+            if save() { store.deletePageFiles(scanID: scan.id, pageID: id) }
             return
         }
         enqueue { [self] in
-            guard scan.pages.isEmpty else { return }
+            guard scan.pages.isEmpty else {
+                store.deletePageFiles(scanID: scan.id, pageID: id)
+                return
+            }
             store.delete(scan)
             didSave?()
         }
@@ -409,13 +411,16 @@ public final class ScanModel: Identifiable {
         setDetails(details)
     }
 
-    private func save() {
-        guard !scan.pages.isEmpty, !isDeleted else { return }
+    @discardableResult
+    private func save() -> Bool {
+        guard !scan.pages.isEmpty, !isDeleted else { return false }
         do {
             try store.save(scan)
             didSave?()
+            return true
         } catch {
             failure = "The scan could not be saved."
+            return false
         }
     }
 }

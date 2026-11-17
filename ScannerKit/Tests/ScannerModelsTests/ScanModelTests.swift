@@ -61,6 +61,25 @@ struct ScanModelTests {
         #expect(!FileManager.default.fileExists(atPath: model.photoURL(of: page).path(percentEncoded: false)))
     }
 
+    @Test func deletingAPageSavesTheScanBeforeDeletingItsFiles() async throws {
+        let fixture = try Fixture()
+        let model = await fixture.scanModel(pages: 3)
+        let photo = model.photoURL(of: model.scan.pages[0]).path(percentEncoded: false)
+        var photoWhenSaved: Bool?
+        model.didSave = { photoWhenSaved = FileManager.default.fileExists(atPath: photo) }
+        model.deletePage(model.scan.pages[0].id)
+        #expect(photoWhenSaved == true)
+        #expect(!FileManager.default.fileExists(atPath: photo))
+
+        let kept = model.photoURL(of: model.scan.pages[0]).path(percentEncoded: false)
+        let json = fixture.store.directory(of: model.id).appending(path: "scan.json")
+        try FileManager.default.removeItem(at: json)
+        try FileManager.default.createDirectory(at: json.appending(path: "blocked"), withIntermediateDirectories: true)
+        model.deletePage(model.scan.pages[0].id)
+        #expect(model.failure != nil)
+        #expect(FileManager.default.fileExists(atPath: kept))
+    }
+
     @Test func deletingTheLastPageLeavesNothingBehind() async throws {
         let fixture = try Fixture()
         let model = await fixture.scanModel(pages: 1)
@@ -78,13 +97,15 @@ struct ScanModelTests {
     @Test func deletingTheLastPageKeepsAPageStillProcessed() async throws {
         let fixture = try Fixture()
         let model = await fixture.scanModel(pages: 1)
+        let deleted = model.scan.pages[0]
         model.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
-        model.deletePage(model.scan.pages[0].id)
+        model.deletePage(deleted.id)
         await model.waitUntilIdle()
 
         let page = try #require(model.scan.pages.first)
         #expect(fixture.store.all().first?.pages == [page])
         #expect(FileManager.default.fileExists(atPath: model.previewURL(of: page).path(percentEncoded: false)))
+        #expect(!FileManager.default.fileExists(atPath: model.previewURL(of: deleted).path(percentEncoded: false)))
     }
 
     @Test func quickEditsAreAllApplied() async throws {
