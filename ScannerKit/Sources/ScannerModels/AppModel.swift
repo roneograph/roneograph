@@ -26,12 +26,14 @@ public final class AppModel {
 
     public var store: ScanStore { processor.store }
 
-    /// Deletes expired scans and reloads the list.
+    /// Deletes expired scans, except the one open in Review or in the camera, and reloads the list.
     public func refresh() {
-        if let days = settings.value.keepScans.days {
-            store.deleteScans(olderThan: now().addingTimeInterval(-Double(days) * 86400))
-        }
         reload()
+        guard let days = settings.value.keepScans.days else { return }
+        let cutoff = now().addingTimeInterval(-Double(days) * 86400)
+        for scan in scans where scan.created < cutoff && camera?.id != scan.id && path.last != scan.id {
+            delete(scan.id)
+        }
     }
 
     private func reload() {

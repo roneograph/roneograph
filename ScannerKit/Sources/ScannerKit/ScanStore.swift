@@ -59,13 +59,6 @@ public struct ScanStore: Sendable {
         return (files + pdfs).reduce(0) { $0 + ((try? $1.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0) }
     }
 
-    /// Deletes the scans created before the cutoff, with their PDF.
-    public func deleteScans(olderThan cutoff: Date) {
-        for scan in all() where scan.created < cutoff {
-            delete(scan)
-        }
-    }
-
     /// A name whose PDF does not collide with another scan's PDF or any other file: "Invoice", then "Invoice 2", and so on.
     /// Only the file name counts, as all local PDFs share one folder; the folders of the name are kept.
     public func availableName(_ name: String, for scan: Scan, separator: String = " ") -> String {

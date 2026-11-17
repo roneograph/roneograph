@@ -360,6 +360,35 @@ struct AppModelTests {
         #expect(app.scans.map(\.name) == ["Today"])
     }
 
+    @Test func keepsAnExpiredScanWhileItIsOpen() throws {
+        let fixture = try Fixture()
+        let now = Date()
+        var reviewed = Scan(created: now.addingTimeInterval(-8 * 86400), name: "Reviewed")
+        var scanned = Scan(created: now.addingTimeInterval(-9 * 86400), name: "Scanned")
+        reviewed.pages = [ScanPage(quad: nil, analysis: .sample)]
+        scanned.pages = [ScanPage(quad: nil, analysis: .sample)]
+        try fixture.store.save(reviewed)
+        try fixture.store.save(scanned)
+        fixture.settings.value.keepScans = .forever
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings, now: { now })
+        app.path = [reviewed.id]
+        let review = try #require(app.model(for: reviewed.id))
+        app.continueScan(scanned.id)
+
+        fixture.settings.value.keepScans = .week
+        app.refresh()
+        #expect(app.scans.map(\.id) == [reviewed.id, scanned.id])
+        #expect(app.model(for: reviewed.id) === review)
+
+        app.closeCamera()
+        app.path = []
+        app.refresh()
+        review.rename("Water bill")
+        #expect(app.scans.isEmpty)
+        #expect(fixture.store.all().isEmpty)
+        #expect(app.model(for: reviewed.id) == nil)
+    }
+
     @Test func keepsScansForeverWhenAsked() throws {
         let fixture = try Fixture()
         let now = Date()

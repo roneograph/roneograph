@@ -35,19 +35,6 @@ final class ScanStoreTests {
         #expect(store.byteCount() == json + 1000)
     }
 
-    @Test func deletesExpiredScansWithTheirPDF() throws {
-        let old = Scan(created: Date(timeIntervalSinceNow: -8 * 86400), name: "Old")
-        let recent = Scan(created: Date(timeIntervalSinceNow: -6 * 86400), name: "Recent")
-        for scan in [old, recent] {
-            try store.save(scan)
-            try Data("%PDF".utf8).write(to: store.pdfURL(of: scan))
-        }
-        store.deleteScans(olderThan: Date(timeIntervalSinceNow: -7 * 86400))
-        #expect(store.all().map(\.name) == ["Recent"])
-        #expect(!FileManager.default.fileExists(atPath: store.pdfURL(of: old).path(percentEncoded: false)))
-        #expect(FileManager.default.fileExists(atPath: store.pdfURL(of: recent).path(percentEncoded: false)))
-    }
-
     @Test func picksAnAvailableName() throws {
         try store.save(Scan(name: "Invoice"))
         try Data().write(to: root.appending(path: "Documents/Receipt.pdf"))
