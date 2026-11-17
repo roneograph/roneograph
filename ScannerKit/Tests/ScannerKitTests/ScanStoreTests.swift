@@ -25,6 +25,17 @@ final class ScanStoreTests {
         #expect(store.all().last?.pages == old.pages)
     }
 
+    @Test func keepsAScanWhoseFileCannotBeReadForNow() throws {
+        let scan = Scan(name: "Locked")
+        try store.save(scan)
+        let json = store.directory(of: scan.id).appending(path: "scan.json")
+        try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: json.path(percentEncoded: false))
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: json.path(percentEncoded: false)) }
+
+        store.deleteUnreadableScans(keeping: [])
+        #expect(FileManager.default.fileExists(atPath: json.path(percentEncoded: false)))
+    }
+
     @Test func countsTheBytesOfScansAndTheirPDFs() async throws {
         let scan = Scan(name: "Invoice")
         try store.save(scan)

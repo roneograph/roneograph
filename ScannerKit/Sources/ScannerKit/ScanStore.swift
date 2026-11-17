@@ -44,11 +44,22 @@ public struct ScanStore: Sendable {
         folders().compactMap(read).sorted { $0.created > $1.created }
     }
 
-    /// Deletes the scan folders without a readable scan.json, as left when the app quits before a scan is first saved, except the kept ones.
+    /// Deletes the scan folders whose scan.json is missing, as left when the app quits before a scan is first saved, or cannot be decoded, except the kept ones.
+    /// A scan.json that cannot be read for now, as while the iPhone is locked, is kept.
     public func deleteUnreadableScans(keeping kept: Set<UUID>) {
-        for folder in folders() where read(folder) == nil {
+        for folder in folders() where isBroken(folder) {
             guard let id = UUID(uuidString: folder.lastPathComponent), !kept.contains(id) else { continue }
             try? FileManager.default.removeItem(at: folder)
+        }
+    }
+
+    private func isBroken(_ folder: URL) -> Bool {
+        do {
+            return decode(try Data(contentsOf: folder.appending(path: "scan.json"))) == nil
+        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            return true
+        } catch {
+            return false
         }
     }
 
@@ -57,9 +68,13 @@ public struct ScanStore: Sendable {
     }
 
     private func read(_ folder: URL) -> Scan? {
+        (try? Data(contentsOf: folder.appending(path: "scan.json"))).flatMap(decode)
+    }
+
+    private func decode(_ data: Data) -> Scan? {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        return (try? Data(contentsOf: folder.appending(path: "scan.json"))).flatMap { try? decoder.decode(Scan.self, from: $0) }
+        return try? decoder.decode(Scan.self, from: data)
     }
 
     public func delete(_ scan: Scan) {
