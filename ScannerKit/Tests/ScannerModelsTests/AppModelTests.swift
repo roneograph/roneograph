@@ -503,7 +503,7 @@ struct AppModelTests {
         #expect(app.scans.isEmpty)
         #expect(fixture.store.all().isEmpty)
         #expect(!fixture.pdfExists(first.scan.fileName))
-        #expect(fixture.store.byteCount() == 0)
+        #expect(await fixture.store.byteCount() == 0)
     }
 
     @Test func listsScansNewestFirstAndDropsExpiredOnes() throws {
@@ -565,7 +565,7 @@ struct AppModelTests {
         #expect(exists(processing))
     }
 
-    @Test func deletingAllScansDeletesScanFoldersWithoutAReadableScan() throws {
+    @Test func deletingAllScansDeletesScanFoldersWithoutAReadableScan() async throws {
         let fixture = try Fixture()
         fixture.settings.value.keepScans = .forever
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)
@@ -575,7 +575,7 @@ struct AppModelTests {
 
         app.deleteAllScans()
         #expect(!exists(unsaved))
-        #expect(fixture.store.byteCount() == 0)
+        #expect(await fixture.store.byteCount() == 0)
     }
 
     private func unreadableScanFolder(in store: ScanStore, id: UUID = UUID(), json: Data? = nil) throws -> URL {

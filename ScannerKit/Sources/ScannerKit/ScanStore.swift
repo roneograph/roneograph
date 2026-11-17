@@ -75,8 +75,9 @@ public struct ScanStore: Sendable {
         }
     }
 
-    /// The size of the scans and their PDFs, in bytes.
-    public func byteCount() -> Int {
+    /// The size of the scans and their PDFs, in bytes; reads every scan, so off the main actor.
+    @concurrent
+    public func byteCount() async -> Int {
         let pdfs = all().map(pdfURL)
         let files = FileManager.default.enumerator(at: scansDirectory, includingPropertiesForKeys: [.fileSizeKey])?.compactMap { $0 as? URL } ?? []
         return (files + pdfs).reduce(0) { $0 + ((try? $1.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0) }

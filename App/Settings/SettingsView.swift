@@ -87,7 +87,7 @@ struct SettingsView: View {
                 .confirmationDialog("Delete \(app.scans.count == 1 ? "the scan" : "all \(app.scans.count) scans")?", isPresented: $deletingScans, titleVisibility: .visible) {
                     Button("Delete All Scans", role: .destructive) {
                         app.deleteAllScans()
-                        storedBytes = app.store.byteCount()
+                        Task { storedBytes = await app.store.byteCount() }
                     }
                 } message: {
                     Text("Their pages and PDFs are deleted from this iPhone. PDFs saved with Save to Files or sent are not affected.")
@@ -114,7 +114,7 @@ struct SettingsView: View {
                     .navigationTitle("Owners")
                     .navigationBarTitleDisplayMode(.inline)
             }
-            .onAppear { storedBytes = app.store.byteCount() }
+            .task { storedBytes = await app.store.byteCount() }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
