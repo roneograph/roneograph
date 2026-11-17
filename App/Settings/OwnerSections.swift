@@ -123,4 +123,13 @@ extension Owner.Symbol {
         case .briefcase: "briefcase"
         }
     }
+
+    var name: String {
+        switch self {
+        case .person: "Person"
+        case .house: "House"
+        case .building: "Building"
+        case .briefcase: "Briefcase"
+        }
+    }
 }

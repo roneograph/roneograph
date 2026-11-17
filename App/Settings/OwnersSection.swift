@@ -77,7 +77,7 @@ struct OwnerView: View {
                     .onSubmit(rename)
                 Picker("Symbol", selection: owner.symbol) {
                     ForEach(Owner.Symbol.allCases, id: \.self) { symbol in
-                        Image(systemName: symbol.systemImage).tag(symbol)
+                        Image(systemName: symbol.systemImage).accessibilityLabel(symbol.name).tag(symbol)
                     }
                 }
                 .pickerStyle(.segmented)
