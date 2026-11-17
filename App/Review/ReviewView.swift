@@ -117,7 +117,6 @@ private struct PageGrid: View {
                     return true
                 }
                 .contextMenu {
-                    Button("Rotate", systemImage: "rotate.right") { scan.rotatePage(page.id) }
                     if scan.canDeletePage {
                         Button("Delete", systemImage: "trash", role: .destructive) { deleting = page.id }
                     }
