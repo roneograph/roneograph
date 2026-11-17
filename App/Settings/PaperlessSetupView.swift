@@ -12,7 +12,7 @@ struct PaperlessSetupView: View {
     @Environment(\.dismiss) private var dismiss
 
     init(ownerID: UUID, settings: SettingsStore, archiver: Archiver, saved: @escaping () -> Void = {}) {
-        _setup = State(initialValue: PaperlessSetup(ownerID: ownerID, settings: settings, archiver: archiver, fetch: Self.fetch))
+        _setup = State(initialValue: PaperlessSetup(ownerID: ownerID, settings: settings, archiver: archiver, fetch: PaperlessHTTP.fetch))
         title = settings.value.hasSeveralOwners ? "Paperless for \(settings.value.owner(ownerID).name)" : "Paperless"
         self.saved = saved
     }
@@ -93,18 +93,5 @@ struct PaperlessSetupView: View {
         } catch {
             saveFailed = true
         }
-    }
-
-    /// Redirects are refused, so the token never goes to another address; the server must be typed as it answers.
-    private static let session = URLSession(configuration: .ephemeral, delegate: RefusingRedirects(), delegateQueue: nil)
-
-    @Sendable private static func fetch(_ request: URLRequest) async throws -> (Data, URLResponse) {
-        try await session.data(for: request)
-    }
-}
-
-private final class RefusingRedirects: NSObject, URLSessionTaskDelegate {
-    func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest) async -> URLRequest? {
-        nil
     }
 }

@@ -16,7 +16,7 @@ struct RoneographApp: App {
         let store = ScanStore(scansDirectory: support, documentsDirectory: .documentsDirectory)
         let processor = ScanProcessor(store: store, context: context, background: SystemBackgroundActivity())
         let uploader = BackgroundUploader()
-        let archiver = Archiver(uploader: uploader, tokens: KeychainTokens(), directory: URL.applicationSupportDirectory.appending(path: "Uploads", directoryHint: .isDirectory))
+        let archiver = Archiver(uploader: uploader, tokens: KeychainTokens(), directory: URL.applicationSupportDirectory.appending(path: "Uploads", directoryHint: .isDirectory), fetch: PaperlessHTTP.fetch)
         uploader.archiver = archiver
         let app = AppModel(processor: processor, settings: SettingsStore(appFolder: .documentsDirectory), archiver: archiver)
         _app = State(initialValue: app)

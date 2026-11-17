@@ -31,6 +31,29 @@ struct PaperlessTests {
         #expect(try Paperless.storagePaths(from: Data(json.utf8)) == [PaperlessStoragePath(id: 3, name: "Holding"), PaperlessStoragePath(id: 1, name: "Personal")])
     }
 
+    @Test func listsDocumentTypesByTheirLowercasedName() throws {
+        let request = Paperless.documentTypesRequest(server: URL(string: "https://example.com/")!, token: "abc")
+        #expect(request.url?.absoluteString == "https://example.com/api/document_types/?page_size=1000&ordering=name")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Token abc")
+        let json = #"{"results": [{"id": 4, "name": "Bank Statement", "matching_algorithm": 6}, {"id": 2, "name": "Invoice"}]}"#
+        #expect(try Paperless.documentTypes(from: Data(json.utf8)) == ["bank statement": 4, "invoice": 2])
+    }
+
+    @Test func createsADocumentTypePaperlessNeverAssignsByItself() throws {
+        let request = Paperless.createDocumentTypeRequest(server: URL(string: "https://example.com/")!, token: "abc", name: "Payslip")
+        #expect(request.url?.absoluteString == "https://example.com/api/document_types/")
+        #expect(request.httpMethod == "POST")
+        #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Token abc")
+        #expect(String(decoding: request.httpBody ?? Data(), as: UTF8.self) == #"{"matching_algorithm":0,"name":"Payslip"}"#)
+        #expect(try Paperless.createdID(from: Data(#"{"id": 9, "name": "Payslip", "slug": "payslip"}"#.utf8)) == 9)
+    }
+
+    @Test func sendsTheDocumentType() {
+        let body = String(decoding: Paperless.uploadBody(pdf: Data(), fileName: "a.pdf", title: "A", created: nil, documentType: 9, storagePath: nil, boundary: "XYZ"), as: UTF8.self)
+        #expect(body.contains("--XYZ\r\nContent-Disposition: form-data; name=\"document_type\"\r\n\r\n9\r\n"))
+    }
+
     @Test func postsTheDocumentAsAForm() {
         let request = Paperless.uploadRequest(server: URL(string: "https://example.com/")!, token: "abc", boundary: "XYZ")
         #expect(request.url?.absoluteString == "https://example.com/api/documents/post_document/")

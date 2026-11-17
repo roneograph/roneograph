@@ -211,7 +211,7 @@ struct SendBar<Summary: View>: View {
         Task {
             guard await preparePDFs(scans) else { return }
             do {
-                try app.archive(scans)
+                try await app.archive(scans)
                 finished(Set(scans.map(\.id)))
             } catch {
                 archivingFailed = true

@@ -43,19 +43,53 @@ public enum Paperless {
     }
 
     public static func storagePathsRequest(server: URL, token: String) -> URLRequest {
-        var request = URLRequest(url: server.appending(path: "api/storage_paths/").appending(queryItems: [
+        listRequest("api/storage_paths/", server: server, token: token)
+    }
+
+    public static func storagePaths(from data: Data) throws -> [PaperlessStoragePath] {
+        try JSONDecoder().decode(Page<PaperlessStoragePath>.self, from: data).results
+    }
+
+    public static func documentTypesRequest(server: URL, token: String) -> URLRequest {
+        listRequest("api/document_types/", server: server, token: token)
+    }
+
+    /// The IDs of the document types by their name, lowercased, as Paperless refuses two names that differ only by case.
+    public static func documentTypes(from data: Data) throws -> [String: Int] {
+        let types = try JSONDecoder().decode(Page<Named>.self, from: data).results
+        return Dictionary(types.map { ($0.name.lowercased(), $0.id) }) { first, _ in first }
+    }
+
+    /// Creates a document type that Paperless never assigns by itself, so only the documents sent with it get it.
+    public static func createDocumentTypeRequest(server: URL, token: String, name: String) -> URLRequest {
+        var request = URLRequest(url: server.appending(path: "api/document_types/"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: ["name": name, "matching_algorithm": 0], options: .sortedKeys)
+        authorize(&request, token: token)
+        return request
+    }
+
+    public static func createdID(from data: Data) throws -> Int {
+        try JSONDecoder().decode(Named.self, from: data).id
+    }
+
+    private struct Page<Result: Decodable>: Decodable {
+        let results: [Result]
+    }
+
+    private struct Named: Decodable {
+        let id: Int
+        let name: String
+    }
+
+    private static func listRequest(_ path: String, server: URL, token: String) -> URLRequest {
+        var request = URLRequest(url: server.appending(path: path).appending(queryItems: [
             URLQueryItem(name: "page_size", value: "1000"),
             URLQueryItem(name: "ordering", value: "name"),
         ]))
         authorize(&request, token: token)
         return request
-    }
-
-    public static func storagePaths(from data: Data) throws -> [PaperlessStoragePath] {
-        struct Page: Decodable {
-            let results: [PaperlessStoragePath]
-        }
-        return try JSONDecoder().decode(Page.self, from: data).results
     }
 
     /// The request for `uploadBody`, which is sent as a file.
@@ -67,13 +101,14 @@ public enum Paperless {
         return request
     }
 
-    /// The form Paperless-ngx takes: the PDF with its file name, the title, the date of the document when known, and the storage path.
-    public static func uploadBody(pdf: Data, fileName: String, title: String, created: Date?, storagePath: Int?, boundary: String, timeZone: TimeZone = .current) -> Data {
+    /// The form Paperless-ngx takes: the PDF with its file name, the title, the date of the document when known, the document type and the storage path.
+    public static func uploadBody(pdf: Data, fileName: String, title: String, created: Date?, documentType: Int? = nil, storagePath: Int?, boundary: String, timeZone: TimeZone = .current) -> Data {
         var form = MultipartForm(boundary: boundary)
         form.add(name: "title", value: title)
         if let created {
             form.add(name: "created", value: created.formatted(Date.ISO8601FormatStyle(timeZone: timeZone).year().month().day()))
         }
+        if let documentType { form.add(name: "document_type", value: String(documentType)) }
         if let storagePath { form.add(name: "storage_path", value: String(storagePath)) }
         form.add(name: "document", fileName: fileName, contentType: "application/pdf", data: pdf)
         return form.finished()

@@ -31,6 +31,7 @@ public final class AppModel {
         self.archiver = archiver
         self.now = now
         archiver?.model = { [weak self] in self?.model(for: $0) }
+        archiver?.scans = { [weak self] in self?.scans ?? [] }
         refresh()
         for scan in scans where !scan.pending.isEmpty { _ = model(for: scan.id) }
     }
@@ -163,11 +164,12 @@ public final class AppModel {
     }
 
     /// Starts sending each scan to the Paperless server of its owner; Home tells when they are archived.
-    public func archive(_ models: [ScanModel]) throws {
+    public func archive(_ models: [ScanModel]) async throws {
         guard let archiver, !models.isEmpty else { return }
-        try archiver.archive(models)
+        try archiver.check(models)
         path = []
         showToast(models.count == 1 ? "Archiving to Paperless" : "Archiving \(models.count) scans to Paperless")
+        await archiver.archive(models)
     }
 
     /// A PDF could not be saved; `saved` lists the scans saved before it.

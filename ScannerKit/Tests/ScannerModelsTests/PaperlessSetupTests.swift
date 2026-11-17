@@ -13,7 +13,7 @@ struct PaperlessSetupTests {
 
     init() throws {
         fixture = try Fixture()
-        archiver = Archiver(uploader: FakeUploader(), tokens: tokens, directory: fixture.root.appending(path: "Uploads"))
+        archiver = Archiver(uploader: FakeUploader(), tokens: tokens, directory: fixture.root.appending(path: "Uploads"), fetch: FakeServer().fetch)
     }
 
     private func setup(_ ownerID: UUID? = nil, status: Int = 200, body: String = #"{"results": [{"id": 1, "name": "Personal"}, {"id": 2, "name": "Holding"}]}"#) -> PaperlessSetup {
