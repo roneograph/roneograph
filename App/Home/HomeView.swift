@@ -114,7 +114,7 @@ struct HomeView: View {
             }
             Section {
                 ForEach(app.scans) { scan in
-                    ScanRow(scan: scan, store: app.store, owner: app.settings.value.hasSeveralOwners ? app.settings.value.owner(scan.owner?.id) : nil, isSelecting: isSelecting, open: { app.path = [scan.id] }, continueScan: { app.continueScan(scan.id) })
+                    ScanRow(scan: scan, store: app.store, owner: app.settings.value.hasSeveralOwners ? app.settings.value.owner(scan.owner?.id) : nil, isSelecting: isSelecting) { app.open(scan.id) }
                         .selectionDisabled(!scan.isFinished)
                         .swipeActions {
                             if !isSelecting {
@@ -244,6 +244,7 @@ private struct SendSetupCard: View {
     }
 }
 
+/// A finished scan opens Review; a scan in progress opens the camera, and says so.
 private struct ScanRow: View {
     let scan: Scan
     let store: ScanStore
@@ -251,17 +252,20 @@ private struct ScanRow: View {
     let owner: Owner?
     let isSelecting: Bool
     let open: () -> Void
-    let continueScan: () -> Void
 
     var body: some View {
         if isSelecting {
             summary.opacity(scan.isFinished ? 1 : 0.45)
         } else {
-            HStack(spacing: 12) {
-                Button(action: open) { summary.contentShape(Rectangle()) }
-                    .buttonStyle(.plain)
-                continueButton
+            Button(action: open) {
+                HStack(spacing: 12) {
+                    summary
+                    if !scan.isFinished { continueCapsule }
+                }
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .accessibilityHint(scan.isFinished ? "" : "Opens the camera to add pages to this scan")
         }
     }
 
@@ -283,19 +287,14 @@ private struct ScanRow: View {
         }
     }
 
-    private var continueButton: some View {
-        Button(action: continueScan) {
-            Image(systemName: "doc.viewfinder")
-                .font(.title3)
-                .frame(width: 40, height: 40)
-                .background(.tint.opacity(0.12), in: Circle())
-                .frame(width: 44, height: 44)
-                .contentShape(Rectangle())
-                .padding(-2)
-        }
-        .buttonStyle(.borderless)
-        .accessibilityLabel("Continue")
-        .accessibilityHint("Opens the camera to add pages to this scan")
+    private var continueCapsule: some View {
+        Text("Continue")
+            .fontWeight(.semibold)
+            .foregroundStyle(.white)
+            .fixedSize()
+            .padding(.horizontal, 14)
+            .padding(.vertical, 7)
+            .background(.tint, in: Capsule())
     }
 
     @ViewBuilder
