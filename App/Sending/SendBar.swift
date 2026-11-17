@@ -4,7 +4,7 @@ import ScannerModels
 import SwiftUI
 
 /// Archive and Email when the owners of the scans have a Paperless server or an address, Save to Files and Share unless turned off for one of them, and Delete, for the scan under review or the scans selected on Home.
-/// A button that sends in a single tap is filled with the accent color; with nothing to send with, a button sets up sending instead.
+/// A button that sends in a single tap is filled with the accent color, and the first one for every owner of the scans, Share aside, shows its name; with nothing to send with, a button sets up sending instead.
 /// A button tapped before the PDFs are made shows a spinner, and sends once they are.
 struct SendBar: View {
     let app: AppModel
@@ -43,7 +43,9 @@ struct SendBar: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            HStack(spacing: 10) {
+            let named = app.namedSendMethod(for: scans)
+            let row = named == nil ? AnyLayout(HStackLayout(spacing: 10)) : AnyLayout(SendButtonRow(spacing: 10))
+            row {
                 let methods = app.sendMethods(for: scans)
                 if methods.isEmpty {
                     Button("Set Up Sending…", systemImage: "paperplane") {
@@ -54,7 +56,7 @@ struct SendBar: View {
                     .font(.body.weight(.semibold))
                 }
                 ForEach(methods, id: \.self) { method in
-                    sendButton(method)
+                    sendButton(method, isNamed: method == named)
                 }
                 Button(scans.count > 1 ? "Delete Scans" : "Delete Scan", systemImage: "trash", role: .destructive) { confirmingDelete = true }
                     .buttonStyle(.glass)
@@ -67,11 +69,15 @@ struct SendBar: View {
             .font(.title3)
             VStack(spacing: 2) {
                 let footer = app.sendFooter(for: scans, waiting: sending.waiting, summary: summary)
-                if let lead = footer.lead {
-                    Text("\(Text(lead).bold()) · \(footer.text)")
-                } else {
-                    Text(footer.text)
+                Group {
+                    if let lead = footer.lead {
+                        Text("\(Text(lead).bold()) · \(footer.text)")
+                    } else {
+                        Text(footer.text)
+                    }
                 }
+                .truncationMode(.middle)
+                .lineLimitUnlessAccessibilitySize(1)
                 if let warning {
                     Label(warning, systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(Color(.warning))
@@ -175,7 +181,8 @@ struct SendBar: View {
         nextMail()
     }
 
-    private func sendButton(_ method: SendMethod) -> some View {
+    /// The button shown with its name gets a short one; VoiceOver still reads its title.
+    private func sendButton(_ method: SendMethod, isNamed: Bool) -> some View {
         let isWaiting = sending.waiting == method
         return Button {
             switch method {
@@ -186,7 +193,9 @@ struct SendBar: View {
             }
         } label: {
             Label {
-                Text(method.title)
+                Text(isNamed ? method.buttonName : method.title)
+                    .font(.body.weight(.semibold))
+                    .lineLimit(1)
             } icon: {
                 Image(systemName: method.systemImage)
                     .opacity(isWaiting ? 0 : 1)
@@ -200,9 +209,12 @@ struct SendBar: View {
                     }
             }
         }
+        .labelStyle(SendButtonLabelStyle(showsTitle: isNamed))
         .sendButtonStyle(isSet: isProminent(method))
         .disabled(scans.isEmpty || sending.isSending)
+        .accessibilityLabel(method.title)
         .accessibilityValue(isWaiting ? (scans.count > 1 ? "Waiting for the PDFs" : "Waiting for the PDF") : "")
+        .layoutValue(key: IsNamed.self, value: isNamed)
     }
 
     private func isProminent(_ method: SendMethod) -> Bool {
@@ -314,7 +326,7 @@ private struct SendingSetup: Identifiable {
     let ownerIDs: [UUID]
 }
 
-/// Icon only, full width: the send buttons share the row equally.
+/// Icon only, or icon and title, as wide as the row lets it unless `fills` is off.
 private struct SendButtonLabelStyle: LabelStyle {
     var showsTitle = false
     var fills = true
@@ -333,4 +345,37 @@ private struct SendButtonLabelStyle: LabelStyle {
         }
         .frame(maxWidth: fills ? .infinity : nil)
     }
+}
+
+/// The send buttons in a row, the one shown with its name about 2.6 times as wide as each other, narrowed when the others need more room.
+private struct SendButtonRow: Layout {
+    var spacing: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let widths = widths(in: proposal.width, subviews: subviews)
+        let height = zip(subviews, widths).map { $0.sizeThatFits(ProposedViewSize(width: $1, height: proposal.height)).height }.max() ?? 0
+        return CGSize(width: widths.reduce(0, +) + spacing * CGFloat(max(subviews.count - 1, 0)), height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX
+        for (subview, width) in zip(subviews, widths(in: bounds.width, subviews: subviews)) {
+            subview.place(at: CGPoint(x: x, y: bounds.midY), anchor: .leading, proposal: ProposedViewSize(width: width, height: bounds.height))
+            x += width + spacing
+        }
+    }
+
+    private func widths(in width: CGFloat?, subviews: Subviews) -> [CGFloat] {
+        guard let width else { return subviews.map { $0.sizeThatFits(.unspecified).width } }
+        let room = width - spacing * CGFloat(max(subviews.count - 1, 0))
+        let named = CGFloat(subviews.filter { $0[IsNamed.self] }.count)
+        let unit = room / (CGFloat(subviews.count) - named + 2.6 * named)
+        let others = subviews.map { $0[IsNamed.self] ? 0 : max(unit, $0.sizeThatFits(ProposedViewSize(width: 0, height: nil)).width) }
+        let left = max(0, room - others.reduce(0, +))
+        return zip(subviews, others).map { $0[IsNamed.self] ? left / named : $1 }
+    }
+}
+
+private struct IsNamed: LayoutValueKey {
+    static let defaultValue = false
 }
