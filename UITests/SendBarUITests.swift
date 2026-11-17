@@ -50,4 +50,22 @@ final class SendBarUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Share"].waitForExistence(timeout: Roneograph.timeout))
         XCTAssertFalse(app.buttons["Set Up Sending…"].exists)
     }
+
+    func testSetsUpEmailFromHomeInOneStep() throws {
+        let roneograph = Roneograph(photos: try photos(), screen: "home")
+        let app = roneograph.app
+        roneograph.tap(app.buttons["Set Up"])
+        let sheet = app.navigationBars["Sending for Me"]
+        XCTAssertTrue(sheet.waitForExistence(timeout: Roneograph.timeout), "Sending for Me did not open")
+        let email = app.textFields["Email"]
+        XCTAssertTrue(email.waitForExistence(timeout: Roneograph.timeout))
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: Roneograph.timeout), "The keyboard is not up")
+        XCTAssertEqual(email.value(forKey: "hasKeyboardFocus") as? Bool, true, "The Email field has no focus")
+        app.typeText("claire@example.com")
+        XCTAssertEqual(email.value as? String, "claire@example.com")
+        XCTAssertTrue(sheet.isHittable, "A valid address closed the sheet")
+        roneograph.tap(sheet.buttons["Done"])
+        XCTAssertTrue(sheet.waitForNonExistence(timeout: Roneograph.timeout))
+        XCTAssertFalse(app.buttons["Set Up"].exists, "The card is still on Home")
+    }
 }

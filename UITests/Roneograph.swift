@@ -8,10 +8,12 @@ struct Roneograph {
 
     /// `settings` is the JSON of the settings to start from; the keys left out take their defaults.
     /// `photos` is a folder of JPEG photos scanned at launch into a scan, which opens for review.
-    init(settings: String? = nil, photos: URL? = nil) {
+    /// `screen` is the screen to open on launch instead: home, review or settings.
+    init(settings: String? = nil, photos: URL? = nil, screen: String? = nil) {
         app.launchEnvironment["RONEOGRAPH_UI_TESTING"] = "1"
         if let settings { app.launchEnvironment["RONEOGRAPH_SETTINGS"] = settings }
         if let photos { app.launchEnvironment["RONEOGRAPH_SAMPLE_PHOTOS"] = photos.path(percentEncoded: false) }
+        if let screen { app.launchEnvironment["RONEOGRAPH_SCREEN"] = screen }
         app.launch()
     }
 

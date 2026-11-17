@@ -9,6 +9,9 @@ struct SendingSection: View {
     let title: String
     /// Whether the footer says what the colors and the send bar show; once is enough when several owners are listed.
     var explains = true
+    /// Whether the keyboard opens in the Email field, as when Home's card asks for an address.
+    var focusesEmail = false
+    @FocusState private var emailFocused: Bool
     @State private var settingUpPaperless = false
     @State private var choosingFolder = false
     @State private var folderFailed = false
@@ -34,6 +37,8 @@ struct SendingSection: View {
             LabeledContent {
                 EmailField(title: SendMethod.email.title, email: owner.email)
                     .multilineTextAlignment(.trailing)
+                    .focused($emailFocused)
+                    .onAppear { if focusesEmail { emailFocused = true } }
             } label: {
                 label(.email)
             }

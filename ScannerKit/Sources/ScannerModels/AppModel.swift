@@ -177,7 +177,7 @@ public final class AppModel {
         !models.isEmpty && ownerWithoutFolder(among: models) == nil
     }
 
-    /// Home points to Settings until an owner has an address or a Paperless server, or the card is closed.
+    /// Home offers to set up sending until an owner has an address or a Paperless server, or the card is closed.
     public var suggestsSendSetup: Bool {
         !settings.value.dismissedSendSetup && !settings.value.owners.contains { $0.hasValidEmail || $0.paperless != nil }
     }

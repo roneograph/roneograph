@@ -6,6 +6,7 @@ struct HomeView: View {
     let app: AppModel
     @State private var isSelecting = false
     @State private var selection = Set<UUID>()
+    @State private var settingUpSending = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -99,7 +100,7 @@ struct HomeView: View {
                 if app.suggestsSendSetup {
                     Section {
                         SendSetupCard {
-                            app.showingSettings = true
+                            settingUpSending = true
                         } close: {
                             withAnimation { app.settings.value.dismissedSendSetup = true }
                         }
@@ -142,6 +143,10 @@ struct HomeView: View {
         }
         .environment(\.editMode, .constant(isSelecting ? .active : .inactive))
         .contentMargins(.top, 0, for: .scrollContent)
+        // Not on the card, which goes as soon as the address is valid.
+        .sheet(isPresented: $settingUpSending) {
+            SendingSetupView(app: app, ownerIDs: [app.settings.value.defaultOwnerID], focusesEmail: true)
+        }
     }
 
     /// Scans in progress have no PDF to send yet.
@@ -212,7 +217,7 @@ private struct NotSentCard: View {
     }
 }
 
-/// Points to Settings until scans can be emailed or archived in one tap.
+/// Offers to set up sending until scans can be emailed or archived in one tap.
 private struct SendSetupCard: View {
     let setUp: () -> Void
     let close: () -> Void
