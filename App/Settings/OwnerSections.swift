@@ -65,7 +65,9 @@ struct OwnerSections: View {
                         LabeledContent("Server", value: server.url.host() ?? server.url.absoluteString)
                     }
                     .sheet(isPresented: $settingUpPaperless) { PaperlessSetupView(ownerID: owner.id, settings: settings, archiver: archiver) }
-                    LabeledContent("Storage path", value: server.storagePath?.name ?? "Chosen by Paperless")
+                    Button { settingUpPaperless = true } label: {
+                        LabeledContent("Storage path", value: server.storagePath?.name ?? "Chosen by Paperless")
+                    }
                     Button("Disconnect", role: .destructive) { PaperlessSetup.disconnect(owner.id, settings: settings, archiver: archiver) }
                 } else {
                     Button("Connect…") { settingUpPaperless = true }
