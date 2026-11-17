@@ -78,14 +78,14 @@ public struct DetectedDocument: Equatable, Sendable {
     public var issuerKeys: [String]
     /// Domains and company identifiers only, which tell issuers apart better than names.
     public var issuerEvidence: [String]
-    /// Fingerprints of the header lines that could have been the issuer, to learn which ones are the user's own name and address.
-    public var headerLines: [String]
+    /// The owner the page is addressed to, from its name or address on the page.
+    public var owner: RecognizedOwner?
 
-    public init(details: DocumentDetails = .init(), parts: SuggestedParts = .init(), issuerKeys: [String] = [], issuerEvidence: [String] = [], headerLines: [String] = []) {
+    public init(details: DocumentDetails = .init(), parts: SuggestedParts = .init(), issuerKeys: [String] = [], issuerEvidence: [String] = [], owner: RecognizedOwner? = nil) {
         self.details = details
         self.parts = parts
         self.issuerKeys = issuerKeys
         self.issuerEvidence = issuerEvidence
-        self.headerLines = headerLines
+        self.owner = owner
     }
 }

@@ -17,9 +17,6 @@ public final class SettingsStore {
     /// Settings this build could not read, kept so they can be recovered instead of being replaced by the defaults.
     static let unreadableKey = "settings.unreadable"
     static let learnedIssuersLimit = 200
-    static let headerLinesLimit = 500
-    /// A header line seen this often, with documents from different issuers, is the user's own name or address.
-    static let ownLineScans = 3
 
     public enum FolderError: LocalizedError {
         case insideApp
@@ -110,8 +107,7 @@ public final class SettingsStore {
         value.owners.first { $0.name.caseInsensitiveCompare(name) == .orderedSame }
     }
 
-    /// Removes an owner, never the default one. Its issuers and lines go to the owner its scans moved to;
-    /// without one, its issuers are forgotten and a line also seen with another owner keeps telling none.
+    /// Removes an owner, never the default one. Its issuers go to the owner its scans moved to; without one, they are forgotten.
     /// With a single owner left, no issuer remembers an owner.
     public func removeOwner(_ id: UUID, movingTo newOwner: UUID? = nil) {
         guard id != value.defaultOwnerID, newOwner.map({ $0 != id && value.hasOwner($0) }) ?? true else { return }
@@ -121,52 +117,7 @@ public final class SettingsStore {
             settings.learnedIssuers[index].owner = settings.hasSeveralOwners ? newOwner : nil
         }
         settings.learnedIssuers.removeAll(where: \.isEmpty)
-        for index in settings.headerLines.indices where settings.headerLines[index].owners.contains(id) {
-            let owners = settings.headerLines[index].owners
-            if let newOwner {
-                settings.headerLines[index].owners = owners.reduce(into: []) { kept, owner in
-                    let owner = owner == id ? newOwner : owner
-                    if !kept.contains(owner) { kept.append(owner) }
-                }
-            } else if owners == [id] {
-                settings.headerLines[index].owners = []
-            }
-        }
         value = settings
-    }
-
-    /// The owner the lines of a page tell, from the documents sent before: a line counts once it was seen with documents from different issuers, all of one owner.
-    /// Another owner wins over the default one, whose name also shows on the paper of a company; two other owners tell nothing.
-    public func owner(recognizing fingerprints: [String]) -> UUID? {
-        guard value.hasSeveralOwners, !fingerprints.isEmpty else { return nil }
-        let found = Set(value.headerLines.filter { line in
-            line.issuers.count >= 2 && line.owners.count == 1 && fingerprints.contains(line.fingerprint)
-        }.compactMap(\.owners.first).filter(value.hasOwner))
-        let others = found.subtracting([value.defaultOwnerID])
-        if others.count == 1 { return others.first }
-        return others.isEmpty ? found.first : nil
-    }
-
-    /// Links the header lines of a sent document to its owner, instead of the previous one when the owner of a sent document changed.
-    /// A line seen with documents of several owners tells none of them.
-    public func link(lines fingerprints: [String], to ownerID: UUID, replacing previous: UUID? = nil) {
-        guard value.hasSeveralOwners, !fingerprints.isEmpty else { return }
-        var lines = value.headerLines
-        for index in lines.indices where fingerprints.contains(lines[index].fingerprint) {
-            if let previous { lines[index].owners.removeAll { $0 == previous } }
-            if !lines[index].owners.contains(ownerID) { lines[index].owners.append(ownerID) }
-        }
-        if lines != value.headerLines { value.headerLines = lines }
-    }
-
-    /// Whether the lines of some documents tell this owner.
-    public func recognizesLines(of ownerID: UUID) -> Bool {
-        value.headerLines.contains { $0.issuers.count >= 2 && $0.owners == [ownerID] }
-    }
-
-    /// How many issuers this owner is remembered for.
-    public func issuerCount(of ownerID: UUID) -> Int {
-        value.learnedIssuers.filter { $0.owner == ownerID }.count
     }
 
     /// What the user corrected on the last document recognized by one of these keys.
@@ -188,26 +139,6 @@ public final class SettingsStore {
         value.learnedIssuers = Array(issuers.prefix(Self.learnedIssuersLimit))
     }
 
-    /// Fingerprints of the lines that keep coming back on documents from different issuers: the user's own name and address.
-    public var ownLines: Set<String> {
-        Set(value.headerLines.filter { $0.scans >= Self.ownLineScans && $0.issuers.count >= 2 }.map(\.fingerprint))
-    }
-
-    /// Counts the header lines of a new document, with the domains and identifiers that tell its issuer apart.
-    public func recordHeaderLines(_ fingerprints: [String], issuerEvidence: [String]) {
-        guard !fingerprints.isEmpty else { return }
-        let issuer = issuerEvidence.first.map(DocumentDetector.fingerprint)
-        var lines = value.headerLines
-        for fingerprint in Set(fingerprints) {
-            var line = lines.first { $0.fingerprint == fingerprint } ?? HeaderLine(fingerprint: fingerprint)
-            lines.removeAll { $0.fingerprint == fingerprint }
-            line.scans += 1
-            if let issuer, !line.issuers.contains(issuer) { line.issuers = Array((line.issuers + [issuer]).suffix(4)) }
-            lines.insert(line, at: 0)
-        }
-        value.headerLines = Array(lines.prefix(Self.headerLinesLimit))
-    }
-
     /// Forgets some of the corrections for an issuer, keeping the others.
     public func forget(_ values: Set<RememberedValue>, keys: [String]) {
         guard learnedIssuer(for: keys) != nil else { return }
@@ -227,18 +158,13 @@ public final class SettingsStore {
         value.learnedIssuers = []
     }
 
-    /// Whether some lines are known to be the user's own name and address.
-    public var recognizesOwnLines: Bool { !ownLines.isEmpty }
+    public var hasLearned: Bool { !value.learnedIssuers.isEmpty }
 
-    public var hasLearned: Bool {
-        !value.learnedIssuers.isEmpty || !value.headerLines.isEmpty
-    }
-
-    /// Forgets the corrections for every issuer and which lines are the user's own.
+    /// Forgets everything remembered from the corrections: what was corrected for each issuer.
     public func forgetEverything() {
         value.learnedIssuers = []
-        value.headerLines = []
     }
+
 
     /// Adds a category of the user's; returns it, or the existing category with the same name.
     @discardableResult
@@ -261,7 +187,7 @@ public final class SettingsStore {
         if !value.dismissedPageTip { value.dismissedPageTip = true }
     }
 
-    /// Saving encodes every setting, learned issuers and header lines included, so a burst of changes such as typing is saved once.
+    /// Saving encodes every setting, learned issuers included, so a burst of changes such as typing is saved once.
     private func scheduleSave() {
         pendingSave?.cancel()
         pendingSave = Task { [weak self, saveDelay] in

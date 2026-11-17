@@ -45,7 +45,7 @@ struct IssuersView: View {
         .confirmationDialog("Forget all issuers?", isPresented: $forgettingAll, titleVisibility: .visible) {
             Button("Forget All Issuers", role: .destructive) { settings.forgetAllIssuers() }
         } message: {
-            Text("The corrections for \(settings.value.learnedIssuers.count.counted("issuer")) are forgotten. Your name and address stay recognized.")
+            Text("The corrections for \(settings.value.learnedIssuers.count.counted("issuer")) are forgotten.")
         }
     }
 

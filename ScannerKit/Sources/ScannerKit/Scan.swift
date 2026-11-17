@@ -114,10 +114,13 @@ public struct ScanOwner: Equatable, Sendable, Codable {
     public var id: UUID
     /// True when nothing told the owner and the scan got the default one; reading the page may still replace it.
     public var isDefault: Bool
+    /// What on the page told the owner, when its name or address did.
+    public var clue: OwnerClue?
 
-    public init(id: UUID, isDefault: Bool = false) {
+    public init(id: UUID, isDefault: Bool = false, clue: OwnerClue? = nil) {
         self.id = id
         self.isDefault = isDefault
+        self.clue = clue
     }
 }
 
@@ -139,8 +142,6 @@ public struct Scan: Identifiable, Equatable, Sendable, Codable {
     public var issuerKeys: [String] = []
     /// Read on the page, remembered per issuer, chosen, or the default owner; nil until the scan has a model, which gives it one.
     public var owner: ScanOwner?
-    /// Fingerprints of the header lines of the first page, linked to the owner when the scan is sent.
-    public var headerLines: [String] = []
     /// Nil until the first page is read.
     public var read: ReadDocument?
     /// The values that come from what the user corrected on a past document, until changed.

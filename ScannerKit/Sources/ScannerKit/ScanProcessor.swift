@@ -71,10 +71,10 @@ public struct ScanProcessor: Sendable {
         try data.write(to: store.previewURL(scanID: scanID, pageID: page.id), options: .atomic)
     }
 
-    /// The details of the document and the words to name it after, from the text of the page; `ownLines` are never taken as the issuer.
-    public func detectDocument(on page: ScanPage, scanID: UUID, ownLines: Set<String> = []) async throws -> DetectedDocument? {
+    /// The details of the document, the words to name it after and the owner it is addressed to, from the text of the page.
+    public func detectDocument(on page: ScanPage, scanID: UUID, owners: OwnerMatcher = OwnerMatcher()) async throws -> DetectedDocument? {
         guard let preview = CIImage(contentsOf: store.previewURL(scanID: scanID, pageID: page.id)) else { return nil }
-        return DocumentDetector().detect(lines: try await reader.lines(in: preview), ownLines: ownLines, aspectRatio: preview.extent.width / preview.extent.height)
+        return DocumentDetector().detect(lines: try await reader.lines(in: preview), owners: owners, aspectRatio: preview.extent.width / preview.extent.height)
     }
 
     /// Renders, reads and writes one page after the other, so only one page image is in memory at a time.

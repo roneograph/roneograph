@@ -1,5 +1,4 @@
 import CoreGraphics
-import CryptoKit
 import Foundation
 import NaturalLanguage
 
@@ -15,15 +14,16 @@ public struct DocumentDetector: Sendable {
         self.timeZone = timeZone
     }
 
-    /// `ownLines` holds the fingerprints of lines known to be the user's own name and address, never taken as the issuer.
+    /// `owners` tells the owner the page is addressed to; the lines with an owner's name or address are never taken as the issuer.
     /// `aspectRatio` is the width over the height of the page, when known: narrow pages are often receipts.
-    public func detect(lines: [TextLine], ownLines: Set<String> = [], aspectRatio: CGFloat? = nil) -> DetectedDocument {
-        let page = Page(lines: lines, ownLines: ownLines)
+    public func detect(lines: [TextLine], owners: OwnerMatcher = OwnerMatcher(), aspectRatio: CGFloat? = nil) -> DetectedDocument {
+        let match = owners.match(lines)
+        let page = Page(lines: lines, ownerLines: match.ownerLines)
         let kind = Self.kind(of: page, aspectRatio: aspectRatio)
         let type = Self.type(in: page, kind: kind)
         let evidence = IssuerEvidence(page: page)
         let candidates = Self.issuerCandidates(in: page, clues: kind.clues, evidence: evidence)
-        let issuer = Self.issuer(among: candidates.filter { !$0.isOwn }, page: page, evidence: evidence)
+        let issuer = Self.issuer(among: candidates, page: page, evidence: evidence)
         let details = DocumentDetails(
             category: kind.category,
             issuer: issuer,
@@ -36,13 +36,8 @@ public struct DocumentDetector: Sendable {
             parts: SuggestedParts(type: type?.word, issuer: type?.isHeading == true ? nil : issuer, number: details.number),
             issuerKeys: keys + (issuer.map { [Self.foldedWords($0)] } ?? []),
             issuerEvidence: keys,
-            headerLines: candidates.map { Self.fingerprint($0.text) }
+            owner: match.owner
         )
-    }
-
-    /// A short, stable fingerprint of a line, so lines can be recognized without keeping their text.
-    public static func fingerprint(_ text: String) -> String {
-        SHA256.hash(data: Data(foldedWords(text).utf8)).prefix(8).map { String(format: "%02x", $0) }.joined()
     }
 
     private static func foldedWords(_ text: String) -> String {
@@ -104,15 +99,16 @@ public struct DocumentDetector: Sendable {
         /// The usual height of a line of body text.
         var bodyHeight: CGFloat
 
-        init(lines: [TextLine], ownLines: Set<String>) {
-            self.lines = lines.sorted { ($0.frame.minY, $0.frame.minX) < ($1.frame.minY, $1.frame.minX) }.map { line in
+        /// `ownerLines` are the indices of the lines with an owner's name or address.
+        init(lines: [TextLine], ownerLines: Set<Int>) {
+            self.lines = lines.enumerated().sorted { ($0.element.frame.minY, $0.element.frame.minX) < ($1.element.frame.minY, $1.element.frame.minX) }.map { index, line in
                 Line(
                     text: line.text,
                     frame: line.frame,
                     confidence: line.confidence,
                     tokens: Self.separatingColons(line.text).split(whereSeparator: \.isWhitespace).map(Token.init),
                     folded: line.text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil).replacing("’", with: "'"),
-                    isOwn: !ownLines.isEmpty && ownLines.contains(DocumentDetector.fingerprint(line.text))
+                    isOwn: ownerLines.contains(index)
                 )
             }
             let heights = lines.map(\.frame.height).sorted()
@@ -422,14 +418,14 @@ public struct DocumentDetector: Sendable {
 
     // MARK: Issuer
 
-    /// Name-like lines in the header, own lines included so they can be learned.
+    /// Name-like lines in the header, except an owner's name or address.
     /// An uncertain reading, as of a logo, counts only when a web domain or a legal name on the page confirms it.
     /// A known issuer such as "Finances publiques" counts anywhere in the header; a state emblem such as "République française" never does.
     static func issuerCandidates(in page: Page, clues: [[(range: Range<Int>, tag: Clue)]], evidence: IssuerEvidence) -> [Line] {
         let credentials = credentialLines(of: page)
         let rows = amountLabels(of: page)
         return joiningContinuations(of: page).filter { indices, line in
-            if indices.contains(where: credentials.contains) || indices.contains(where: rows.contains) { return false }
+            if line.isOwn || indices.contains(where: credentials.contains) || indices.contains(where: rows.contains) { return false }
             let text = line.text.trimmingCharacters(in: .whitespaces)
             let letters = text.filter(\.isLetter).count
             let digits = text.filter(\.isNumber).count
@@ -455,8 +451,7 @@ public struct DocumentDetector: Sendable {
 
     private static let emblems = Set(DocumentVocabulary.emblems.map(letters))
 
-    /// The lines with an amount printed on their right, as the rows of a receipt or a table: "TOTAL", "Card", "Pain aux noix".
-    /// They come back on documents from any issuer, so as header lines they would look like the user's own.
+    /// The lines with an amount printed on their right, as the rows of a receipt or a table: "TOTAL", "Card", "Pain aux noix"; never the issuer.
     private static func amountLabels(of page: Page) -> Set<Int> {
         let amounts = page.lines.filter { isAmount($0.text) }
         return Set(page.lines.indices.filter { index in

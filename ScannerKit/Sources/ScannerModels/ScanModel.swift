@@ -29,7 +29,7 @@ public final class ScanModel: Identifiable {
     /// Replaced in tests, to hold or count builds.
     @ObservationIgnored var makePDFData: @concurrent @Sendable (Scan) async throws -> Data
     /// Replaced in tests, to fail reading the page.
-    @ObservationIgnored var readDocument: @concurrent @Sendable (ScanPage, UUID, Set<String>) async throws -> DetectedDocument?
+    @ObservationIgnored var readDocument: @concurrent @Sendable (ScanPage, UUID, OwnerMatcher) async throws -> DetectedDocument?
     /// Replaced in tests, to fail saving.
     @ObservationIgnored var saveScan: (Scan) throws -> Void
     public private(set) var failure: String?
@@ -54,7 +54,7 @@ public final class ScanModel: Identifiable {
         self.settings = settings
         self.now = now
         makePDFData = { scan in try await processor.pdfData(of: scan) }
-        readDocument = { page, scanID, ownLines in try await processor.detectDocument(on: page, scanID: scanID, ownLines: ownLines) }
+        readDocument = { page, scanID, owners in try await processor.detectDocument(on: page, scanID: scanID, owners: owners) }
         saveScan = { [store = processor.store] in try store.save($0) }
         for page in scan.pending { process(page) }
     }
@@ -74,8 +74,15 @@ public final class ScanModel: Identifiable {
     public var owner: Owner { settings.value.owner(scan.owner?.id) }
     /// True when nothing on the page told the owner and none was chosen: the scan got the default owner.
     public var hasDefaultOwner: Bool { scan.owner?.isDefault ?? true }
-    /// Under Owner in Review: "Default" while the scan has the default owner because nothing told another one.
-    public var ownerCaption: String? { hasDefaultOwner && owner.id == settings.value.defaultOwnerID ? "Default" : nil }
+    /// Under Owner in Review: "Default" while the scan has the default owner because nothing told another one, or what on the page told it.
+    public var ownerCaption: String? {
+        if hasDefaultOwner { return owner.id == settings.value.defaultOwnerID ? "Default" : nil }
+        switch scan.owner?.clue {
+        case .name: return "Its name is on the page"
+        case .address: return "Its address is on the page"
+        case nil: return nil
+        }
+    }
     public var fileNameFormat: FileNameFormat { owner.fileNameFormat }
 
     /// The file name a name and details get with the format of the owner, before avoiding collisions.
@@ -169,13 +176,12 @@ public final class ScanModel: Identifiable {
     }
 
     /// Reads the details and names on the first page; what the user corrected for the same issuer before wins over what was read.
+    /// A scan with the default owner gets the owner whose name or address is on the page, or else the one remembered for the issuer.
     /// When the page cannot be read, it is read again after the next page.
     private func suggestNames(from page: ScanPage) async {
-        let readDocument = readDocument, scanID = scan.id, date = scan.created, ownLines = settings.ownLines
-        guard var document = try? await readDocument(page, scanID, ownLines), !isDeleted else { return }
-        settings.recordHeaderLines(document.headerLines, issuerEvidence: document.issuerEvidence)
+        let readDocument = readDocument, scanID = scan.id, date = scan.created, owners = settings.value.ownerMatcher
+        guard var document = try? await readDocument(page, scanID, owners), !isDeleted else { return }
         scan.read = ReadDocument(details: document.details, parts: document.parts)
-        scan.headerLines = document.headerLines
         let learned = settings.learnedIssuer(for: document.issuerKeys)
         var remembered = Set<RememberedValue>()
         if let issuer = learned?.issuer {
@@ -202,8 +208,8 @@ public final class ScanModel: Identifiable {
             if let learnedName, learnedName != first { remembered.insert(.name) }
         }
         if hasDefaultOwner {
-            if let owner = settings.owner(recognizing: document.headerLines) {
-                scan.owner = ScanOwner(id: owner)
+            if let owner = document.owner, settings.value.hasOwner(owner.id) {
+                scan.owner = ScanOwner(id: owner.id, clue: owner.clue)
             } else if let owner = learned?.owner, settings.value.hasSeveralOwners, settings.value.hasOwner(owner) {
                 scan.owner = ScanOwner(id: owner)
                 remembered.insert(.owner)
@@ -396,10 +402,8 @@ public final class ScanModel: Identifiable {
         save()
     }
 
-    /// The lines of the page are linked to the owner the scan went out with, unless nothing told it and it only got the default owner.
     public func markSent(_ method: SendMethod) {
         scan.sent = Sent(date: now(), method: method)
-        if !hasDefaultOwner { settings.link(lines: scan.headerLines, to: owner.id) }
         save()
     }
 
@@ -409,11 +413,9 @@ public final class ScanModel: Identifiable {
     }
 
     /// Gives the scan to another owner, renamed with its format; the owner is reused for the next documents from the same issuer.
-    /// The lines of a scan already sent move to the new owner.
     public func setOwner(_ id: UUID) {
         guard settings.value.hasOwner(id), id != scan.owner?.id || hasDefaultOwner else { return }
         settings.learn(keys: scan.issuerKeys, label: scan.details.issuer) { $0.owner = id }
-        if scan.sent != nil { settings.link(lines: scan.headerLines, to: id, replacing: hasDefaultOwner ? nil : owner.id) }
         give(to: ScanOwner(id: id))
     }
 

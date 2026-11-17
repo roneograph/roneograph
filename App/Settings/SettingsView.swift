@@ -37,17 +37,12 @@ struct SettingsView: View {
                             Label { Text("Issuers") } icon: { RememberedMark().accessibilityHidden(true) }
                         }
                     }
-                    LabeledContent {
-                        Text(settings.recognizesOwnLines ? "Recognized" : "Not yet")
-                    } label: {
-                        Label("Your name and address", systemImage: "person.crop.circle")
-                    }
                     Button("Forget Everything…", role: .destructive) { forgettingEverything = true }
                         .disabled(!settings.hasLearned)
                 } header: {
                     Text("Memory")
                 } footer: {
-                    Text("Corrections are reused for the next documents from the same issuer. Your name and address are recognized so they are never taken as the issuer; only fingerprints of these lines are kept. Nothing leaves this iPhone.")
+                    Text("Corrections are reused for the next documents from the same issuer. Nothing leaves this iPhone.")
                 }
                 .confirmationDialog("Forget everything Roneograph remembers?", isPresented: $forgettingEverything, titleVisibility: .visible) {
                     Button("Forget Everything", role: .destructive) { settings.forgetEverything() }

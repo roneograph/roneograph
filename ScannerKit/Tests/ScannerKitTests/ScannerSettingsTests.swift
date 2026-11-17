@@ -39,6 +39,13 @@ struct ScannerSettingsTests {
         #expect(try JSONDecoder().decode(ScannerSettings.self, from: saved) == settings)
     }
 
+    @Test func ignoresTheHeaderLinesOfOlderBuilds() throws {
+        let json = #"{"askForName":true,"headerLines":[{"fingerprint":"0a1b2c3d4e5f6071","scans":3,"issuers":["lumen"],"owners":[]}]}"#
+        let settings = try JSONDecoder().decode(ScannerSettings.self, from: Data(json.utf8))
+        #expect(settings.askForName)
+        #expect(!String(decoding: try JSONEncoder().encode(settings), as: UTF8.self).contains("headerLines"))
+    }
+
     @Test func keepsTheDefaultOwnerAmongTheOwners() throws {
         let json = #"{"owners":[{"id":"3F2504E0-4F89-11D3-9A0C-0305E82C3301","name":"Personal"}],"defaultOwnerID":"3F2504E0-4F89-11D3-9A0C-0305E82C3302"}"#
         let settings = try JSONDecoder().decode(ScannerSettings.self, from: Data(json.utf8))
@@ -73,7 +80,6 @@ struct ScannerSettingsTests {
         settings.askForName = true
         settings.categories = [DocumentCategory("Car")]
         settings.learnedIssuers = [LearnedIssuer(keys: ["lumen"], issuer: "Lumen Energy")]
-        settings.headerLines = [HeaderLine(fingerprint: "abc", scans: 2)]
         settings.keepScans = .forever
         settings.dismissedSendSetup = true
 

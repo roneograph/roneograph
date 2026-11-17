@@ -1,6 +1,5 @@
 import Foundation
 import ScannerKit
-import ScannerKitTesting
 @testable import ScannerModels
 import Testing
 
@@ -96,26 +95,6 @@ struct SettingsStoreTests {
         #expect(fixture.settings.learnedIssuer(for: ["issuer 0"]) == nil)
     }
 
-    @Test func recognizesTheUsersOwnLinesOnDocumentsFromDifferentIssuers() throws {
-        let fixture = try Fixture()
-        fixture.settings.recordHeaderLines(["me", "street", "lumen"], issuerEvidence: ["lumen-energy.example"])
-        fixture.settings.recordHeaderLines(["me", "street", "bank"], issuerEvidence: ["bank.example"])
-        #expect(fixture.settings.ownLines.isEmpty)
-        fixture.settings.recordHeaderLines(["me", "street", "lumen"], issuerEvidence: ["lumen-energy.example"])
-        #expect(fixture.settings.ownLines == ["me", "street"])
-        fixture.settings.save()
-        #expect(SettingsStore(defaults: fixture.defaults).ownLines == ["me", "street"])
-    }
-
-    @Test func aRecurringIssuerIsNotTheUsersOwn() throws {
-        let fixture = try Fixture()
-        for _ in 0..<5 {
-            fixture.settings.recordHeaderLines(["me", "lumen"], issuerEvidence: ["lumen-energy.example"])
-            fixture.settings.recordHeaderLines(["me", "anonymous"], issuerEvidence: [])
-        }
-        #expect(fixture.settings.ownLines.isEmpty)
-    }
-
     @Test func forgetsSomeCorrectionsOfAnIssuerAndKeepsTheOthers() throws {
         let fixture = try Fixture()
         fixture.settings.learn(keys: ["lumen"], label: "Lumen") { $0.category = .invoice; $0.issuer = "Lumen Energy" }
@@ -136,7 +115,6 @@ struct SettingsStoreTests {
     @Test func forgetsEverythingLearned() throws {
         let fixture = try Fixture()
         fixture.settings.learn(keys: ["lumen"]) { $0.category = .invoice }
-        fixture.settings.recordHeaderLines(["me"], issuerEvidence: [])
         #expect(fixture.settings.hasLearned)
         fixture.settings.forgetEverything()
         #expect(!fixture.settings.hasLearned)
@@ -213,56 +191,26 @@ struct SettingsStoreTests {
         #expect(fixture.settings.value.owners.map(\.id) == [holding.id])
     }
 
-    @Test func aReceiptOfOneOwnerTellsNothingAboutTheReceiptsOfOthers() throws {
-        let fixture = try Fixture()
-        let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
-        let detector = DocumentDetector(monthFirst: false)
-        let receipts = try ["receipt-fr", "receipt-en", "receipt-it", "receipt-es"].map { name in
-            let receipt = try #require(DocumentCorpus.documents.first { $0.name == name })
-            return detector.detect(lines: receipt.lines, aspectRatio: receipt.aspectRatio)
-        }
-        for receipt in receipts.dropLast() {
-            fixture.settings.recordHeaderLines(receipt.headerLines, issuerEvidence: receipt.issuerEvidence)
-        }
-        fixture.settings.link(lines: receipts[0].headerLines, to: holding.id)
-        #expect(fixture.settings.owner(recognizing: receipts[3].headerLines) == nil)
-    }
-
     @Test func removingAnOwnerForgetsWhatRecognizedIt() throws {
         let fixture = try Fixture()
         let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
-        let personal = fixture.settings.value.defaultOwnerID
         fixture.settings.learn(keys: ["print"]) { $0.owner = holding.id }
         fixture.settings.learn(keys: ["lumen"]) { $0.owner = holding.id; $0.category = .invoice }
-        fixture.settings.value.headerLines = [
-            HeaderLine(fingerprint: "street", issuers: ["print", "bank"], owners: [personal, holding.id]),
-            HeaderLine(fingerprint: "fernwood holding", issuers: ["print", "bank"], owners: [holding.id]),
-        ]
         fixture.settings.removeOwner(holding.id)
         #expect(fixture.settings.learnedIssuer(for: ["print"]) == nil)
         #expect(fixture.settings.learnedIssuer(for: ["lumen"]) == LearnedIssuer(keys: ["lumen"], category: .invoice))
-        #expect(fixture.settings.value.headerLines.map(\.owners) == [[personal, holding.id], []])
-        #expect(fixture.settings.owner(recognizing: ["street"]) == nil)
     }
 
     @Test func removingAnOwnerGivesWhatRecognizedItToTheOwnerOfItsScans() throws {
         let fixture = try Fixture()
-        let personal = fixture.settings.value.defaultOwnerID
         let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
         let employer = try #require(fixture.settings.addOwner("Halcyon Labs"))
         fixture.settings.learn(keys: ["print"]) { $0.owner = holding.id }
-        fixture.settings.value.headerLines = [
-            HeaderLine(fingerprint: "street", issuers: ["print", "bank"], owners: [personal, holding.id]),
-            HeaderLine(fingerprint: "both", issuers: ["print", "bank"], owners: [holding.id, employer.id]),
-        ]
         fixture.settings.removeOwner(holding.id, movingTo: holding.id)
         #expect(fixture.settings.value.hasOwner(holding.id))
 
         fixture.settings.removeOwner(holding.id, movingTo: employer.id)
         #expect(fixture.settings.learnedIssuer(for: ["print"])?.owner == employer.id)
-        #expect(fixture.settings.value.headerLines.map(\.owners) == [[personal, employer.id], [employer.id]])
-        #expect(fixture.settings.owner(recognizing: ["street"]) == nil)
-        #expect(fixture.settings.owner(recognizing: ["both"]) == employer.id)
     }
 
     @Test func forgetsTheOwnersOfIssuersWhenOneOwnerIsLeft() throws {
@@ -274,46 +222,6 @@ struct SettingsStoreTests {
         fixture.settings.learn(keys: ["bank"]) { $0.owner = holding.id }
         fixture.settings.removeOwner(holding.id, movingTo: personal)
         #expect(fixture.settings.value.learnedIssuers == [LearnedIssuer(keys: ["lumen"], category: .invoice)])
-    }
-
-    /// Lines seen with documents from two issuers, as the address block of an owner.
-    private func recordAddressBlock(_ lines: [String], in settings: SettingsStore) {
-        settings.recordHeaderLines(lines + ["print"], issuerEvidence: ["print.example"])
-        settings.recordHeaderLines(lines + ["bank"], issuerEvidence: ["bank.example"])
-    }
-
-    @Test func recognizesAnOwnerByTheLinesOnlyItsDocumentsHad() throws {
-        let fixture = try Fixture()
-        let personal = fixture.settings.value.defaultOwnerID
-        let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
-        recordAddressBlock(["fernwood holding", "street"], in: fixture.settings)
-        recordAddressBlock(["alex martin", "street"], in: fixture.settings)
-        fixture.settings.link(lines: ["fernwood holding", "street", "print"], to: holding.id)
-        fixture.settings.link(lines: ["alex martin", "street", "bank"], to: personal)
-
-        #expect(fixture.settings.owner(recognizing: ["fernwood holding", "street", "lumen"]) == holding.id)
-        #expect(fixture.settings.owner(recognizing: ["alex martin", "street"]) == personal)
-        #expect(fixture.settings.owner(recognizing: ["street", "print"]) == nil)
-        #expect(fixture.settings.owner(recognizing: ["alex martin", "fernwood holding"]) == holding.id)
-        #expect(fixture.settings.recognizesLines(of: holding.id))
-    }
-
-    @Test func twoOtherOwnersTellNothing() throws {
-        let fixture = try Fixture()
-        let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
-        let employer = try #require(fixture.settings.addOwner("Halcyon Labs"))
-        recordAddressBlock(["fernwood holding", "halcyon labs"], in: fixture.settings)
-        fixture.settings.link(lines: ["fernwood holding"], to: holding.id)
-        fixture.settings.link(lines: ["halcyon labs"], to: employer.id)
-        #expect(fixture.settings.owner(recognizing: ["fernwood holding", "halcyon labs"]) == nil)
-    }
-
-    @Test func linksNothingWithASingleOwner() throws {
-        let fixture = try Fixture()
-        recordAddressBlock(["alex martin"], in: fixture.settings)
-        fixture.settings.link(lines: ["alex martin"], to: fixture.settings.value.defaultOwnerID)
-        #expect(fixture.settings.value.headerLines.allSatisfy { $0.owners.isEmpty })
-        #expect(fixture.settings.owner(recognizing: ["alex martin"]) == nil)
     }
 
     @Test func addsCategoriesOnceBeforeOther() throws {

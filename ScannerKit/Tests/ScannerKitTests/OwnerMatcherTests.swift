@@ -118,7 +118,7 @@ struct OwnerMatcherTests {
         ]
         let match = OwnerMatcher(owners: [holding, owner], defaultOwnerID: holding.id).match(lines)
         #expect(match.owner?.id == owner.id)
-        #expect(match.ownLines == [1, 3])
+        #expect(match.ownerLines == [1, 3])
         let elsewhere = [line("8 rue des Glycines", x: 0.08, y: 0.15), line("69007 Lyon", x: 0.55, y: 0.17)]
         #expect(OwnerMatcher(owners: [holding, owner], defaultOwnerID: holding.id).match(elsewhere).owner == nil)
     }
@@ -170,7 +170,7 @@ struct OwnerMatcherTests {
         #expect(matcher.match([line("Mme Camille Rouvière", y: 0.45)]).owner?.id == camille.id)
         let bottom = matcher.match([line("Mme Camille Rouvière", y: 0.55)])
         #expect(bottom.owner == nil)
-        #expect(bottom.ownLines.isEmpty)
+        #expect(bottom.ownerLines.isEmpty)
     }
 
     @Test func aNameWinsOverAnAddress() {
@@ -216,7 +216,7 @@ struct OwnerMatcherTests {
         let lines = [line("Lumen Énergie", x: 0.08, y: 0.04), line("Famille Rouvière", y: 0.15), line("8 rue des Glycines", y: 0.17), line("69007 Lyon", y: 0.19)]
         let match = OwnerMatcher(owners: [me, noe], defaultOwnerID: me.id).match(lines)
         #expect(match.owner == nil)
-        #expect(match.ownLines == [1, 2, 3])
-        #expect(OwnerMatcher(owners: [me], defaultOwnerID: me.id).match(lines).ownLines == [1, 2, 3])
+        #expect(match.ownerLines == [1, 2, 3])
+        #expect(OwnerMatcher(owners: [me], defaultOwnerID: me.id).match(lines).ownerLines == [1, 2, 3])
     }
 }

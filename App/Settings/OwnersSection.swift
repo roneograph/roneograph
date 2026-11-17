@@ -104,17 +104,6 @@ struct OwnerView: View {
             SendingSection(app: app, ownerID: ownerID, title: "Sending")
             FileNameSection(owner: owner)
 
-            if settings.value.hasSeveralOwners {
-                Section {
-                    LabeledContent("Its lines on the page", value: settings.recognizesLines(of: ownerID) ? "Recognized" : "Not yet")
-                    LabeledContent("Issuers remembered", value: "\(settings.issuerCount(of: ownerID))")
-                } header: {
-                    Text("Recognized by")
-                } footer: {
-                    Text("A line that only shows on this owner's documents, such as its name, gives it the next documents once they are sent. Only fingerprints of the lines are kept.")
-                }
-            }
-
             Section {
                 if isDefault {
                     Text("The default owner gets the documents nothing tells the owner of.").foregroundStyle(.secondary)

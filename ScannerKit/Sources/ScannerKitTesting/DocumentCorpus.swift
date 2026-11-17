@@ -40,11 +40,17 @@ public struct CorpusDocument: Sendable {
 }
 
 public enum DocumentCorpus {
-    /// The fingerprints of the lines a user would have learned as their own: their name and address lines.
-    public static var ownLines: Set<String> {
-        let markers = ["Ellery", "14 Willow Crescent", "BR4 7QT", "Rouvière", "Glycines", "69007 Lyon", "Brückner", "Lindenweg", "04109 Leipzig", "Ferrándiz", "Calle del Olmo", "28014 Madrid", "Fabbretti", "Gelsomini", "40125 Bologna"]
-        let lines = documents.flatMap(\.lines).map(\.text).filter { text in markers.contains { text.contains($0) } && text.count < 40 }
-        return Set(lines.map(DocumentDetector.fingerprint))
+    /// The people the documents are addressed to, as owners with their name and address set.
+    public static let owners: [Owner] = [
+        ("Jordan Ellery", "14 Willow Crescent\nBramford BR4 7QT"),
+        ("Camille Rouvière", "8 rue des Glycines\n69007 Lyon"),
+        ("Lena Brückner", "Lindenweg 12\n04109 Leipzig"),
+        ("Lucía Ferrándiz Soler", "Calle del Olmo 23, 3º B\n28014 Madrid"),
+        ("Giulia Fabbretti", "Via dei Gelsomini 9\n40125 Bologna"),
+    ].map { name, address in
+        var owner = Owner(name: name, symbol: .person)
+        owner.addresses = [address]
+        return owner
     }
 
     public static let documents: [CorpusDocument] = invoices + receipts + quotes + contracts + payslips + statements + taxNotices + insurance + medical + certificates + letters + others

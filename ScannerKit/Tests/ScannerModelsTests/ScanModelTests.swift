@@ -841,83 +841,86 @@ struct ScanModelTests {
         #expect(second.scan.remembered.isEmpty)
     }
 
-    @Test func anOwnerRecognizedByTheLinesWinsOverTheOneRememberedForTheIssuer() async throws {
+    /// A scan whose first page reads as these lines from the top, instead of what is on its photo.
+    private func scan(reading texts: [String], in fixture: Fixture) async -> ScanModel {
+        let model = fixture.scanModel()
+        let lines = texts.enumerated().map { TextLine(text: $1, frame: CGRect(x: 0.08, y: 0.04 + Double($0) * 0.03, width: 0.4, height: 0.012)) }
+        model.readDocument = { _, _, owners in DocumentDetector().detect(lines: lines, owners: owners) }
+        model.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
+        await model.waitUntilIdle()
+        return model
+    }
+
+    @Test func anOwnerNamedOnThePageWinsOverTheOneRememberedForTheIssuer() async throws {
         let fixture = try Fixture()
         let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
         let employer = try #require(fixture.settings.addOwner("Halcyon Labs"))
-        let photo = try #require(PageExtractor(context: CIContext()).jpegData(of: SyntheticPage(title: "LUMEN ENERGY SAS").render(), quality: 0.9))
-        let first = fixture.scanModel()
-        first.addPhoto(photo, liveQuad: nil)
-        await first.waitUntilIdle()
+        let first = await scan(reading: ["LUMEN ENERGY SAS", "Invoice"], in: fixture)
         first.setOwner(employer.id)
-        let lines = first.scan.headerLines
-        try #require(!lines.isEmpty)
-        for index in fixture.settings.value.headerLines.indices where lines.contains(fixture.settings.value.headerLines[index].fingerprint) {
-            fixture.settings.value.headerLines[index].issuers = ["print", "bank"]
-            fixture.settings.value.headerLines[index].owners = [holding.id]
-        }
 
-        let second = fixture.scanModel()
-        second.addPhoto(photo, liveQuad: nil)
-        await second.waitUntilIdle()
+        let second = await scan(reading: ["LUMEN ENERGY SAS", "Invoice", "FERNWOOD SAS"], in: fixture)
         #expect(fixture.settings.learnedIssuer(for: second.scan.issuerKeys)?.owner == employer.id)
+        #expect(second.scan.details.issuer == "Lumen Energy")
         #expect(second.owner.id == holding.id)
         #expect(!second.hasDefaultOwner)
         #expect(second.scan.remembered.isEmpty)
+        #expect(second.ownerCaption == "Its name is on the page")
+        #expect(fixture.store.all().first { $0.id == second.id }?.owner == ScanOwner(id: holding.id, clue: .name))
     }
 
-    @Test func sendingLinksTheLinesOfThePageToItsOwner() throws {
+    @Test func anOwnerWhoseAddressIsOnThePageGetsIt() async throws {
         let fixture = try Fixture()
         let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
-        fixture.settings.recordHeaderLines(["fernwood holding"], issuerEvidence: ["print.example"])
-        var scan = Scan(name: "Scan")
-        scan.headerLines = ["fernwood holding"]
-        scan.owner = ScanOwner(id: holding.id)
-        let model = ScanModel(scan: scan, processor: fixture.processor, settings: fixture.settings)
-
-        model.markSent(.email)
-        #expect(fixture.settings.value.headerLines.first?.owners == [holding.id])
+        fixture.settings.setAddress("12 quai Perrache\n69002 Lyon", of: holding.id)
+        let model = await scan(reading: ["LUMEN ENERGY SAS", "Invoice", "12 quai Perrache", "69002 Lyon"], in: fixture)
+        #expect(model.owner.id == holding.id)
+        #expect(model.ownerCaption == "Its address is on the page")
     }
 
-    @Test func sendingWithTheDefaultOwnerLinksNothing() throws {
+    @Test func aNameTellsTheDefaultOwnerToo() async throws {
         let fixture = try Fixture()
-        let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
-        fixture.settings.recordHeaderLines(["fernwood holding"], issuerEvidence: ["print.example"])
-        fixture.settings.recordHeaderLines(["fernwood holding"], issuerEvidence: ["bank.example"])
-        var scan = Scan(name: "Scan")
-        scan.headerLines = ["fernwood holding"]
-        let unsure = ScanModel(scan: scan, processor: fixture.processor, settings: fixture.settings)
-        unsure.markSent(.email)
-        #expect(fixture.settings.value.headerLines.first?.owners == [])
-
-        scan.owner = ScanOwner(id: holding.id)
-        ScanModel(scan: scan, processor: fixture.processor, settings: fixture.settings).markSent(.email)
-        #expect(fixture.settings.owner(recognizing: ["fernwood holding"]) == holding.id)
+        let me = fixture.settings.value.defaultOwnerID
+        #expect(fixture.settings.renameOwner(me, to: "Camille Rouvière"))
+        let model = await scan(reading: ["LUMEN ENERGY SAS", "Invoice", "Mme Camille Rouvière"], in: fixture)
+        #expect(model.owner.id == me)
+        #expect(!model.hasDefaultOwner)
+        #expect(model.ownerCaption == "Its name is on the page")
+        #expect(model.scan.details.issuer == "Lumen Energy")
     }
 
-    @Test func changingTheOwnerOfASentScanMovesItsLines() throws {
+    @Test func thePlaceholderNameTellsNothing() async throws {
         let fixture = try Fixture()
-        let personal = fixture.settings.value.defaultOwnerID
         let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
+        fixture.settings.value.defaultOwnerID = holding.id
+        let model = await scan(reading: ["Me", "Invoice"], in: fixture)
+        #expect(model.owner.id == holding.id)
+        #expect(model.hasDefaultOwner)
+        #expect(model.ownerCaption == "Default")
+    }
+
+    @Test func aChosenOwnerStaysWhateverIsOnThePage() async throws {
+        let fixture = try Fixture()
+        try #require(fixture.settings.addOwner("Fernwood Holding") != nil)
         let employer = try #require(fixture.settings.addOwner("Halcyon Labs"))
-        fixture.settings.recordHeaderLines(["fernwood holding"], issuerEvidence: ["print.example"])
-        var scan = Scan(name: "Scan")
-        scan.headerLines = ["fernwood holding"]
-        scan.owner = ScanOwner(id: personal)
-        let model = ScanModel(scan: scan, processor: fixture.processor, settings: fixture.settings)
-        model.setOwner(holding.id)
-        #expect(fixture.settings.value.headerLines.first?.owners == [])
-
-        model.markSent(.email)
+        let model = fixture.scanModel()
         model.setOwner(employer.id)
-        #expect(fixture.settings.value.headerLines.first?.owners == [employer.id])
+        model.readDocument = { _, _, owners in
+            DocumentDetector().detect(lines: [TextLine(text: "Fernwood Holding", frame: CGRect(x: 0.08, y: 0.1, width: 0.4, height: 0.012))], owners: owners)
+        }
+        model.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
+        await model.waitUntilIdle()
+        #expect(model.owner.id == employer.id)
+        #expect(model.ownerCaption == nil)
+    }
 
-        var other = Scan(name: "Other")
-        other.headerLines = ["fernwood holding"]
-        let unsure = ScanModel(scan: other, processor: fixture.processor, settings: fixture.settings)
-        unsure.markSent(.email)
-        unsure.setOwner(holding.id)
-        #expect(fixture.settings.value.headerLines.first?.owners == [employer.id, holding.id])
+    @Test func givingTheScanToAnotherOwnerForgetsWhatTheTextTold() async throws {
+        let fixture = try Fixture()
+        let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
+        let model = await scan(reading: ["LUMEN ENERGY SAS", "Invoice", "Fernwood Holding"], in: fixture)
+        #expect(model.owner.id == holding.id)
+        model.setOwner(fixture.settings.value.defaultOwnerID)
+        #expect(model.scan.owner?.clue == nil)
+        #expect(model.ownerCaption == nil)
     }
 
     @Test func trimsTypedDetailsAndRemovesBlankOnes() throws {
@@ -948,9 +951,9 @@ struct ScanModelTests {
         let fallback = model.scan.title
         let reads = Counter()
         let processor = fixture.processor
-        model.readDocument = { page, scanID, ownLines in
+        model.readDocument = { page, scanID, owners in
             guard reads.next() > 1 else { throw CancellationError() }
-            return try await processor.detectDocument(on: page, scanID: scanID, ownLines: ownLines)
+            return try await processor.detectDocument(on: page, scanID: scanID, owners: owners)
         }
         model.addPhoto(photo, liveQuad: nil)
         await model.waitUntilIdle()

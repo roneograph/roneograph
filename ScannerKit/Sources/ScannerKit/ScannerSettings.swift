@@ -16,8 +16,6 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
     public var categories: [DocumentCategory] = []
     /// The issuer, category, name and owner the user gave to documents from an issuer, most recent first.
     public var learnedIssuers: [LearnedIssuer] = []
-    /// Header lines seen on past scans, to recognize the user's own name and address.
-    public var headerLines: [HeaderLine] = []
     public var keepScans = ScanRetention.week
     /// Set once the Home card pointing to Settings for Email and Paperless was closed.
     public var dismissedSendSetup = false
@@ -41,7 +39,6 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
         askForName = try container.decode(.askForName, or: askForName)
         categories = try container.decode(.categories, or: categories)
         learnedIssuers = try container.decode(.learnedIssuers, or: learnedIssuers)
-        headerLines = try container.decode(.headerLines, or: headerLines)
         keepScans = try container.decode(.keepScans, or: keepScans)
         dismissedSendSetup = try container.decode(.dismissedSendSetup, or: dismissedSendSetup)
         try decodeSharedSendBar(from: decoder)
@@ -70,6 +67,9 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
     }
 
     public var hasSeveralOwners: Bool { owners.count > 1 }
+
+    /// Tells the owner of a page from the names and addresses of the owners, as they are now.
+    public var ownerMatcher: OwnerMatcher { OwnerMatcher(owners: owners, defaultOwnerID: defaultOwnerID) }
 
     /// The owner with this ID; the default owner when there is none or it was deleted.
     public func owner(_ id: UUID?) -> Owner {
@@ -164,22 +164,5 @@ public struct LearnedIssuer: Equatable, Sendable, Codable {
     /// The web domain or company number the issuer is recognized by, when there is one.
     public var recognizedBy: String? {
         keys.first { $0.contains(".") || $0.contains(where: \.isNumber) }
-    }
-}
-
-/// A header line seen on past scans, kept as a fingerprint, with the issuers it was seen with.
-public struct HeaderLine: Equatable, Sendable, Codable {
-    public var fingerprint: String
-    public var scans: Int
-    /// Fingerprints of the domains and company identifiers of the documents it was on.
-    public var issuers: [String]
-    /// The owners of the documents it was on when they were sent, while there were several owners.
-    public var owners: [UUID]
-
-    public init(fingerprint: String, scans: Int = 0, issuers: [String] = [], owners: [UUID] = []) {
-        self.fingerprint = fingerprint
-        self.scans = scans
-        self.issuers = issuers
-        self.owners = owners
     }
 }

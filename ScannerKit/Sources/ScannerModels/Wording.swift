@@ -20,8 +20,8 @@ extension ScannerSettings {
     public var forgetEverythingMessage: String {
         let issuers = learnedIssuers.count.counted("issuer")
         return hasSeveralOwners
-            ? "Corrections and owners remembered for \(issuers), which lines are your name and address, and which lines tell each owner. Scans, owners and settings stay."
-            : "Corrections for \(issuers), and which lines are your name and address. Scans and settings stay."
+            ? "Corrections and owners remembered for \(issuers). Scans, owners and settings stay."
+            : "Corrections for \(issuers). Scans and settings stay."
     }
 
     /// In Settings › Memory › Issuers, before anything is remembered.

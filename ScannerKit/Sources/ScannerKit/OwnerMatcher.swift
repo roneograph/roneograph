@@ -22,11 +22,11 @@ public struct OwnerMatcher: Sendable {
     public struct Match: Equatable, Sendable {
         public var owner: RecognizedOwner?
         /// The indices of the lines that are an owner's name or part of its address: never the issuer.
-        public var ownLines: Set<Int>
+        public var ownerLines: Set<Int>
 
-        public init(owner: RecognizedOwner? = nil, ownLines: Set<Int> = []) {
+        public init(owner: RecognizedOwner? = nil, ownerLines: Set<Int> = []) {
             self.owner = owner
-            self.ownLines = ownLines
+            self.ownerLines = ownerLines
         }
     }
 
@@ -55,11 +55,11 @@ public struct OwnerMatcher: Sendable {
     public func match(_ lines: [TextLine]) -> Match {
         let top = lines.indices.filter { lines[$0].frame.minY < 0.5 }.sorted { (lines[$0].frame.minY, lines[$0].frame.minX) < (lines[$1].frame.minY, lines[$1].frame.minX) }
         let words = Dictionary(uniqueKeysWithValues: top.map { ($0, Self.words(lines[$0].text)) })
-        var ownLines = Set<Int>()
+        var ownerLines = Set<Int>()
         var named: [UUID] = []
         for index in top {
             let owners = entries.filter { entry in entry.names.contains { $0.matches(words[index] ?? []) } }
-            if !owners.isEmpty { ownLines.insert(index) }
+            if !owners.isEmpty { ownerLines.insert(index) }
             if owners.count == 1, !named.contains(owners[0].id) { named.append(owners[0].id) }
         }
         var addressed: [UUID] = []
@@ -69,12 +69,12 @@ public struct OwnerMatcher: Sendable {
                 for start in top {
                     guard let block = Self.block(of: address, from: start, among: top, lines: lines, words: words) else { continue }
                     hasAddress = true
-                    ownLines.formUnion(block)
+                    ownerLines.formUnion(block)
                 }
             }
             if hasAddress { addressed.append(entry.id) }
         }
-        return Match(owner: decide(named: named, addressed: addressed), ownLines: ownLines)
+        return Match(owner: decide(named: named, addressed: addressed), ownerLines: ownerLines)
     }
 
     private func decide(named: [UUID], addressed: [UUID]) -> RecognizedOwner? {

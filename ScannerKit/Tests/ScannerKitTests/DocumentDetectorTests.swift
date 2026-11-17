@@ -11,10 +11,10 @@ struct DocumentDetectorTests {
 
     @Test func reportsHitRatesOnTheCorpus() {
         let report = CorpusReport(documents: DocumentCorpus.documents)
-        let learned = CorpusReport(documents: DocumentCorpus.documents, ownLines: DocumentCorpus.ownLines)
+        let addressed = CorpusReport(documents: DocumentCorpus.documents, owners: DocumentCorpus.owners)
         let holdout = CorpusReport(documents: DocumentCorpus.holdout)
         print("First scans:\n\(report.table)\n\(report.misses.joined(separator: "\n"))")
-        print("With the user's own lines learned:\n\(learned.table)")
+        print("With the names and addresses of the owners set:\n\(addressed.table)")
         print("Holdout:\n\(holdout.table)\n\(holdout.misses.joined(separator: "\n"))")
         #expect(report.misses == [
             "other-fr issuer: got Fête des voisins",
@@ -23,8 +23,21 @@ struct DocumentDetectorTests {
             "other-es issuer: got Horario de clases",
             "other-it issuer: got Gita sociale ai colli",
         ])
-        #expect(learned.misses == report.misses)
+        #expect(addressed.misses == report.misses)
         #expect(holdout.misses.isEmpty)
+    }
+
+    @Test func givesTheCorpusDocumentsThePersonTheyAreAddressedTo() {
+        let owners = DocumentCorpus.owners
+        let languages = ["en", "fr", "de", "es", "it"]
+        let matcher = OwnerMatcher(owners: owners, defaultOwnerID: owners[0].id)
+        var found = 0
+        for document in DocumentCorpus.documents + DocumentCorpus.holdout {
+            guard let owner = detector.detect(lines: document.lines, owners: matcher).owner else { continue }
+            found += 1
+            #expect(owner.id == owners[languages.firstIndex(of: String(document.language.prefix(2))) ?? 0].id, "\(document.name)")
+        }
+        #expect(found >= 50)
     }
 
     @Test(arguments: DocumentCorpus.documents + DocumentCorpus.holdout)
@@ -119,15 +132,27 @@ struct DocumentDetectorTests {
 
     // MARK: Issuer
 
-    @Test func neverTakesTheUserOwnLinesAsTheIssuer() {
+    @Test func neverTakesTheNameOfAnOwnerAsTheIssuer() {
         let lines = [line("Jordan Ellery", y: 0.04, height: 0.03), line("Northwind Analytics", y: 0.1, height: 0.012), line("Lorem ipsum", y: 0.5)]
         #expect(detector.detect(lines: lines).details.issuer == "Jordan Ellery")
-        let detected = detector.detect(lines: lines, ownLines: [DocumentDetector.fingerprint("JORDAN ELLERY")])
+        let owner = Owner(name: "Jordan Ellery", symbol: .person)
+        let detected = detector.detect(lines: lines, owners: OwnerMatcher(owners: [owner], defaultOwnerID: owner.id))
         #expect(detected.details.issuer == "Northwind Analytics")
-        #expect(detected.headerLines == ["Jordan Ellery", "Northwind Analytics"].map(DocumentDetector.fingerprint))
+        #expect(detected.owner == RecognizedOwner(id: owner.id, clue: .name))
     }
 
-    @Test func leavesTheRowsOfAReceiptOutOfTheHeaderLines() {
+    @Test func neverTakesTheAddressOfAnOwnerAsTheIssuer() {
+        let lines = [line("Glycines Résidence", y: 0.04, height: 0.03), line("Lumen Énergie", y: 0.1, height: 0.012), line("Lorem ipsum", y: 0.5)]
+        #expect(detector.detect(lines: lines).details.issuer == "Glycines Résidence")
+        var owner = Owner(name: "Camille Rouvière", symbol: .person)
+        owner.addresses = ["Glycines Résidence"]
+        let holding = Owner(name: "Fernwood Holding")
+        let detected = detector.detect(lines: lines, owners: OwnerMatcher(owners: [holding, owner], defaultOwnerID: holding.id))
+        #expect(detected.details.issuer == "Lumen Énergie")
+        #expect(detected.owner == RecognizedOwner(id: owner.id, clue: .address))
+    }
+
+    @Test func leavesTheRowsOfAReceiptOutOfTheIssuers() {
         let lines = [
             line("MAISON PERLIER", y: 0.03, height: 0.018),
             line("Pain aux noix", y: 0.12),
@@ -136,9 +161,8 @@ struct DocumentDetectorTests {
             TextLine(text: "4,10 €", frame: CGRect(x: 0.7, y: 0.21, width: 0.15, height: 0.018)),
             line("Merci de votre visite", y: 0.34),
         ]
-        let detected = detector.detect(lines: lines, aspectRatio: 0.36)
-        #expect(detected.details.issuer == "Maison Perlier")
-        #expect(detected.headerLines == [DocumentDetector.fingerprint("MAISON PERLIER")])
+        #expect(detector.detect(lines: lines, aspectRatio: 0.36).details.issuer == "Maison Perlier")
+        #expect(detector.detect(lines: Array(lines.dropFirst()), aspectRatio: 0.36).details.issuer == nil)
     }
 
     @Test func prefersANameWithALegalForm() {
@@ -360,7 +384,6 @@ struct DocumentDetectorTests {
         #expect(detected.details.issuer == "Voltaria Énergie")
         #expect(detected.issuerKeys == ["voltaria-energie.fr", "123456789", "FR12123456789", "voltaria energie"])
         #expect(detected.issuerEvidence == ["voltaria-energie.fr", "123456789", "FR12123456789"])
-        #expect(detected.headerLines == [DocumentDetector.fingerprint("VOLTARIA ÉNERGIE")])
     }
 
     @Test func usesTheNameBeforeALegalFormWithoutAHeader() {
@@ -552,9 +575,10 @@ struct CorpusReport {
     var tallies: [String: [String: Tally]] = [:]
     var misses: [String] = []
 
-    init(documents: [CorpusDocument], ownLines: Set<String> = []) {
+    init(documents: [CorpusDocument], owners: [Owner] = []) {
+        let matcher = OwnerMatcher(owners: owners, defaultOwnerID: owners.first?.id)
         for document in documents {
-            let detected = DocumentDetector(monthFirst: document.monthFirst).detect(lines: document.lines, ownLines: ownLines, aspectRatio: document.aspectRatio)
+            let detected = DocumentDetector(monthFirst: document.monthFirst).detect(lines: document.lines, owners: matcher, aspectRatio: document.aspectRatio)
             let found = detected.details
             let checks: [(String, Bool, String)] = [
                 ("category", found.category == document.category, found.category.rawValue),
