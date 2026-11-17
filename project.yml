@@ -28,7 +28,7 @@ targets:
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         ITSAppUsesNonExemptEncryption: false
-        NSCameraUsageDescription: The camera finds and captures the pages you scan.
+        NSCameraUsageDescription: The camera finds and captures the pages you scan, such as a letter or an invoice, to make PDFs on this iPhone.
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
