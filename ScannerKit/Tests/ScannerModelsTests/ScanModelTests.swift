@@ -34,6 +34,28 @@ struct ScanModelTests {
         #expect(!FileManager.default.fileExists(atPath: fixture.store.directory(of: model.id).path(percentEncoded: false)))
     }
 
+    @Test(.timeLimit(.minutes(1)))
+    func makesAPageAgainWhenMakingItFailedWhileTheAppWasNotActive() async throws {
+        let background = RecordingBackground()
+        let fixture = try Fixture(background: background)
+        let model = fixture.scanModel()
+        let (started, release) = background.holdNext()
+        model.addPhoto(Data("not a photo".utf8), liveQuad: nil)
+        let pending = try #require(model.scan.pending.first)
+        for await _ in started {}
+        fixture.processor.gate.isPaused = true
+        release()
+        try await fixture.waitUntilGateHasWaiting(1)
+        #expect(model.processing == 1)
+        #expect(model.failure == nil)
+
+        try SyntheticPhoto.jpeg().write(to: fixture.store.photoURL(scanID: model.id, pageID: pending.id))
+        fixture.processor.gate.isPaused = false
+        await model.waitUntilIdle()
+        #expect(model.failure == nil)
+        #expect(model.scan.pages.map(\.id) == [pending.id])
+    }
+
     @Test func emptyScansAreNeverSaved() throws {
         let fixture = try Fixture()
         _ = fixture.scanModel()

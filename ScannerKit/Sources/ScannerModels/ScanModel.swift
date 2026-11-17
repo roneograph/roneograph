@@ -125,6 +125,7 @@ public final class ScanModel: Identifiable {
         process(pending)
     }
 
+    /// A page that fails while the app is not active, where the GPU cannot be used, is made again once the app is active.
     private func process(_ pending: PendingPage) {
         let processor = processor, scanID = scan.id
         enqueuePageWork { [self] in
@@ -139,6 +140,10 @@ public final class ScanModel: Identifiable {
                 if scan.pages.count == 1 || scan.read == nil, let first = scan.pages.first { await suggestNames(from: first) }
             } catch {
                 guard !isDeleted else { return }
+                if processor.gate.isPaused {
+                    process(pending)
+                    return
+                }
                 scan.pending.removeAll { $0.id == pending.id }
                 store.deletePageFiles(scanID: scanID, pageID: pending.id)
                 if isEmpty {
