@@ -864,6 +864,33 @@ struct ScanModelTests {
         #expect(fixture.settings.learnedIssuer(for: ["lumen"])?.category == .invoice)
     }
 
+    @Test func readsTheFirstPageAgainWithTheNextPageWhenReadingItFailed() async throws {
+        let fixture = try Fixture()
+        let photo = try #require(PageExtractor(context: CIContext()).jpegData(of: SyntheticPage(title: "INVOICE").render(), quality: 0.9))
+        let model = fixture.scanModel()
+        let fallback = model.scan.title
+        let reads = Counter()
+        let processor = fixture.processor
+        model.readDocument = { page, scanID, ownLines in
+            guard reads.next() > 1 else { throw CancellationError() }
+            return try await processor.detectDocument(on: page, scanID: scanID, ownLines: ownLines)
+        }
+        model.addPhoto(photo, liveQuad: nil)
+        await model.waitUntilIdle()
+        #expect(model.scan.read == nil)
+        #expect(model.scan.title == fallback)
+
+        model.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
+        await model.waitUntilIdle()
+        #expect(model.scan.read != nil)
+        #expect(model.scan.title != fallback)
+        #expect(fixture.store.all().first?.title == model.scan.title)
+
+        model.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
+        await model.waitUntilIdle()
+        #expect(reads.count == 2)
+    }
+
     @Test func closingTheSheetWithoutChangesKeepsWhatWasReadMeanwhile() async throws {
         let fixture = try Fixture()
         let model = fixture.scanModel()
@@ -881,6 +908,19 @@ struct ScanModelTests {
         model.applyName("Mine", shownName: read)
         #expect(model.scan.title == "Mine")
         #expect(model.scan.isNamedByUser)
+    }
+}
+
+private final class Counter: Sendable {
+    private let value = Mutex(0)
+
+    var count: Int { value.withLock { $0 } }
+
+    func next() -> Int {
+        value.withLock { value in
+            value += 1
+            return value
+        }
     }
 }
 

@@ -28,6 +28,8 @@ public final class ScanModel: Identifiable {
     private var pdfBuild: Task<Void, Never>?
     /// Replaced in tests, to hold or count builds.
     var makePDFData: @concurrent @Sendable (Scan) async throws -> Data
+    /// Replaced in tests, to fail reading the page.
+    var readDocument: @concurrent @Sendable (ScanPage, UUID, Set<String>) async throws -> DetectedDocument?
     public private(set) var failure: String?
     private let processor: ScanProcessor
     private let settings: SettingsStore
@@ -46,6 +48,7 @@ public final class ScanModel: Identifiable {
         self.settings = settings
         self.now = now
         makePDFData = { scan in try await processor.pdfData(of: scan) }
+        readDocument = { page, scanID, ownLines in try await processor.detectDocument(on: page, scanID: scanID, ownLines: ownLines) }
         for page in scan.pending { process(page) }
     }
 
@@ -133,7 +136,7 @@ public final class ScanModel: Identifiable {
                 scan.pending.removeAll { $0.id == pending.id }
                 scan.pages.append(page)
                 save()
-                if scan.pages.count == 1 { await suggestNames(from: page) }
+                if scan.pages.count == 1 || scan.read == nil, let first = scan.pages.first { await suggestNames(from: first) }
             } catch {
                 guard !isDeleted else { return }
                 scan.pending.removeAll { $0.id == pending.id }
@@ -155,11 +158,10 @@ public final class ScanModel: Identifiable {
     }
 
     /// Reads the details and names on the first page; what the user corrected for the same issuer before wins over what was read.
+    /// When the page cannot be read, it is read again after the next page.
     private func suggestNames(from page: ScanPage) async {
-        let processor = processor, scanID = scan.id, date = scan.created, ownLines = settings.ownLines
-        guard var document = try? await Task.detached(priority: .userInitiated, operation: {
-            try await processor.detectDocument(on: page, scanID: scanID, ownLines: ownLines)
-        }).value, !isDeleted else { return }
+        let readDocument = readDocument, scanID = scan.id, date = scan.created, ownLines = settings.ownLines
+        guard var document = try? await readDocument(page, scanID, ownLines), !isDeleted else { return }
         settings.recordHeaderLines(document.headerLines, issuerEvidence: document.issuerEvidence)
         scan.read = ReadDocument(details: document.details, parts: document.parts)
         scan.headerLines = document.headerLines
