@@ -128,8 +128,9 @@ private struct PageGrid: View {
             .labelStyle(.iconOnly)
             .font(.footnote.weight(.semibold))
             .foregroundStyle(.secondary)
-            .frame(width: 44, height: 24)
+            .frame(width: 44, height: 44)
             .contentShape(Rectangle())
+            .padding(.vertical, -10)
             .buttonStyle(.plain)
             .confirmationDialog("Delete page \(number)?", isPresented: Binding(get: { deleting == page.id }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible) {
                 Button("Delete Page", role: .destructive) { withAnimation { scan.deletePage(page.id) } }
@@ -155,6 +156,9 @@ private struct PageTip: View {
                 .labelStyle(.iconOnly)
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(.tertiary)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+                .padding(-12)
                 .buttonStyle(.plain)
         }
         .padding(12)
