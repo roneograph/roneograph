@@ -2,7 +2,7 @@ import CoreImage
 import Foundation
 
 /// Turns photos into scan pages and scans into PDFs, reading and writing the page files through the store.
-public struct ScanProcessor: @unchecked Sendable {
+public struct ScanProcessor: Sendable {
     public let store: ScanStore
     private let extractor: PageExtractor
     private let cleaner: PageCleaner

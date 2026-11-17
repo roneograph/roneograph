@@ -5,7 +5,7 @@ import ImageIO
 import Vision
 
 /// Finds a page in an image and flattens it, with Vision and Core Image.
-public struct PageExtractor: @unchecked Sendable {
+public struct PageExtractor: Sendable {
     private let context: CIContext
 
     public init(context: CIContext) {

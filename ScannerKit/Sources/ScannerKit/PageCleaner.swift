@@ -54,7 +54,7 @@ public struct PageAnalysis: Equatable, Codable, Sendable {
 }
 
 /// Turns a flattened page photo into a clean page: upright, straight, even lighting, white paper, the right look.
-public struct PageCleaner: @unchecked Sendable {
+public struct PageCleaner: Sendable {
     private let backgroundSize: CGFloat = 512
     private let backgroundRadius: Double = 5
     private let backgroundBlur: Double = 1.5

@@ -5,7 +5,7 @@ import Foundation
 import ImageIO
 import UniformTypeIdentifiers
 
-public struct PDFPageContent: @unchecked Sendable {
+public struct PDFPageContent: Sendable {
     public var image: CIImage
     public var look: PageLook
     /// Median text line height as a share of the image's long side, to estimate the size of pages that are not A4 or Letter.
@@ -27,7 +27,7 @@ public enum PDFWriterError: Error {
 }
 
 /// Writes one image per page, encoded for its look as a grayscale or color JPEG, under the invisible text of the page.
-public struct PDFWriter: @unchecked Sendable {
+public struct PDFWriter: Sendable {
     private let context: CIContext
     private let sizing = PageSizing()
     private let creator = "Roneograph"
