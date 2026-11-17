@@ -11,7 +11,7 @@ struct RoneographApp: App {
     private let session: AVCaptureSession
 
     init() {
-        let context = CIContext()
+        let context = CIContext(options: [.cacheIntermediates: false])
         let support = URL.applicationSupportDirectory.appending(path: "Scans", directoryHint: .isDirectory)
         let store = ScanStore(scansDirectory: support, documentsDirectory: .documentsDirectory)
         let app = AppModel(processor: ScanProcessor(store: store, context: context), settings: SettingsStore(appFolder: .documentsDirectory))

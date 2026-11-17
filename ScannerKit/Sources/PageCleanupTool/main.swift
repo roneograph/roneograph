@@ -12,7 +12,7 @@ guard arguments.count >= 2 else {
 }
 let output = URL(filePath: arguments.first!)
 try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
-let context = CIContext()
+let context = CIContext(options: [.cacheIntermediates: false])
 let cleaner = PageCleaner(context: context)
 let extractor = PageExtractor(context: context)
 let writer = PDFWriter(context: context)
