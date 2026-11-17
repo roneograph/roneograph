@@ -215,6 +215,7 @@ private struct ReadingPlaceholder: View {
                 Text(" ").font(.footnote)
             }
             .hidden()
+            .frame(maxWidth: .infinity, alignment: .leading)
             .overlay(alignment: .leading) {
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
