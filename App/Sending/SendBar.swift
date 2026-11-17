@@ -18,6 +18,7 @@ struct SendBar<Summary: View>: View {
     @State private var confirmingDelete = false
     @State private var choosingFolder = false
     @State private var savingFailed = false
+    @State private var mailUnavailable = false
     /// The owner the folder picker and the email question are for.
     @State private var ownerID: UUID?
     @State private var mails: MailQueue?
@@ -95,6 +96,12 @@ struct SendBar<Summary: View>: View {
                 savingFailed = true
             }
         }
+        .alert("No account in Mail", isPresented: $mailUnavailable) {
+            Button("Share") { showingShare = true }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Email needs an account in the Mail app. Share the PDFs to send them with another app.")
+        }
         .alert("The folder cannot be reached", isPresented: $savingFailed) {
             Button("Choose Folder") { choosingFolder = true }
             Button("Cancel", role: .cancel) {}
@@ -135,11 +142,11 @@ struct SendBar<Summary: View>: View {
         }
     }
 
-    /// Mail needs an account in the Mail app; without one, the share sheet lets any mail app send the PDFs.
+    /// Mail needs an account in the Mail app; without one, the share sheet is offered so another app can send the PDFs.
     /// Scans of different owners go in one mail per owner, one after the other.
     private func email() {
         if !MFMailComposeViewController.canSendMail() {
-            showingShare = true
+            mailUnavailable = true
         } else {
             mails = MailQueue(scans, app: app)
             nextMail()
