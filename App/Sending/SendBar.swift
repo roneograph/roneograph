@@ -44,25 +44,25 @@ struct SendBar: View {
     var body: some View {
         VStack(spacing: 8) {
             let named = app.namedSendMethod(for: scans)
-            let row = named == nil ? AnyLayout(HStackLayout(spacing: 10)) : AnyLayout(SendButtonRow(spacing: 10))
-            row {
+            HStack(spacing: named == nil ? 10 : 8) {
                 let methods = app.sendMethods(for: scans)
                 if methods.isEmpty {
                     Button("Set Up Sending…", systemImage: "paperplane") {
                         settingUpSending = SendingSetup(ownerIDs: app.sendingOwners(for: scans).map(\.id))
                     }
                     .buttonStyle(.glass)
-                    .labelStyle(SendButtonLabelStyle(showsTitle: true))
+                    .labelStyle(SendButtonLabelStyle(shape: .named))
                     .font(.body.weight(.semibold))
                 }
                 ForEach(methods, id: \.self) { method in
-                    sendButton(method, isNamed: method == named)
+                    sendButton(method, isNamed: method == named, isRound: named != nil && method != named)
                 }
                 Button(scans.count > 1 ? "Delete Scans" : "Delete Scan", systemImage: "trash", role: .destructive) { confirmingDelete = true }
                     .buttonStyle(.glass)
                     .foregroundStyle(.red.opacity(scans.isEmpty ? 0.4 : 1))
                     .disabled(scans.isEmpty)
-                    .labelStyle(SendButtonLabelStyle(fills: !methods.isEmpty))
+                    .labelStyle(SendButtonLabelStyle(shape: named != nil ? .round : methods.isEmpty ? .narrow : .wide))
+                    .buttonBorderShape(named == nil ? .automatic : .circle)
             }
             .labelStyle(SendButtonLabelStyle())
             .controlSize(.large)
@@ -181,8 +181,8 @@ struct SendBar: View {
         nextMail()
     }
 
-    /// The button shown with its name gets a short one; VoiceOver still reads its title.
-    private func sendButton(_ method: SendMethod, isNamed: Bool) -> some View {
+    /// The button shown with its name gets a short one and the room the others, then round, leave; VoiceOver still reads its title.
+    private func sendButton(_ method: SendMethod, isNamed: Bool, isRound: Bool) -> some View {
         let isWaiting = sending.waiting == method
         return Button {
             switch method {
@@ -209,12 +209,12 @@ struct SendBar: View {
                     }
             }
         }
-        .labelStyle(SendButtonLabelStyle(showsTitle: isNamed))
+        .labelStyle(SendButtonLabelStyle(shape: isNamed ? .named : isRound ? .round : .wide))
         .sendButtonStyle(isSet: isProminent(method))
+        .buttonBorderShape(isRound ? .circle : .automatic)
         .disabled(scans.isEmpty || sending.isSending)
         .accessibilityLabel(method.title)
         .accessibilityValue(isWaiting ? (scans.count > 1 ? "Waiting for the PDFs" : "Waiting for the PDF") : "")
-        .layoutValue(key: IsNamed.self, value: isNamed)
     }
 
     private func isProminent(_ method: SendMethod) -> Bool {
@@ -326,56 +326,39 @@ private struct SendingSetup: Identifiable {
     let ownerIDs: [UUID]
 }
 
-/// Icon only, or icon and title, as wide as the row lets it unless `fills` is off.
+/// The label of a button of the send bar: its icon as wide as the row lets it or no wider than it is, its icon in a round button next to a named one, or its name.
 private struct SendButtonLabelStyle: LabelStyle {
-    var showsTitle = false
-    var fills = true
+    enum Shape {
+        case wide, narrow, round, named
+    }
+
+    var shape = Shape.wide
 
     func makeBody(configuration: Configuration) -> some View {
-        Group {
-            if showsTitle {
+        switch shape {
+        case .wide:
+            icon(configuration).frame(maxWidth: .infinity)
+        case .narrow:
+            icon(configuration)
+        case .round:
+            // Less than the padding of a large button, so five buttons fit on the narrowest iPhone.
+            icon(configuration).frame(width: 26).padding(.horizontal, -8)
+        case .named:
+            ViewThatFits(in: .horizontal) {
                 HStack(spacing: 8) {
                     configuration.icon
                     configuration.title
                 }
-            } else {
-                Label { configuration.title } icon: { configuration.icon }
-                    .labelStyle(.iconOnly)
+                configuration.title
+                configuration.icon
             }
-        }
-        .frame(maxWidth: fills ? .infinity : nil)
-    }
-}
-
-/// The send buttons in a row, the one shown with its name about 2.6 times as wide as each other, narrowed when the others need more room.
-private struct SendButtonRow: Layout {
-    var spacing: CGFloat
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let widths = widths(in: proposal.width, subviews: subviews)
-        let height = zip(subviews, widths).map { $0.sizeThatFits(ProposedViewSize(width: $1, height: proposal.height)).height }.max() ?? 0
-        return CGSize(width: widths.reduce(0, +) + spacing * CGFloat(max(subviews.count - 1, 0)), height: height)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        var x = bounds.minX
-        for (subview, width) in zip(subviews, widths(in: bounds.width, subviews: subviews)) {
-            subview.place(at: CGPoint(x: x, y: bounds.midY), anchor: .leading, proposal: ProposedViewSize(width: width, height: bounds.height))
-            x += width + spacing
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, -6)
         }
     }
 
-    private func widths(in width: CGFloat?, subviews: Subviews) -> [CGFloat] {
-        guard let width else { return subviews.map { $0.sizeThatFits(.unspecified).width } }
-        let room = width - spacing * CGFloat(max(subviews.count - 1, 0))
-        let named = CGFloat(subviews.filter { $0[IsNamed.self] }.count)
-        let unit = room / (CGFloat(subviews.count) - named + 2.6 * named)
-        let others = subviews.map { $0[IsNamed.self] ? 0 : max(unit, $0.sizeThatFits(ProposedViewSize(width: 0, height: nil)).width) }
-        let left = max(0, room - others.reduce(0, +))
-        return zip(subviews, others).map { $0[IsNamed.self] ? left / named : $1 }
+    private func icon(_ configuration: Configuration) -> some View {
+        Label { configuration.title } icon: { configuration.icon }
+            .labelStyle(.iconOnly)
     }
-}
-
-private struct IsNamed: LayoutValueKey {
-    static let defaultValue = false
 }
