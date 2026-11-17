@@ -51,10 +51,8 @@ public final class Archiver {
     private let directory: URL
     /// Sends the requests that prepare an upload, while the app is open.
     private let fetch: Fetch
-    /// The document types of each server by lowercased name, read once per launch and completed with the ones created.
-    private var documentTypes: [URL: [String: Int]] = [:]
-    /// The ID of each server's Owner custom field, read once per launch; nil for a server that cannot take its value.
-    private var ownerFields: [URL: Int?] = [:]
+    /// The IDs of the objects of each catalog of each server by key, nil for one that cannot be sent; read once per launch and completed with the ones created.
+    private var ids: [Known: [String: Int?]] = [:]
     /// The model of a scan, set by the app model.
     var model: (UUID) -> ScanModel? = { _ in nil }
     /// The scans, set by the app model.
@@ -131,7 +129,7 @@ public final class Archiver {
         let ownerField: Int?
         do throws(Unreachable) {
             documentType = try await findDocumentType(of: model.scan.details.category, server: server.url, token: token).get()
-            ownerField = try await findOwnerField(server: server.url, token: token).get()
+            ownerField = try await find(Paperless.ownerField, in: .customFields, server: server.url, token: token).get()
         } catch {
             guard model.scan.archiving?.isInProgress == true else { return }
             return model.setArchiving(Archiving(state: .waiting(error.reason), retries: model.scan.archiving?.retries ?? 0))
@@ -158,56 +156,40 @@ public final class Archiver {
         let reason: String
     }
 
-    /// The ID of the document type named like the category, created when the server has none; nil for Other, or when the server refuses to make it.
+    /// The ID of the document type named like the category; nil for Other.
     private func findDocumentType(of category: DocumentCategory, server: URL, token: String) async -> Result<Int?, Unreachable> {
         guard category != .other else { return .success(nil) }
-        let key = category.rawValue.lowercased()
-        if let id = documentTypes[server]?[key] { return .success(id) }
-        switch await send(Paperless.documentTypesRequest(server: server, token: token)) {
-        case .answered(let data, _):
-            guard let types = try? Paperless.documentTypes(from: data) else { return .success(nil) }
-            documentTypes[server] = types
-            if let id = types[key] { return .success(id) }
-        case .unreachable(let reason): return .failure(Unreachable(reason: reason))
-        case .refused: return .success(nil)
+        return await find(category.rawValue, in: .documentTypes, server: server, token: token)
+    }
+
+    /// The ID of the object of a catalog under the key of its name, read once per launch and created when the server has none;
+    /// nil when it cannot be sent, or when the server refuses to list or make it.
+    private func find(_ name: String, in catalog: Catalog, server: URL, token: String) async -> Result<Int?, Unreachable> {
+        let known = Known(server: server, catalog: catalog.id)
+        if ids[known] == nil {
+            switch await send(catalog.list(server, token)) {
+            case .answered(let data, let response):
+                guard let read = try? catalog.read(data, response) else { return .success(nil) }
+                ids[known] = read
+            case .unreachable(let reason): return .failure(Unreachable(reason: reason))
+            case .refused: return .success(nil)
+            }
         }
-        switch await send(Paperless.createDocumentTypeRequest(server: server, token: token, name: category.rawValue)) {
+        let key = catalog.key(name)
+        if let id = ids[known]?[key] { return .success(id) }
+        switch await send(catalog.create(server, token, name)) {
         case .answered(let data, _):
             guard let id = try? Paperless.createdID(from: data) else { return .success(nil) }
-            documentTypes[server, default: [:]][key] = id
+            ids[known, default: [:]][key] = id
             return .success(id)
         case .unreachable(let reason): return .failure(Unreachable(reason: reason))
         case .refused: return .success(nil)
         }
     }
 
-    /// The ID of the Owner custom field, created when the server has none; nil when the server is too old to take its value with the upload,
-    /// the field does not take text, or the server refuses to make it.
-    private func findOwnerField(server: URL, token: String) async -> Result<Int?, Unreachable> {
-        if let id = ownerFields[server] { return .success(id) }
-        switch await send(Paperless.customFieldsRequest(server: server, token: token)) {
-        case .answered(let data, let response):
-            guard Paperless.takesCustomFieldValues(version: response.value(forHTTPHeaderField: "X-Version")),
-                  let fields = try? Paperless.customFields(from: data) else {
-                ownerFields[server] = .some(nil)
-                return .success(nil)
-            }
-            if let field = fields[Paperless.ownerField] {
-                let id = field.takesText ? field.id : nil
-                ownerFields[server] = .some(id)
-                return .success(id)
-            }
-        case .unreachable(let reason): return .failure(Unreachable(reason: reason))
-        case .refused: return .success(nil)
-        }
-        switch await send(Paperless.createTextFieldRequest(server: server, token: token, name: Paperless.ownerField)) {
-        case .answered(let data, _):
-            guard let id = try? Paperless.createdID(from: data) else { return .success(nil) }
-            ownerFields[server] = id
-            return .success(id)
-        case .unreachable(let reason): return .failure(Unreachable(reason: reason))
-        case .refused: return .success(nil)
-        }
+    private struct Known: Hashable {
+        let server: URL
+        let catalog: String
     }
 
     private enum Answer {
@@ -248,10 +230,7 @@ public final class Archiver {
             model.setArchiving(Archiving(state: .waiting(reason), retries: retries))
             restart(model, after: Self.delay(afterRetries: retries))
         case .retry(let reason), .failed(let reason):
-            if let server = model.owner.paperless?.url {
-                documentTypes[server] = nil
-                ownerFields[server] = nil
-            }
+            if let server = model.owner.paperless?.url { ids = ids.filter { $0.key.server != server } }
             fail(model, reason)
         }
     }
@@ -311,4 +290,35 @@ public final class Archiver {
     private func removeBody(_ scanID: UUID) {
         try? FileManager.default.removeItem(at: bodyURL(scanID))
     }
+}
+
+/// A kind of object Paperless-ngx finds by name: how to list them, read their IDs by key, and create one.
+private struct Catalog: Sendable {
+    let id: String
+    let list: @Sendable (_ server: URL, _ token: String) -> URLRequest
+    /// The IDs by key; nil for an object that exists but cannot be sent.
+    let read: @Sendable (Data, HTTPURLResponse) throws -> [String: Int?]
+    let create: @Sendable (_ server: URL, _ token: String, _ name: String) -> URLRequest
+    let key: @Sendable (_ name: String) -> String
+
+    /// Matched by lowercased name, so the ones named by hand on the server are reused whatever their case.
+    static let documentTypes = Catalog(
+        id: "document types",
+        list: Paperless.documentTypesRequest,
+        read: { data, _ in try Paperless.documentTypes(from: data) },
+        create: Paperless.createDocumentTypeRequest,
+        key: { $0.lowercased() }
+    )
+
+    /// Matched by exact name, as templates name them; a server too old to take custom field values with an upload cannot take the Owner field.
+    static let customFields = Catalog(
+        id: "custom fields",
+        list: Paperless.customFieldsRequest,
+        read: { data, response in
+            guard Paperless.takesCustomFieldValues(version: response.value(forHTTPHeaderField: "X-Version")) else { return [Paperless.ownerField: nil] }
+            return try Paperless.customFields(from: data).mapValues { $0.takesText ? $0.id : nil }
+        },
+        create: Paperless.createTextFieldRequest,
+        key: { $0 }
+    )
 }

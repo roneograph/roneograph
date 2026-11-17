@@ -125,6 +125,22 @@ struct ArchiverTests {
         #expect(String(decoding: try #require(uploader.uploads.first).body, as: UTF8.self).contains("name=\"document_type\"\r\n\r\n8\r\n"))
     }
 
+    @Test func createsAMissingTypeWithoutReadingTheTypesAgain() async throws {
+        try connect()
+        server.answer("GET", "/api/document_types/", #"{"results": [{"id": 3, "name": "Invoice"}]}"#)
+        server.answer("POST", "/api/document_types/", #"{"id": 8, "name": "Payslip"}"#, status: 201)
+        let invoice = await readyScan()
+        invoice.setDetails(DocumentDetails(category: .invoice))
+        let payslip = await readyScan()
+        payslip.setDetails(DocumentDetails(category: .payslip))
+        await invoice.preparePDF()
+        await payslip.preparePDF()
+
+        try await app.archive([invoice, payslip])
+        #expect(server.requests(to: "/api/document_types/").map(\.httpMethod) == ["GET", "POST"])
+        #expect(String(decoding: try #require(uploader.uploads.last).body, as: UTF8.self).contains("name=\"document_type\"\r\n\r\n8\r\n"))
+    }
+
     @Test func sendsOtherDocumentsWithoutAType() async throws {
         try connect()
         let scan = await readyScan()
