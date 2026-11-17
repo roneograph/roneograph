@@ -31,6 +31,7 @@ struct ScanModelTests {
         #expect(model.failure == "A page could not be processed.")
         #expect(model.processing == 0)
         #expect(model.scan.pages.isEmpty)
+        #expect(!FileManager.default.fileExists(atPath: fixture.store.directory(of: model.id).path(percentEncoded: false)))
     }
 
     @Test func emptyScansAreNeverSaved() throws {

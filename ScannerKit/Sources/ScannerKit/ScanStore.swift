@@ -24,6 +24,11 @@ public struct ScanStore: Sendable {
         documentsDirectory.appending(path: "\(scan.fileName).pdf")
     }
 
+    public func savePhoto(_ data: Data, scanID: UUID, pageID: UUID) throws {
+        try FileManager.default.createDirectory(at: directory(of: scanID), withIntermediateDirectories: true)
+        try data.write(to: photoURL(scanID: scanID, pageID: pageID), options: .atomic)
+    }
+
     public func save(_ scan: Scan) throws {
         try FileManager.default.createDirectory(at: directory(of: scan.id), withIntermediateDirectories: true)
         let encoder = JSONEncoder()

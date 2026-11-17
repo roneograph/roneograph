@@ -37,6 +37,18 @@ public struct ScanPage: Identifiable, Equatable, Sendable, Codable {
     }
 }
 
+/// A photo captured but not made into a page yet; it is saved first, so the page is made even after the app was quit.
+public struct PendingPage: Identifiable, Equatable, Sendable, Codable {
+    public let id: UUID
+    /// Where the page was seen live, when it is not found on the photo.
+    public var liveQuad: Quad?
+
+    public init(id: UUID = UUID(), liveQuad: Quad?) {
+        self.id = id
+        self.liveQuad = liveQuad
+    }
+}
+
 /// A value of a scan that can come from what the user corrected on a past document from the same issuer.
 public enum RememberedValue: String, CaseIterable, Comparable, Sendable, Codable {
     case name, category, issuer, owner
@@ -108,6 +120,8 @@ public struct Scan: Identifiable, Equatable, Sendable, Codable {
     /// The values that come from what the user corrected on a past document, until changed.
     public var remembered: Set<RememberedValue> = []
     public var pages: [ScanPage] = []
+    /// Captured after the pages, in order, and not made into pages yet.
+    public var pending: [PendingPage] = []
     /// False while pages are being captured.
     public var isFinished = false
     public var sent: Sent?

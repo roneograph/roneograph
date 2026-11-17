@@ -19,8 +19,6 @@ public final class ScanModel: Identifiable {
 
     public let id: UUID
     public private(set) var scan: Scan
-    /// Pages captured but not processed yet.
-    public private(set) var processing = 0
     /// Page edits not applied yet.
     public private(set) var updating = 0
     public private(set) var pdf = PDFState.idle
@@ -48,6 +46,7 @@ public final class ScanModel: Identifiable {
         self.settings = settings
         self.now = now
         makePDFData = { scan in try await processor.pdfData(of: scan) }
+        for page in scan.pending { process(page) }
     }
 
     private var store: ScanStore { processor.store }
@@ -55,6 +54,9 @@ public final class ScanModel: Identifiable {
     public var fallbackTitle: String { FileNamer.fallback(for: scan.created) }
     /// The name a typed name becomes: trimmed, with single spaces, the first suggestion or the date when empty.
     public func finalName(_ name: String) -> String { FileNamer.finalName(name, fallback: scan.suggestions.first ?? fallbackTitle) }
+    /// Pages captured but not processed yet.
+    public var processing: Int { scan.pending.count }
+    private var isEmpty: Bool { scan.pages.isEmpty && scan.pending.isEmpty }
     public var isBusy: Bool { processing > 0 || updating > 0 }
     /// The name remembered for the issuer, while it is the name of the scan.
     public var rememberedName: String? { scan.remembered.contains(.name) ? scan.title : nil }
@@ -106,20 +108,42 @@ public final class ScanModel: Identifiable {
 
     // MARK: Capture
 
+    /// Saves the photo and the scan right away, then makes the page.
     public func addPhoto(_ data: Data, liveQuad: Quad?) {
-        processing += 1
+        let pending = PendingPage(liveQuad: liveQuad)
+        do {
+            try store.savePhoto(data, scanID: scan.id, pageID: pending.id)
+        } catch {
+            failure = "A page could not be processed."
+            return
+        }
+        scan.pending.append(pending)
+        save()
+        process(pending)
+    }
+
+    private func process(_ pending: PendingPage) {
         let processor = processor, scanID = scan.id
         enqueuePageWork { [self] in
-            defer { processing -= 1 }
             do {
                 let page = try await Task.detached(priority: .userInitiated) {
-                    try await processor.addPage(photo: data, liveQuad: liveQuad, scanID: scanID)
+                    try await processor.addPage(pending, scanID: scanID)
                 }.value
                 guard !isDeleted else { return }
+                scan.pending.removeAll { $0.id == pending.id }
                 scan.pages.append(page)
                 save()
                 if scan.pages.count == 1 { await suggestNames(from: page) }
             } catch {
+                guard !isDeleted else { return }
+                scan.pending.removeAll { $0.id == pending.id }
+                store.deletePageFiles(scanID: scanID, pageID: pending.id)
+                if isEmpty {
+                    store.delete(scan)
+                    didSave?()
+                } else {
+                    save()
+                }
                 failure = "A page could not be processed."
             }
         }
@@ -454,7 +478,7 @@ public final class ScanModel: Identifiable {
 
     @discardableResult
     private func save() -> Bool {
-        guard !scan.pages.isEmpty, !isDeleted else { return false }
+        guard !isEmpty, !isDeleted else { return false }
         do {
             try store.save(scan)
             didSave?()

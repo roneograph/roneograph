@@ -112,7 +112,7 @@ extension Collection<RememberedValue> {
 extension Scan {
     /// Under the scan's name on Home: "In progress · 2 pages", "Emailed yesterday · 1 page", "Not sent · now · 3 pages".
     public var status: String {
-        let pages = pages.count.counted("page")
+        let pages = (pages.count + pending.count).counted("page")
         if !isFinished { return "In progress · \(pages)" }
         if let sent { return "\(sent.method.pastTense) \(Self.relative(sent.date)) · \(pages)" }
         return "Not sent · \(Self.relative(created)) · \(pages)"

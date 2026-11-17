@@ -22,6 +22,7 @@ public final class AppModel {
         self.settings = settings
         self.now = now
         refresh()
+        for scan in scans where !scan.pending.isEmpty { _ = model(for: scan.id) }
     }
 
     public var store: ScanStore { processor.store }

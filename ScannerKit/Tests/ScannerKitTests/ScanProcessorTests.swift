@@ -14,9 +14,15 @@ final class ScanProcessorTests {
         try? FileManager.default.removeItem(at: root)
     }
 
+    private func addPage(scanID: UUID) async throws -> ScanPage {
+        let pending = PendingPage(liveQuad: nil)
+        try store.savePhoto(SyntheticPhoto.jpeg(), scanID: scanID, pageID: pending.id)
+        return try await processor.addPage(pending, scanID: scanID)
+    }
+
     @Test func processesAPhotoIntoAPageAndAPDF() async throws {
         var scan = Scan(name: "Test")
-        let page = try await processor.addPage(photo: SyntheticPhoto.jpeg(), liveQuad: nil, scanID: scan.id)
+        let page = try await addPage(scanID: scan.id)
         #expect(try #require(page.quad).maxCornerDistance(to: .tilted) < 0.02)
         for url in [store.photoURL(scanID: scan.id, pageID: page.id), store.flatURL(scanID: scan.id, pageID: page.id), store.previewURL(scanID: scan.id, pageID: page.id)] {
             #expect(FileManager.default.fileExists(atPath: url.path(percentEncoded: false)))
@@ -29,7 +35,7 @@ final class ScanProcessorTests {
 
     @Test func recropsFromTheOriginalPhoto() async throws {
         let scanID = UUID()
-        let page = try await processor.addPage(photo: SyntheticPhoto.jpeg(), liveQuad: nil, scanID: scanID)
+        let page = try await addPage(scanID: scanID)
 
         let whole = try await processor.recrop(page, scanID: scanID, quad: nil)
         #expect(whole.quad == nil)

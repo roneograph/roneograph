@@ -1,3 +1,4 @@
+import CoreImage
 import Foundation
 import ScannerKit
 import ScannerKitTesting
@@ -61,6 +62,33 @@ struct AppModelTests {
         app.closeCamera()
 
         #expect(app.scans.isEmpty)
+    }
+
+    @Test(.timeLimit(.minutes(1)))
+    func makesThePagesCapturedBeforeTheAppWasQuitOnTheNextLaunch() async throws {
+        let fixture = try Fixture()
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+        let release = await fixture.holdGate()
+        let scan = app.startScan()
+        scan.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
+        scan.addPhoto(SyntheticPhoto.jpeg(page: .rect(x: 0.2, y: 0.1, width: 0.6, height: 0.6)), liveQuad: nil)
+        let captured = scan.scan.pending.map(\.id)
+
+        let relaunched = AppModel(processor: ScanProcessor(store: fixture.store, context: CIContext(), paper: .a4), settings: fixture.settings)
+        while fixture.store.all().first?.pages.count != 2 { try await Task.sleep(for: .milliseconds(10)) }
+        let stored = try #require(fixture.store.all().first)
+        #expect(stored.pages.map(\.id) == captured)
+        #expect(stored.pending.isEmpty)
+        #expect(stored.pages[1].quad.map { $0.maxCornerDistance(to: .rect(x: 0.2, y: 0.1, width: 0.6, height: 0.6)) < 0.02 } == true)
+        for page in stored.pages {
+            #expect(FileManager.default.fileExists(atPath: fixture.store.previewURL(scanID: scan.id, pageID: page.id).path(percentEncoded: false)))
+        }
+        let resumed = try #require(relaunched.model(for: scan.id))
+        await resumed.waitUntilIdle()
+        #expect(resumed.scan.pages == stored.pages)
+
+        scan.delete()
+        await release()
     }
 
     @Test func doneOpensReview() async throws {
