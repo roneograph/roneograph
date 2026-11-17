@@ -1,6 +1,6 @@
 import Foundation
 
-/// The requests to Paperless made while the app is open: checking the server, listing and creating document types and custom fields.
+/// The requests to Paperless made while the app is open: checking the server, listing and creating correspondents, document types and custom fields.
 enum PaperlessHTTP {
     /// Redirects are refused, so the token never goes to another address; the server must be typed as it answers.
     private static let session = URLSession(configuration: .ephemeral, delegate: RefusingRedirects(), delegateQueue: nil)

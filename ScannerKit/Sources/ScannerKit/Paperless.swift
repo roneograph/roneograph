@@ -23,7 +23,7 @@ public struct PaperlessStoragePath: Identifiable, Hashable, Sendable, Codable {
     }
 }
 
-/// The parts of the Paperless-ngx REST API Roneograph uses: listing storage paths, finding or creating document types and custom fields, and uploading a document.
+/// The parts of the Paperless-ngx REST API Roneograph uses: listing storage paths, finding or creating document types, correspondents and custom fields, and uploading a document.
 public enum Paperless {
     /// Supported by Paperless-ngx 2.x and 3.x.
     static let accept = "application/json; version=9"
@@ -58,15 +58,24 @@ public enum Paperless {
         listRequest("api/document_types/", server: server, token: token)
     }
 
-    /// The IDs of the document types by their name, lowercased, as Paperless refuses two names that differ only by case.
-    public static func documentTypes(from data: Data) throws -> [String: Int] {
-        let types = try JSONDecoder().decode(Page<Named>.self, from: data).results
-        return Dictionary(types.map { ($0.name.lowercased(), $0.id) }) { first, _ in first }
+    public static func correspondentsRequest(server: URL, token: String) -> URLRequest {
+        listRequest("api/correspondents/", server: server, token: token)
+    }
+
+    /// The IDs of document types or correspondents by their lowercased name, so the ones named by hand are found whatever their case.
+    public static func idsByLowercasedName(from data: Data) throws -> [String: Int] {
+        let objects = try JSONDecoder().decode(Page<Named>.self, from: data).results
+        return Dictionary(objects.map { ($0.name.lowercased(), $0.id) }) { first, _ in first }
     }
 
     /// Creates a document type that Paperless never assigns by itself, so only the documents sent with it get it.
     public static func createDocumentTypeRequest(server: URL, token: String, name: String) -> URLRequest {
         createRequest("api/document_types/", server: server, token: token, json: ["name": name, "matching_algorithm": 0])
+    }
+
+    /// Creates a correspondent that Paperless never assigns by itself, so only the documents sent with it get it.
+    public static func createCorrespondentRequest(server: URL, token: String, name: String) -> URLRequest {
+        createRequest("api/correspondents/", server: server, token: token, json: ["name": name, "matching_algorithm": 0])
     }
 
     public static func customFieldsRequest(server: URL, token: String) -> URLRequest {
@@ -152,14 +161,15 @@ public enum Paperless {
         return request
     }
 
-    /// The form Paperless-ngx takes: the PDF with its file name, the title, the date of the document when known, the document type, the storage path
-    /// and the values of text custom fields by their ID.
-    public static func uploadBody(pdf: Data, fileName: String, title: String, created: Date?, documentType: Int? = nil, storagePath: Int?, customFields: [Int: String] = [:], boundary: String, timeZone: TimeZone = .current) -> Data {
+    /// The form Paperless-ngx takes: the PDF with its file name, the title, the date of the document when known, the correspondent, the document type,
+    /// the storage path and the values of text custom fields by their ID.
+    public static func uploadBody(pdf: Data, fileName: String, title: String, created: Date?, correspondent: Int? = nil, documentType: Int? = nil, storagePath: Int?, customFields: [Int: String] = [:], boundary: String, timeZone: TimeZone = .current) -> Data {
         var form = MultipartForm(boundary: boundary)
         form.add(name: "title", value: title)
         if let created {
             form.add(name: "created", value: created.formatted(Date.ISO8601FormatStyle(timeZone: timeZone).year().month().day()))
         }
+        if let correspondent { form.add(name: "correspondent", value: String(correspondent)) }
         if let documentType { form.add(name: "document_type", value: String(documentType)) }
         if let storagePath { form.add(name: "storage_path", value: String(storagePath)) }
         if !customFields.isEmpty {

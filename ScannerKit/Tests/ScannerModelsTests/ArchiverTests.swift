@@ -180,6 +180,78 @@ struct ArchiverTests {
         #expect(scan.scan.archiving == Archiving())
     }
 
+    @Test func sendsTheCorrespondentNamedLikeTheIssuer() async throws {
+        try connect()
+        server.answer("GET", "/api/correspondents/", #"{"results": [{"id": 4, "name": "LUMEN ENERGY"}]}"#)
+        let first = await readyScan()
+        first.setDetails(DocumentDetails(issuer: "Lumen Energy"))
+        let second = await readyScan()
+        second.setDetails(DocumentDetails(issuer: " lumen energy "))
+        await first.preparePDF()
+        await second.preparePDF()
+
+        try await app.archive([first, second])
+        #expect(uploader.uploads.count == 2)
+        #expect(uploader.uploads.allSatisfy { String(decoding: $0.body, as: UTF8.self).contains("name=\"correspondent\"\r\n\r\n4\r\n") })
+        #expect(server.requests(to: "/api/correspondents/").map(\.httpMethod) == ["GET"], "The correspondents are read once")
+    }
+
+    @Test func createsTheCorrespondentOfANewIssuer() async throws {
+        try connect()
+        server.answer("GET", "/api/correspondents/", #"{"results": []}"#)
+        server.answer("POST", "/api/correspondents/", #"{"id": 11, "name": "Lumen Energy"}"#, status: 201)
+        let scan = await readyScan()
+        scan.setDetails(DocumentDetails(issuer: "Lumen Energy"))
+        await scan.preparePDF()
+
+        try await app.archive([scan])
+        let created = try #require(server.requests(to: "/api/correspondents/").last)
+        #expect(created.httpMethod == "POST")
+        #expect(String(decoding: created.httpBody ?? Data(), as: UTF8.self) == #"{"matching_algorithm":0,"name":"Lumen Energy"}"#)
+        #expect(String(decoding: try #require(uploader.uploads.first).body, as: UTF8.self).contains("name=\"correspondent\"\r\n\r\n11\r\n"))
+    }
+
+    @Test(arguments: [nil, "", "  "] as [String?])
+    func sendsAScanWithoutIssuerWithoutACorrespondent(issuer: String?) async throws {
+        try connect()
+        let scan = await readyScan()
+        scan.setDetails(DocumentDetails(issuer: issuer))
+        await scan.preparePDF()
+
+        try await app.archive([scan])
+        #expect(server.requests(to: "/api/correspondents/").isEmpty)
+        #expect(!String(decoding: try #require(uploader.uploads.first).body, as: UTF8.self).contains("correspondent"))
+    }
+
+    @Test func sendsWithoutACorrespondentWhenTheServerRefusesToCreateIt() async throws {
+        try connect()
+        server.answer("GET", "/api/correspondents/", #"{"results": []}"#)
+        server.answer("POST", "/api/correspondents/", #"{"detail": "You do not have permission to perform this action."}"#, status: 403)
+        let scan = await readyScan()
+        scan.setDetails(DocumentDetails(issuer: "Lumen Energy"))
+        await scan.preparePDF()
+
+        try await app.archive([scan])
+        #expect(!String(decoding: try #require(uploader.uploads.first).body, as: UTF8.self).contains("correspondent"))
+    }
+
+    @Test func waitsForTheAppToBeActiveAgainWhenTheServerCannotBeReachedForTheCorrespondent() async throws {
+        try connect()
+        server.answer("GET", "/api/correspondents/", "", status: 503)
+        let scan = await readyScan()
+        scan.setDetails(DocumentDetails(issuer: "Lumen Energy"))
+        await scan.preparePDF()
+
+        try await app.archive([scan])
+        #expect(uploader.uploads.isEmpty)
+        #expect(scan.scan.archiving?.state == .waiting("The server is not ready (error 503)."))
+        #expect(app.scans.first?.status == "Waiting for Paperless · 1 page")
+
+        server.answer("GET", "/api/correspondents/", #"{"results": [{"id": 4, "name": "Lumen Energy"}]}"#)
+        await app.archiver?.prepareWaitingUploads()
+        #expect(String(decoding: try #require(uploader.uploads.first).body, as: UTF8.self).contains("name=\"correspondent\"\r\n\r\n4\r\n"))
+    }
+
     @Test func sendsTheOwnerInTheOwnerCustomField() async throws {
         try connect()
         server.answer("GET", "/api/custom_fields/", #"{"results": [{"id": 5, "name": "Owner", "data_type": "string"}]}"#, version: "2.19.0")

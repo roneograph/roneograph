@@ -110,7 +110,7 @@ public final class Archiver {
         for model in models { await prepare(model) }
     }
 
-    /// Prepares the upload of the scans that could not be, as the server could not be reached to find their document type.
+    /// Prepares the upload of the scans that could not be, as the server could not be reached to find their correspondent, document type or owner field.
     func prepareWaitingUploads() async {
         for scan in scans() {
             guard case .waiting = scan.archiving?.state, uploadedBody(scan.id) == nil, let model = model(scan.id) else { continue }
@@ -118,16 +118,18 @@ public final class Archiver {
         }
     }
 
-    /// Finds or creates the document type of the scan's category and the Owner custom field, then saves the request body and starts the upload.
-    /// The scan waits for the app to be active again when the server cannot be reached; it goes without a type or owner when the server refuses to make them.
+    /// Finds or creates the correspondent of the scan's issuer, the document type of its category and the Owner custom field, then saves the request body and starts the upload.
+    /// The scan waits for the app to be active again when the server cannot be reached; it goes without the ones the server refuses to make.
     private func prepare(_ model: ScanModel) async {
         let owner = model.owner
         guard let server = owner.paperless, let token = tokens.token(for: owner.id) else {
             return fail(model, "Paperless is no longer connected.")
         }
+        let correspondent: Int?
         let documentType: Int?
         let ownerField: Int?
         do throws(Unreachable) {
+            correspondent = try await findCorrespondent(of: model.scan.details.issuer, server: server.url, token: token).get()
             documentType = try await findDocumentType(of: model.scan.details.category, server: server.url, token: token).get()
             ownerField = try await find(Paperless.ownerField, in: .customFields, server: server.url, token: token).get()
         } catch {
@@ -141,7 +143,7 @@ public final class Archiver {
             return fail(model, "The PDF could not be read. Archive the scan again.")
         }
         let boundary = "Roneograph-\(UUID().uuidString)"
-        let body = Paperless.uploadBody(pdf: pdf, fileName: url.lastPathComponent, title: model.scan.title, created: model.scan.details.date, documentType: documentType, storagePath: server.storagePath?.id, customFields: customFields, boundary: boundary)
+        let body = Paperless.uploadBody(pdf: pdf, fileName: url.lastPathComponent, title: model.scan.title, created: model.scan.details.date, correspondent: correspondent, documentType: documentType, storagePath: server.storagePath?.id, customFields: customFields, boundary: boundary)
         do {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             try body.write(to: bodyURL(model.id), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
@@ -160,6 +162,12 @@ public final class Archiver {
     private func findDocumentType(of category: DocumentCategory, server: URL, token: String) async -> Result<Int?, Unreachable> {
         guard category != .other else { return .success(nil) }
         return await find(category.rawValue, in: .documentTypes, server: server, token: token)
+    }
+
+    /// The ID of the correspondent named like the issuer; nil when the scan has none.
+    private func findCorrespondent(of issuer: String?, server: URL, token: String) async -> Result<Int?, Unreachable> {
+        guard let name = issuer?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty else { return .success(nil) }
+        return await find(name, in: .correspondents, server: server, token: token)
     }
 
     /// The ID of the object of a catalog under the key of its name, read once per launch and created when the server has none;
@@ -305,8 +313,17 @@ private struct Catalog: Sendable {
     static let documentTypes = Catalog(
         id: "document types",
         list: Paperless.documentTypesRequest,
-        read: { data, _ in try Paperless.documentTypes(from: data) },
+        read: { data, _ in try Paperless.idsByLowercasedName(from: data) },
         create: Paperless.createDocumentTypeRequest,
+        key: { $0.lowercased() }
+    )
+
+    /// Matched by lowercased name, like document types.
+    static let correspondents = Catalog(
+        id: "correspondents",
+        list: Paperless.correspondentsRequest,
+        read: { data, _ in try Paperless.idsByLowercasedName(from: data) },
+        create: Paperless.createCorrespondentRequest,
         key: { $0.lowercased() }
     )
 
