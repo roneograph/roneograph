@@ -108,8 +108,8 @@ public final class CameraModel {
 
     private let device: CameraDevice
     private let settings: SettingsStore
-    private var trigger = CaptureTrigger()
-    private var signature: PageSignature?
+    @ObservationIgnored private var trigger = CaptureTrigger()
+    @ObservationIgnored private var signature: PageSignature?
     private var photoTasks: [UUID: Task<Void, Never>] = [:]
     private weak var scan: ScanModel?
 

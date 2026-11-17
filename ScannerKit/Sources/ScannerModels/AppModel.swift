@@ -14,8 +14,8 @@ public final class AppModel {
     public let settings: SettingsStore
     private let processor: ScanProcessor
     private let now: @Sendable () -> Date
-    private var models: [UUID: ScanModel] = [:]
-    private var toastTask: Task<Void, Never>?
+    @ObservationIgnored private var models: [UUID: ScanModel] = [:]
+    @ObservationIgnored private var toastTask: Task<Void, Never>?
 
     public init(processor: ScanProcessor, settings: SettingsStore, now: @escaping @Sendable () -> Date = Date.init) {
         self.processor = processor

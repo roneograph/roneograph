@@ -492,6 +492,28 @@ struct AppModelTests {
         #expect(app.model(for: first.id) == nil)
     }
 
+    @Test func openingAScanModelChangesNothingViewsObserve() throws {
+        let fixture = try Fixture()
+        var ids: [UUID] = []
+        for name in ["Bill", "Letter"] {
+            var scan = Scan(name: name)
+            scan.pages = [ScanPage(quad: nil, analysis: .sample)]
+            try fixture.store.save(scan)
+            ids.append(scan.id)
+        }
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+        let changes = Changes()
+        withObservationTracking {
+            _ = app.scans
+            _ = app.model(for: ids[0])
+        } onChange: {
+            changes.count += 1
+        }
+
+        #expect(app.model(for: ids[1]) != nil)
+        #expect(changes.count == 0)
+    }
+
     @Test func deletesAScanNotOpenedSinceLaunch() throws {
         let fixture = try Fixture()
         var scan = Scan(name: "Bill")
@@ -611,4 +633,8 @@ struct AppModelTests {
         let app = AppModel(processor: fixture.processor, settings: fixture.settings, now: { now })
         #expect(app.scans.map(\.name) == ["Old"])
     }
+}
+
+private final class Changes: @unchecked Sendable {
+    var count = 0
 }

@@ -25,22 +25,22 @@ public final class ScanModel: Identifiable {
     /// What the ready PDF was made from, to tell whether it is still current.
     private var pdfMadeFrom: PDFInputs?
     /// The PDF being made; another build waits for it, so two never run at once.
-    private var pdfBuild: Task<Void, Never>?
+    @ObservationIgnored private var pdfBuild: Task<Void, Never>?
     /// Replaced in tests, to hold or count builds.
-    var makePDFData: @concurrent @Sendable (Scan) async throws -> Data
+    @ObservationIgnored var makePDFData: @concurrent @Sendable (Scan) async throws -> Data
     /// Replaced in tests, to fail reading the page.
-    var readDocument: @concurrent @Sendable (ScanPage, UUID, Set<String>) async throws -> DetectedDocument?
+    @ObservationIgnored var readDocument: @concurrent @Sendable (ScanPage, UUID, Set<String>) async throws -> DetectedDocument?
     public private(set) var failure: String?
     private let processor: ScanProcessor
     private let settings: SettingsStore
     /// Called with the scan after every save, so the list of scans stays current without reading the store again.
-    var didSave: ((Scan) -> Void)?
+    @ObservationIgnored var didSave: ((Scan) -> Void)?
     /// Called when the stored scan is deleted because no page is left.
-    var didDeleteStoredScan: ((UUID) -> Void)?
+    @ObservationIgnored var didDeleteStoredScan: ((UUID) -> Void)?
     /// The other scans, whose names this one cannot take.
-    var otherScans: () -> [Scan] = { [] }
-    private var queue: Task<Void, Never>?
-    private var isDeleted = false
+    @ObservationIgnored var otherScans: () -> [Scan] = { [] }
+    @ObservationIgnored private var queue: Task<Void, Never>?
+    @ObservationIgnored private var isDeleted = false
     private let now: @Sendable () -> Date
 
     public init(scan: Scan, processor: ScanProcessor, settings: SettingsStore, now: @escaping @Sendable () -> Date = Date.init) {
