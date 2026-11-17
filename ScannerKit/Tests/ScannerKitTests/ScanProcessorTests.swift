@@ -24,7 +24,7 @@ final class ScanProcessorTests {
         var scan = Scan(name: "Test")
         let page = try await addPage(scanID: scan.id)
         #expect(try #require(page.quad).maxCornerDistance(to: .tilted) < 0.02)
-        for url in [store.photoURL(scanID: scan.id, pageID: page.id), store.flatURL(scanID: scan.id, pageID: page.id), store.previewURL(scanID: scan.id, pageID: page.id)] {
+        for url in [store.photoURL(scanID: scan.id, pageID: page.id), store.flatURL(scanID: scan.id, page: page), store.previewURL(scanID: scan.id, pageID: page.id)] {
             #expect(FileManager.default.fileExists(atPath: url.path(percentEncoded: false)))
         }
 
@@ -40,20 +40,31 @@ final class ScanProcessorTests {
         let whole = try await processor.recrop(page, scanID: scanID, quad: nil)
         #expect(whole.quad == nil)
         #expect(whole.detectedQuad == page.quad)
-        let flat = try #require(CIImage(contentsOf: store.flatURL(scanID: scanID, pageID: page.id)))
+        let flat = try #require(CIImage(contentsOf: store.flatURL(scanID: scanID, page: whole)))
         #expect(flat.extent.size == SyntheticPhoto.size)
 
         let half = Quad.rect(x: 0, y: 0, width: 1, height: 0.5)
-        #expect(try await processor.recrop(whole, scanID: scanID, quad: half).quad == half)
-        let cropped = try #require(CIImage(contentsOf: store.flatURL(scanID: scanID, pageID: page.id)))
+        let halved = try await processor.recrop(whole, scanID: scanID, quad: half)
+        #expect(halved.quad == half)
+        let cropped = try #require(CIImage(contentsOf: store.flatURL(scanID: scanID, page: halved)))
         #expect(abs(cropped.extent.height / cropped.extent.width - 800.0 / 1200) < 0.02)
+    }
+
+    @Test func recropKeepsTheFlatPageItReplaces() async throws {
+        let scanID = UUID()
+        let page = try await addPage(scanID: scanID)
+        let flat = try Data(contentsOf: store.flatURL(scanID: scanID, page: page))
+
+        let whole = try await processor.recrop(page, scanID: scanID, quad: nil)
+        #expect(store.flatURL(scanID: scanID, page: whole) != store.flatURL(scanID: scanID, page: page))
+        #expect(try Data(contentsOf: store.flatURL(scanID: scanID, page: page)) == flat)
     }
 
     @Test func makesThePDFSearchableWithTheTextOfThePages() async throws {
         var scan = Scan(name: "Invoice")
         let page = ScanPage(quad: nil, analysis: .sample)
         try FileManager.default.createDirectory(at: store.directory(of: scan.id), withIntermediateDirectories: true)
-        try #require(PageExtractor(context: CIContext()).jpegData(of: SyntheticPage().render(), quality: 0.9)).write(to: store.flatURL(scanID: scan.id, pageID: page.id))
+        try #require(PageExtractor(context: CIContext()).jpegData(of: SyntheticPage().render(), quality: 0.9)).write(to: store.flatURL(scanID: scan.id, page: page))
         scan.pages = [page]
 
         let document = try #require(PDFDocument(data: try await processor.pdfData(of: scan)))
@@ -64,7 +75,7 @@ final class ScanProcessorTests {
         var scan = Scan(name: "Invoice")
         let page = ScanPage(quad: nil, analysis: .sample)
         try FileManager.default.createDirectory(at: store.directory(of: scan.id), withIntermediateDirectories: true)
-        try #require(PageExtractor(context: CIContext()).jpegData(of: SyntheticPage().render(), quality: 0.9)).write(to: store.flatURL(scanID: scan.id, pageID: page.id))
+        try #require(PageExtractor(context: CIContext()).jpegData(of: SyntheticPage().render(), quality: 0.9)).write(to: store.flatURL(scanID: scan.id, page: page))
         scan.pages = [page]
         let processor = processor, failing = scan
 
@@ -77,7 +88,7 @@ final class ScanProcessorTests {
         var scan = Scan(name: "Invoice")
         let page = ScanPage(quad: nil, analysis: .sample)
         try FileManager.default.createDirectory(at: store.directory(of: scan.id), withIntermediateDirectories: true)
-        try #require(PageExtractor(context: CIContext()).jpegData(of: SyntheticPage(lines: 5).render(), quality: 0.9)).write(to: store.flatURL(scanID: scan.id, pageID: page.id))
+        try #require(PageExtractor(context: CIContext()).jpegData(of: SyntheticPage(lines: 5).render(), quality: 0.9)).write(to: store.flatURL(scanID: scan.id, page: page))
         scan.pages = [page]
         let processor = processor, cancelled = scan
         _ = try await processor.pdfData(of: scan)

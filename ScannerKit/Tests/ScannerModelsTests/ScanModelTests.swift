@@ -1,6 +1,6 @@
 import CoreImage
 import Foundation
-import ScannerKit
+@testable import ScannerKit
 import Synchronization
 import ScannerKitTesting
 @testable import ScannerModels
@@ -60,7 +60,23 @@ struct ScanModelTests {
         let page = model.scan.pages[0]
         model.deletePage(page.id)
         #expect(model.scan.pages.count == 1)
+        await model.waitUntilIdle()
         #expect(!FileManager.default.fileExists(atPath: model.photoURL(of: page).path(percentEncoded: false)))
+    }
+
+    @Test(.timeLimit(.minutes(1)))
+    func deletingAPageWhileItIsEditedLeavesNoFileBehind() async throws {
+        let fixture = try Fixture()
+        let model = await fixture.scanModel(pages: 2)
+        let page = model.scan.pages[0]
+        model.recrop(page.id, quad: nil)
+        while !fixture.processor.gate.isBusy { try await Task.sleep(for: .milliseconds(1)) }
+        model.deletePage(page.id)
+        await model.waitUntilIdle()
+
+        let files = try FileManager.default.contentsOfDirectory(atPath: fixture.store.directory(of: model.id).path(percentEncoded: false))
+        #expect(!files.contains { $0.hasPrefix(page.id.uuidString) })
+        #expect(fixture.store.all().first?.pages == model.scan.pages)
     }
 
     @Test func deletingAPageSavesTheScanBeforeDeletingItsFiles() async throws {
@@ -71,6 +87,7 @@ struct ScanModelTests {
         model.didSave = { photoWhenSaved = FileManager.default.fileExists(atPath: photo) }
         model.deletePage(model.scan.pages[0].id)
         #expect(photoWhenSaved == true)
+        await model.waitUntilIdle()
         #expect(!FileManager.default.fileExists(atPath: photo))
 
         let kept = model.photoURL(of: model.scan.pages[0]).path(percentEncoded: false)
@@ -152,6 +169,9 @@ struct ScanModelTests {
         #expect(model.scan.pages[0].quad == nil)
         #expect(model.scan.pages[0].detectedQuad == page.quad)
         #expect(model.scan.pages[0].revision == page.revision + 1)
+        #expect(fixture.store.all().first?.pages == model.scan.pages)
+        #expect(FileManager.default.fileExists(atPath: fixture.store.flatURL(scanID: model.id, page: model.scan.pages[0]).path(percentEncoded: false)))
+        #expect(!FileManager.default.fileExists(atPath: fixture.store.flatURL(scanID: model.id, page: page).path(percentEncoded: false)))
 
         model.recrop(page.id, quad: page.detectedQuad)
         await model.waitUntilIdle()
@@ -457,10 +477,9 @@ struct ScanModelTests {
     }
 
     @Test func keepsTheAppRunningWhilePagesAndThePDFAreWritten() async throws {
-        let fixture = try Fixture()
         let background = RecordingBackground()
-        let processor = ScanProcessor(store: fixture.store, context: CIContext(), paper: .a4, background: background)
-        let model = ScanModel(scan: Scan(name: "Scan"), processor: processor, settings: fixture.settings)
+        let fixture = try Fixture(background: background)
+        let model = fixture.scanModel()
         model.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
         var savedWhileRunning: [Bool] = []
         model.didSave = { savedWhileRunning.append(background.running == 1) }
@@ -473,6 +492,27 @@ struct ScanModelTests {
         #expect(model.hasCurrentPDF)
         #expect(background.begun == begun + 2)
         #expect(background.running == 0)
+    }
+
+    @Test(arguments: [true, false])
+    func aPDFWrittenWhileTheScanIsRenamedOrDeletedIsNotLeftBehind(renamed: Bool) async throws {
+        let background = RecordingBackground()
+        let fixture = try Fixture(background: background)
+        let model = await fixture.scanModel(pages: 1)
+        let name = model.scan.fileName
+        model.makePDFData = { _ in Data("%PDF".utf8) }
+        let (started, release) = background.holdNext()
+        let build = Task { await model.buildPDF(delay: .zero) }
+        for await _ in started {}
+        if renamed { model.rename("Water bill") } else { model.delete() }
+        release()
+        await build.value
+        #expect(!fixture.pdfExists(name))
+
+        guard renamed else { return }
+        await model.buildPDF(delay: .zero)
+        #expect(fixture.pdfExists("Water bill"))
+        #expect(!fixture.pdfExists(name))
     }
 
     @Test func editedDetailsRenameTheFileWithACustomFormat() async throws {

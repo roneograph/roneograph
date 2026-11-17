@@ -19,6 +19,8 @@ public struct ScanPage: Identifiable, Equatable, Sendable, Codable {
     public var cleanup: CleanupSettings
     /// Bumped on every change, so cached images are reloaded.
     public var revision: Int
+    /// Bumped on every recrop, which writes a new flat page, so the one scan.json points to stays until the scan is saved.
+    public var crop = 0
 
     public init(id: UUID = UUID(), quad: Quad?, analysis: PageAnalysis, cleanup: CleanupSettings = .init(), revision: Int = 0) {
         self.id = id

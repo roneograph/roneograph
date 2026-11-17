@@ -39,7 +39,7 @@ public struct ScanProcessor: Sendable {
         return try await flatten(photo, quad: quad, scanID: scanID) { ScanPage(id: pending.id, quad: quad, analysis: $0) }
     }
 
-    /// Flattens the page again from the original photo with another outline, nil for the whole photo, and analyzes it again.
+    /// Flattens the page again from the original photo with another outline, nil for the whole photo, and analyzes it again; the flat page it replaces is kept.
     public func recrop(_ page: ScanPage, scanID: UUID, quad: Quad?) async throws -> ScanPage {
         guard let photo = CIImage(contentsOf: store.photoURL(scanID: scanID, pageID: page.id), options: [.applyOrientationProperty: true]) else {
             throw ProcessingError.unreadablePhoto
@@ -48,6 +48,7 @@ public struct ScanProcessor: Sendable {
             var updated = page
             updated.quad = quad
             updated.analysis = analysis
+            updated.crop += 1
             return updated
         }
     }
@@ -57,14 +58,14 @@ public struct ScanProcessor: Sendable {
         let flat = quad.map { extractor.correct(photo, quad: $0) } ?? photo
         let page = makePage(try await cleaner.analyze(flat))
         guard let data = extractor.jpegData(of: flat, quality: 0.9) else { throw ProcessingError.cannotEncode }
-        try data.write(to: store.flatURL(scanID: scanID, pageID: page.id), options: .atomic)
+        try data.write(to: store.flatURL(scanID: scanID, page: page), options: .atomic)
         try writePreview(of: page, scanID: scanID, flat: flat)
         return page
     }
 
     /// Writes the small cleaned image shown in the app, after any change to the page.
     public func writePreview(of page: ScanPage, scanID: UUID, flat: CIImage? = nil) throws {
-        guard let flat = flat ?? CIImage(contentsOf: store.flatURL(scanID: scanID, pageID: page.id)) else { throw ProcessingError.unreadablePage }
+        guard let flat = flat ?? CIImage(contentsOf: store.flatURL(scanID: scanID, page: page)) else { throw ProcessingError.unreadablePage }
         let clean = cleaner.render(flat.scaled(by: flat.scale(toLongSide: previewSize)), analysis: page.analysis, look: page.look)
         guard let data = extractor.jpegData(of: clean, quality: 0.8) else { throw ProcessingError.cannotEncode }
         try data.write(to: store.previewURL(scanID: scanID, pageID: page.id), options: .atomic)
@@ -83,7 +84,7 @@ public struct ScanProcessor: Sendable {
         for page in scan.pages {
             try await gate.run {
                 try Task.checkCancellation()
-                guard let flat = CIImage(contentsOf: store.flatURL(scanID: scan.id, pageID: page.id)) else { throw ProcessingError.unreadablePage }
+                guard let flat = CIImage(contentsOf: store.flatURL(scanID: scan.id, page: page)) else { throw ProcessingError.unreadablePage }
                 let image = cleaner.render(flat, analysis: page.analysis, look: page.look)
                 let text = try await texts.lines(of: page) { try await reader.lines(in: image) }
                 try document.add(PDFPageContent(image: image, look: page.look, textLineHeight: page.analysis.textLineHeight, text: text))

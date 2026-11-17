@@ -121,7 +121,7 @@ struct WordingTests {
         let second = await fixture.scanModel(pages: 1)
         await first.preparePDF()
         for model in [first, second] {
-            for page in model.scan.pages { try FileManager.default.removeItem(at: fixture.store.flatURL(scanID: model.id, pageID: page.id)) }
+            for page in model.scan.pages { try FileManager.default.removeItem(at: fixture.store.flatURL(scanID: model.id, page: page)) }
         }
         await second.preparePDF()
         #expect(second.summary == "1 page · the PDF could not be made")

@@ -204,20 +204,18 @@ public final class ScanModel: Identifiable {
 
     // MARK: Pages
 
+    /// The files of the page go once the work queued before is done, so an edit in progress does not write them again.
     /// Without pages left, the stored scan goes too, unless a page still being processed comes in.
     public func deletePage(_ id: UUID) {
         scan.pages.removeAll { $0.id == id }
-        if !scan.pages.isEmpty {
-            if save() { store.deletePageFiles(scanID: scan.id, pageID: id) }
-            return
-        }
+        guard isEmpty || save() else { return }
         enqueue { [self] in
-            guard scan.pages.isEmpty else {
+            if isEmpty {
+                store.delete(scan)
+                didSave?()
+            } else {
                 store.deletePageFiles(scanID: scan.id, pageID: id)
-                return
             }
-            store.delete(scan)
-            didSave?()
         }
     }
 
@@ -265,9 +263,10 @@ public final class ScanModel: Identifiable {
             do {
                 var changed = try await Task.detached(priority: .userInitiated) { try await change(page, processor, scanID) }.value
                 guard let index = scan.pages.firstIndex(where: { $0.id == id }) else { return }
-                changed.revision = scan.pages[index].revision + 1
+                let replaced = scan.pages[index]
+                changed.revision = replaced.revision + 1
                 scan.pages[index] = changed
-                save()
+                if save(), changed.crop != replaced.crop { try? FileManager.default.removeItem(at: store.flatURL(scanID: scanID, page: replaced)) }
             } catch {
                 failure = "The page could not be changed."
             }
@@ -424,7 +423,11 @@ public final class ScanModel: Identifiable {
             let data = try await makePDFData(scan)
             guard !isDeleted, pdfInputs == inputs else { return }
             try await gate.finish { try await Self.write(data, to: url) }
-            guard !isDeleted, pdfInputs == inputs else { return }
+            guard !isDeleted, store.pdfURL(of: self.scan) == url else {
+                try? FileManager.default.removeItem(at: url)
+                return
+            }
+            guard pdfInputs == inputs else { return }
             pdf = .ready(url: url, size: data.count)
             pdfMadeFrom = inputs
         } catch {

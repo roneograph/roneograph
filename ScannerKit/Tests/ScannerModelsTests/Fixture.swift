@@ -16,12 +16,12 @@ final class Fixture {
     /// Keeps the models alive, as the app model does.
     private var models: [ScanModel] = []
 
-    init() throws {
+    init(background: (any BackgroundActivity)? = nil) throws {
         store = ScanStore(scansDirectory: root.appending(path: "Application Support/Scans"), documentsDirectory: root.appending(path: "Documents"))
         try FileManager.default.createDirectory(at: store.documentsDirectory, withIntermediateDirectories: true)
         defaults = UserDefaults(suiteName: suite)!
         settings = SettingsStore(defaults: defaults, appFolder: store.documentsDirectory)
-        processor = ScanProcessor(store: store, context: CIContext(), paper: .a4)
+        processor = ScanProcessor(store: store, context: CIContext(), paper: .a4, background: background)
     }
 
     deinit {

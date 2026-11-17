@@ -16,7 +16,10 @@ public struct ScanStore: Sendable {
     }
 
     public func photoURL(scanID: UUID, pageID: UUID) -> URL { directory(of: scanID).appending(path: "\(pageID.uuidString)-photo.jpg") }
-    public func flatURL(scanID: UUID, pageID: UUID) -> URL { directory(of: scanID).appending(path: "\(pageID.uuidString)-flat.jpg") }
+    public func flatURL(scanID: UUID, page: ScanPage) -> URL {
+        directory(of: scanID).appending(path: "\(page.id.uuidString)\(page.crop == 0 ? "" : "-\(page.crop)")-flat.jpg")
+    }
+
     public func previewURL(scanID: UUID, pageID: UUID) -> URL { directory(of: scanID).appending(path: "\(pageID.uuidString)-preview.jpg") }
 
     /// The local PDF never goes into the folders of a custom format.
@@ -64,9 +67,11 @@ public struct ScanStore: Sendable {
         try? FileManager.default.removeItem(at: pdfURL(of: scan))
     }
 
+    /// Deletes every file of the page, a flat page left by an interrupted recrop too.
     public func deletePageFiles(scanID: UUID, pageID: UUID) {
-        for url in [photoURL(scanID: scanID, pageID: pageID), flatURL(scanID: scanID, pageID: pageID), previewURL(scanID: scanID, pageID: pageID)] {
-            try? FileManager.default.removeItem(at: url)
+        let files = (try? FileManager.default.contentsOfDirectory(at: directory(of: scanID), includingPropertiesForKeys: nil)) ?? []
+        for file in files where file.lastPathComponent.hasPrefix(pageID.uuidString) {
+            try? FileManager.default.removeItem(at: file)
         }
     }
 

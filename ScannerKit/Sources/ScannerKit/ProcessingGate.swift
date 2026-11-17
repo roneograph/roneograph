@@ -25,6 +25,7 @@ public final class ProcessingGate: Sendable {
 
     /// The work waiting for its turn.
     var waitingCount: Int { state.withLock(\.waiting.count) }
+    var isBusy: Bool { state.withLock(\.isBusy) }
 
     public var isPaused: Bool {
         get { state.withLock(\.isPaused) }
