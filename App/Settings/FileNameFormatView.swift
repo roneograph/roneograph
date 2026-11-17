@@ -19,12 +19,16 @@ struct FileNameFormatView: View {
                         .font(.footnote)
                         .foregroundStyle(.red)
                 } else {
-                    Label("\(format.sampleFileName).pdf", systemImage: "doc")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                    FileNameParts(segments: format.sampleSegments + [FileNameSegment(".pdf", .text)])
+                        .padding(.vertical, 4)
                 }
             } footer: {
-                Text("Use / to file scans into folders inside the Save to Files folder; Email and Share only use the file name. An empty value disappears with the separator next to it.")
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("For a made-up invoice from Lumen Energy.")
+                    Text("Each / starts a folder inside the Save to Files folder; Email, Share and Paperless get the file name only.")
+                    Text("A variable with no value disappears, with the separator next to it.")
+                    Text("{NAME} leaves out of a suggested name what the format already shows; a name you type stays whole.")
+                }
             }
             Section("Variables") {
                 ForEach(FileNameFormat.Template.Variable.allCases, id: \.self) { variable in
@@ -32,7 +36,7 @@ struct FileNameFormatView: View {
                         draft += variable.placeholder
                     } label: {
                         LabeledContent {
-                            Text(variable.explanation)
+                            Text(sampleValue(of: variable).map { "\(variable.explanation) · \($0)" } ?? variable.explanation)
                         } label: {
                             Text(variable.placeholder).font(.body.monospaced())
                         }
@@ -51,6 +55,15 @@ struct FileNameFormatView: View {
         }
     }
 
+    /// What the variable alone gives for the made-up invoice, with the separator and case of the format; nil for the name, which depends on the rest of the format.
+    private func sampleValue(of variable: FileNameFormat.Template.Variable) -> String? {
+        guard variable != .name else { return nil }
+        var alone = format
+        alone.isCustom = true
+        alone.template = variable.placeholder
+        return alone.sampleFileName
+    }
+
     private var error: FileNameFormat.Template.ParseError? {
         do {
             _ = try FileNameFormat.Template(draft)
@@ -65,10 +78,9 @@ extension FileNameFormat.Template.Variable {
     var explanation: String {
         switch self {
         case .name: "Name, without what the format shows"
-        case .year: "Year, 2026"
-        case .shortYear: "Year, 26"
-        case .month: "Month, 11"
-        case .day: "Day, 12"
+        case .year, .shortYear: "Year"
+        case .month: "Month"
+        case .day: "Day"
         case .category: "Category"
         case .issuer: "Issuer"
         case .number: "Reference number"
@@ -76,14 +88,25 @@ extension FileNameFormat.Template.Variable {
     }
 }
 
+/// A made-up invoice, to show what file name formats and Paperless storage paths give.
+enum SampleDocument {
+    static let name = "Invoice Lumen Energy"
+    static let category = DocumentCategory.invoice
+    static let issuer = "Lumen Energy"
+    static let number = "2026-0042"
+}
+
 extension FileNameFormat {
-    /// The file name of a made-up invoice, to show the format.
-    var sampleFileName: String {
-        fileName(
-            name: "Invoice Lumen Energy",
-            details: DocumentDetails(category: .invoice, issuer: "Lumen Energy", date: .now, number: "2026-0042"),
+    var sampleSegments: [FileNameSegment] {
+        segments(
+            name: SampleDocument.name,
+            details: DocumentDetails(category: SampleDocument.category, issuer: SampleDocument.issuer, date: .now, number: SampleDocument.number),
             scanDate: .now,
-            suggestedParts: SuggestedParts(type: "Invoice", issuer: "Lumen Energy", number: "2026-0042")
+            suggestedParts: SuggestedParts(type: SampleDocument.category.rawValue, issuer: SampleDocument.issuer, number: SampleDocument.number)
         )
+    }
+
+    var sampleFileName: String {
+        sampleSegments.map(\.text).joined()
     }
 }
