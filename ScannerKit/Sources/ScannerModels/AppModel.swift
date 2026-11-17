@@ -90,6 +90,12 @@ public final class AppModel {
         camera = model(for: id)
     }
 
+    /// Opens a scan from Home: Review once it is finished, the camera to add pages while it is in progress, which has nothing to send yet.
+    public func open(_ id: UUID) {
+        guard let scan = scans.first(where: { $0.id == id }) else { return }
+        if scan.isFinished { path = [id] } else { continueScan(id) }
+    }
+
     /// The pages stay: an unfinished scan shows as in progress on Home.
     public func closeCamera() {
         if let camera, camera.scan.pages.isEmpty, camera.processing == 0 {

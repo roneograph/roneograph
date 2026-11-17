@@ -222,6 +222,30 @@ struct AppModelTests {
         #expect(app.model(for: scan.id) === camera)
     }
 
+    @Test func openingAFinishedScanOpensReview() async throws {
+        let fixture = try Fixture()
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+        let scan = await fixture.capturedScan(in: app)
+        app.path = []
+        app.open(scan.id)
+
+        #expect(app.path == [scan.id])
+        #expect(app.camera == nil)
+    }
+
+    @Test func openingAScanInProgressOpensTheCameraOnIt() async throws {
+        let fixture = try Fixture()
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+        let scan = app.startScan()
+        scan.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
+        await scan.waitUntilIdle()
+        app.closeCamera()
+        app.open(scan.id)
+
+        #expect(app.camera === scan)
+        #expect(app.path.isEmpty)
+    }
+
     @Test(arguments: [(SendMethod.email, "me@example.com", "Emailed to me@example.com"), (.email, "", "Emailed"), (.share, "me@example.com", "Shared")])
     func sendingReturnsHomeWithAConfirmation(method: SendMethod, email: String, toast: String) async throws {
         let fixture = try Fixture()
