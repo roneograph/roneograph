@@ -6,6 +6,7 @@ struct HomeView: View {
     let app: AppModel
     @State private var isSelecting = false
     @State private var selection = Set<UUID>()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Group {
@@ -24,7 +25,7 @@ struct HomeView: View {
                         .symbolRenderingMode(.multicolor)
                         .padding(.horizontal, 14).padding(.vertical, 8)
                         .background(.regularMaterial, in: Capsule())
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
                 }
                 if isSelecting {
                     SendBar(app: app, scans: selected, isReady: isReady, finished: sent) { selectionSummary }
@@ -42,6 +43,9 @@ struct HomeView: View {
             .animation(.default, value: app.toast)
         }
         .sensoryFeedback(.success, trigger: app.toast) { _, new in new != nil }
+        .onChange(of: app.toast) { _, toast in
+            if let toast { AccessibilityNotification.Announcement(toast).post() }
+        }
         .task(id: selection) {
             for model in selected { await model.preparePDF() }
         }
