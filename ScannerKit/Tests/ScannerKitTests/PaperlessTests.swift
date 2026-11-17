@@ -49,6 +49,51 @@ struct PaperlessTests {
         #expect(try Paperless.createdID(from: Data(#"{"id": 9, "name": "Payslip", "slug": "payslip"}"#.utf8)) == 9)
     }
 
+    @Test func listsCustomFieldsByTheirExactName() throws {
+        let request = Paperless.customFieldsRequest(server: URL(string: "https://example.com/")!, token: "abc")
+        #expect(request.url?.absoluteString == "https://example.com/api/custom_fields/?page_size=1000&ordering=name")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Token abc")
+        let json = #"{"results": [{"id": 5, "name": "Owner", "data_type": "string"}, {"id": 6, "name": "owner", "data_type": "select"}, {"id": 7, "name": "Notes", "data_type": "longtext"}]}"#
+        #expect(try Paperless.customFields(from: Data(json.utf8)) == [
+            "Owner": Paperless.CustomField(id: 5, takesText: true),
+            "owner": Paperless.CustomField(id: 6, takesText: false),
+            "Notes": Paperless.CustomField(id: 7, takesText: true),
+        ])
+    }
+
+    @Test func createsAStringCustomField() {
+        let request = Paperless.createTextFieldRequest(server: URL(string: "https://example.com/")!, token: "abc", name: "Owner")
+        #expect(request.url?.absoluteString == "https://example.com/api/custom_fields/")
+        #expect(request.httpMethod == "POST")
+        #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Token abc")
+        #expect(String(decoding: request.httpBody ?? Data(), as: UTF8.self) == #"{"data_type":"string","name":"Owner"}"#)
+    }
+
+    @Test(arguments: [
+        ("2.19.0", true),
+        ("2.20.13", true),
+        ("3.5.0", true),
+        ("10.0.0", true),
+        ("2.18.4", false),
+        ("1.17.4", false),
+        ("", false),
+        (nil, false),
+    ] as [(String?, Bool)])
+    func takesCustomFieldValuesSincePaperless219(version: String?, takes: Bool) {
+        #expect(Paperless.takesCustomFieldValues(version: version) == takes)
+    }
+
+    @Test func sendsCustomFieldValuesAsAJSONObjectByID() {
+        let body = String(decoding: Paperless.uploadBody(pdf: Data(), fileName: "a.pdf", title: "A", created: nil, storagePath: nil, customFields: [12: "Lumen & Co", 5: "Personal/Home \"A\""], boundary: "XYZ"), as: UTF8.self)
+        #expect(body.contains("--XYZ\r\nContent-Disposition: form-data; name=\"custom_fields\"\r\n\r\n{\"5\":\"Personal/Home \\\"A\\\"\",\"12\":\"Lumen & Co\"}\r\n--XYZ\r\nContent-Disposition: form-data; name=\"document\""))
+    }
+
+    @Test func cutsCustomFieldValuesToWhatPaperlessTakes() throws {
+        let body = String(decoding: Paperless.uploadBody(pdf: Data(), fileName: "a.pdf", title: "A", created: nil, storagePath: nil, customFields: [5: String(repeating: "e\u{301}", count: 100)], boundary: "XYZ"), as: UTF8.self)
+        #expect(body.unicodeScalars.contains("{\"5\":\"\(String(repeating: "e\u{301}", count: 64))\"}\r\n".unicodeScalars))
+    }
+
     @Test func sendsTheDocumentType() {
         let body = String(decoding: Paperless.uploadBody(pdf: Data(), fileName: "a.pdf", title: "A", created: nil, documentType: 9, storagePath: nil, boundary: "XYZ"), as: UTF8.self)
         #expect(body.contains("--XYZ\r\nContent-Disposition: form-data; name=\"document_type\"\r\n\r\n9\r\n"))
@@ -92,6 +137,7 @@ struct PaperlessTests {
         let body = String(decoding: Paperless.uploadBody(pdf: Data(), fileName: "a.pdf", title: "A", created: nil, storagePath: nil, boundary: "XYZ"), as: UTF8.self)
         #expect(!body.contains("created"))
         #expect(!body.contains("storage_path"))
+        #expect(!body.contains("custom_fields"))
     }
 
     @Test(arguments: [

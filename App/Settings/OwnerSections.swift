@@ -79,7 +79,7 @@ struct OwnerSections: View {
                 if owner.paperless != nil, !archiver.isConnected(owner) {
                     Text("The token is no longer on this iPhone. Tap the server to connect again.").foregroundStyle(.red)
                 } else {
-                    Text("The Archive button sends PDFs to this Paperless-ngx server, with their title, date and category as document type, which is created when missing.")
+                    Text("The Archive button sends PDFs to this Paperless-ngx server, with their title, date, category as document type and owner in the Owner custom field, both created when missing.")
                 }
             }
         }

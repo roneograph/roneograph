@@ -17,11 +17,11 @@ Like any app data, all of this except the Paperless token is part of your iPhone
 - **Camera.** The camera is used only to capture the pages you scan, while the scanner is open.
 - **Local network.** iOS asks for it only when the Paperless-ngx server you connect is on your local network; the app uses it only to reach that server.
 - **Text recognition.** The text of the pages is read on your iPhone, to suggest a file name, to find the details of the document and its owner, and to add an invisible text layer to the PDF so it can be searched. The text itself is kept only inside the PDF.
-- **No servers of ours.** Roneograph has no servers, no analytics, no crash reporting, no ads, no tracking and no account. The app connects to the network only to reach the Paperless-ngx server you connected: to check its address and token and list its storage paths when you connect it, and when you archive a PDF, to find the document type named like its category, create it when missing, and upload the PDF. It never reads, lists or downloads your documents there.
+- **No servers of ours.** Roneograph has no servers, no analytics, no crash reporting, no ads, no tracking and no account. The app connects to the network only to reach the Paperless-ngx server you connected: to check its address and token and list its storage paths when you connect it, and when you archive a PDF, to find the document type named like its category and the Owner custom field, create them when missing, and upload the PDF. It never reads, lists or downloads your documents there.
 
 ## Sharing
 
-A PDF leaves your iPhone only when you send it: with Email or Share, to the recipient or app you pick, with Save to Files, to the folder you picked, or with Archive, to the Paperless-ngx server you connected, with its title, the date of the document and its category. An upload that cannot reach the server is tried again later, until it is delivered or you delete the scan. From then on, that app or service handles it under its own privacy policy. Roneograph shares nothing with anyone else.
+A PDF leaves your iPhone only when you send it: with Email or Share, to the recipient or app you pick, with Save to Files, to the folder you picked, or with Archive, to the Paperless-ngx server you connected, with its title, the date of the document, its category and the name of its owner. An upload that cannot reach the server is tried again later, until it is delivered or you delete the scan. From then on, that app or service handles it under its own privacy policy. Roneograph shares nothing with anyone else.
 
 ## How long it is kept, and deleting it
 

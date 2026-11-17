@@ -108,7 +108,7 @@ struct ArchiverTests {
         try await app.archive([first, second])
         #expect(uploader.uploads.count == 2)
         #expect(uploader.uploads.allSatisfy { String(decoding: $0.body, as: UTF8.self).contains("name=\"document_type\"\r\n\r\n3\r\n") })
-        #expect(server.requests.map(\.httpMethod) == ["GET"], "The types are read once")
+        #expect(server.requests(to: "/api/document_types/").map(\.httpMethod) == ["GET"], "The types are read once")
     }
 
     @Test func createsTheDocumentTypeOfANewCategory() async throws {
@@ -120,7 +120,7 @@ struct ArchiverTests {
         await scan.preparePDF()
 
         try await app.archive([scan])
-        let created = try #require(server.requests.last)
+        let created = try #require(server.requests(to: "/api/document_types/").last)
         #expect(String(decoding: created.httpBody ?? Data(), as: UTF8.self) == #"{"matching_algorithm":0,"name":"Payslip"}"#)
         #expect(String(decoding: try #require(uploader.uploads.first).body, as: UTF8.self).contains("name=\"document_type\"\r\n\r\n8\r\n"))
     }
@@ -130,7 +130,7 @@ struct ArchiverTests {
         let scan = await readyScan()
 
         try await app.archive([scan])
-        #expect(server.requests.isEmpty)
+        #expect(server.requests(to: "/api/document_types/").isEmpty)
         #expect(!String(decoding: try #require(uploader.uploads.first).body, as: UTF8.self).contains("document_type"))
     }
 
@@ -162,6 +162,89 @@ struct ArchiverTests {
         await app.archiver?.prepareWaitingUploads()
         #expect(uploader.uploads.count == 1)
         #expect(scan.scan.archiving == Archiving())
+    }
+
+    @Test func sendsTheOwnerInTheOwnerCustomField() async throws {
+        try connect()
+        server.answer("GET", "/api/custom_fields/", #"{"results": [{"id": 5, "name": "Owner", "data_type": "string"}]}"#, version: "2.19.0")
+        let first = await readyScan()
+        let second = await readyScan()
+
+        try await app.archive([first, second])
+        #expect(uploader.uploads.count == 2)
+        #expect(uploader.uploads.allSatisfy { String(decoding: $0.body, as: UTF8.self).contains("name=\"custom_fields\"\r\n\r\n{\"5\":\"Personal\"}\r\n") })
+        #expect(server.requests(to: "/api/custom_fields/").map(\.httpMethod) == ["GET"], "The fields are read once")
+    }
+
+    @Test func createsTheOwnerCustomFieldWhenMissing() async throws {
+        try connect()
+        server.answer("GET", "/api/custom_fields/", #"{"results": [{"id": 4, "name": "owner", "data_type": "string"}]}"#, version: "3.5.0")
+        server.answer("POST", "/api/custom_fields/", #"{"id": 6, "name": "Owner", "data_type": "string"}"#, status: 201)
+        let scan = await readyScan()
+
+        try await app.archive([scan])
+        let created = try #require(server.requests(to: "/api/custom_fields/").last)
+        #expect(created.httpMethod == "POST")
+        #expect(String(decoding: created.httpBody ?? Data(), as: UTF8.self) == #"{"data_type":"string","name":"Owner"}"#)
+        #expect(String(decoding: try #require(uploader.uploads.first).body, as: UTF8.self).contains("name=\"custom_fields\"\r\n\r\n{\"6\":\"Personal\"}\r\n"))
+    }
+
+    @Test func sendsWithoutTheOwnerToAServerTooOldToTakeIt() async throws {
+        try connect()
+        server.answer("GET", "/api/custom_fields/", #"{"results": [{"id": 5, "name": "Owner", "data_type": "string"}]}"#, version: "2.18.4")
+        let first = await readyScan()
+        let second = await readyScan()
+
+        try await app.archive([first, second])
+        #expect(uploader.uploads.count == 2)
+        #expect(uploader.uploads.allSatisfy { !String(decoding: $0.body, as: UTF8.self).contains("custom_fields") })
+        #expect(server.requests(to: "/api/custom_fields/").map(\.httpMethod) == ["GET"])
+    }
+
+    @Test func sendsWithoutTheOwnerWhenItsFieldDoesNotTakeText() async throws {
+        try connect()
+        server.answer("GET", "/api/custom_fields/", #"{"results": [{"id": 5, "name": "Owner", "data_type": "select"}]}"#, version: "2.19.0")
+        let scan = await readyScan()
+
+        try await app.archive([scan])
+        #expect(!String(decoding: try #require(uploader.uploads.first).body, as: UTF8.self).contains("custom_fields"))
+        #expect(server.requests(to: "/api/custom_fields/").map(\.httpMethod) == ["GET"])
+    }
+
+    @Test func sendsWithoutTheOwnerWhenTheServerRefusesToCreateItsField() async throws {
+        try connect()
+        server.answer("GET", "/api/custom_fields/", #"{"results": []}"#, version: "2.19.0")
+        server.answer("POST", "/api/custom_fields/", #"{"detail": "You do not have permission to perform this action."}"#, status: 403)
+        let scan = await readyScan()
+
+        try await app.archive([scan])
+        #expect(!String(decoding: try #require(uploader.uploads.first).body, as: UTF8.self).contains("custom_fields"))
+    }
+
+    @Test func waitsForTheAppToBeActiveAgainWhenTheServerCannotBeReachedForTheOwnerField() async throws {
+        try connect()
+        server.answer("GET", "/api/custom_fields/", "", status: 502)
+        let scan = await readyScan()
+
+        try await app.archive([scan])
+        #expect(uploader.uploads.isEmpty)
+        #expect(scan.scan.archiving?.state == .waiting("The server is not ready (error 502)."))
+
+        server.answer("GET", "/api/custom_fields/", #"{"results": [{"id": 5, "name": "Owner", "data_type": "string"}]}"#, version: "2.19.0")
+        await app.archiver?.prepareWaitingUploads()
+        #expect(String(decoding: try #require(uploader.uploads.first).body, as: UTF8.self).contains("{\"5\":\"Personal\"}"))
+    }
+
+    @Test func readsTheOwnerFieldAgainAfterAFailedUpload() async throws {
+        try connect()
+        server.answer("GET", "/api/custom_fields/", #"{"results": [{"id": 5, "name": "Owner", "data_type": "string"}]}"#, version: "2.19.0")
+        server.answer("GET", "/api/custom_fields/", #"{"results": [{"id": 9, "name": "Owner", "data_type": "string"}]}"#, version: "2.19.0")
+        let scan = await readyScan()
+        try await app.archive([scan])
+        app.archiver?.complete(UploadResult(scanID: scan.id, status: 400, body: Data(#"{"custom_fields": ["Custom field with id 5 does not exist"]}"#.utf8)))
+
+        try await app.archive([scan])
+        #expect(String(decoding: try #require(uploader.uploads.last).body, as: UTF8.self).contains("{\"9\":\"Personal\"}"))
     }
 
     @Test func aScanIsSentOnceTheServerTookIt() async throws {
@@ -360,7 +443,7 @@ final class MemoryTokens: PaperlessTokens {
 /// Answers the requests that prepare uploads with the answers queued for their method and path, 404 otherwise.
 final class FakeServer: Sendable {
     private struct State {
-        var answers: [String: [(status: Int, body: String)]] = [:]
+        var answers: [String: [(status: Int, body: String, version: String?)]] = [:]
         var requests: [URLRequest] = []
     }
 
@@ -368,8 +451,13 @@ final class FakeServer: Sendable {
 
     var requests: [URLRequest] { state.withLock { $0.requests } }
 
-    func answer(_ method: String, _ path: String, _ body: String, status: Int = 200) {
-        state.withLock { $0.answers["\(method) \(path)", default: []].append((status, body)) }
+    func requests(to path: String) -> [URLRequest] {
+        requests.filter { $0.url?.path() == path }
+    }
+
+    /// The version is the X-Version header Paperless-ngx adds to its answers.
+    func answer(_ method: String, _ path: String, _ body: String, status: Int = 200, version: String? = nil) {
+        state.withLock { $0.answers["\(method) \(path)", default: []].append((status, body, version)) }
     }
 
     var fetch: Archiver.Fetch {
@@ -377,9 +465,10 @@ final class FakeServer: Sendable {
             let answer = state.withLock { state in
                 state.requests.append(request)
                 let key = "\(request.httpMethod ?? "GET") \(request.url?.path() ?? "")"
-                return state.answers[key]?.isEmpty == false ? state.answers[key]!.removeFirst() : (status: 404, body: "")
+                return state.answers[key]?.isEmpty == false ? state.answers[key]!.removeFirst() : (status: 404, body: "", version: nil)
             }
-            return (Data(answer.body.utf8), HTTPURLResponse(url: request.url!, statusCode: answer.status, httpVersion: nil, headerFields: nil)!)
+            let headers = answer.version.map { ["X-Version": $0] }
+            return (Data(answer.body.utf8), HTTPURLResponse(url: request.url!, statusCode: answer.status, httpVersion: nil, headerFields: headers)!)
         }
     }
 }

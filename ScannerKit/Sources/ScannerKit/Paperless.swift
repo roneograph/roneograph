@@ -23,10 +23,14 @@ public struct PaperlessStoragePath: Identifiable, Hashable, Sendable, Codable {
     }
 }
 
-/// The parts of the Paperless-ngx REST API Roneograph uses: listing storage paths and uploading a document.
+/// The parts of the Paperless-ngx REST API Roneograph uses: listing storage paths, finding or creating document types and custom fields, and uploading a document.
 public enum Paperless {
     /// Supported by Paperless-ngx 2.x and 3.x.
     static let accept = "application/json; version=9"
+    /// The custom field holding the owner's name, which storage path templates read with `get_cf_value('Owner')`.
+    public static let ownerField = "Owner"
+    /// The longest text a string custom field takes.
+    static let maximumFieldLength = 128
 
     /// The server address as typed, with https:// added when no scheme is given; nil when it is not an HTTPS address.
     public static func serverURL(from typed: String) -> URL? {
@@ -62,12 +66,39 @@ public enum Paperless {
 
     /// Creates a document type that Paperless never assigns by itself, so only the documents sent with it get it.
     public static func createDocumentTypeRequest(server: URL, token: String, name: String) -> URLRequest {
-        var request = URLRequest(url: server.appending(path: "api/document_types/"))
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try? JSONSerialization.data(withJSONObject: ["name": name, "matching_algorithm": 0], options: .sortedKeys)
-        authorize(&request, token: token)
-        return request
+        createRequest("api/document_types/", server: server, token: token, json: ["name": name, "matching_algorithm": 0])
+    }
+
+    public static func customFieldsRequest(server: URL, token: String) -> URLRequest {
+        listRequest("api/custom_fields/", server: server, token: token)
+    }
+
+    /// The custom fields by their exact name, as templates name them that way and Paperless allows names that differ only by case.
+    public static func customFields(from data: Data) throws -> [String: CustomField] {
+        let fields = try JSONDecoder().decode(Page<Field>.self, from: data).results
+        return Dictionary(fields.map { ($0.name, CustomField(id: $0.id, takesText: ["string", "longtext"].contains($0.dataType))) }) { first, _ in first }
+    }
+
+    public struct CustomField: Equatable, Sendable {
+        public let id: Int
+        public let takesText: Bool
+
+        public init(id: Int, takesText: Bool) {
+            self.id = id
+            self.takesText = takesText
+        }
+    }
+
+    public static func createTextFieldRequest(server: URL, token: String, name: String) -> URLRequest {
+        createRequest("api/custom_fields/", server: server, token: token, json: ["name": name, "data_type": "string"])
+    }
+
+    /// Paperless-ngx takes custom field values with an upload since 2.19; older versions refuse the whole upload. The version is the X-Version header of its answers.
+    public static func takesCustomFieldValues(version: String?) -> Bool {
+        guard let version else { return false }
+        let numbers = version.split(separator: ".").prefix(2).map { Int($0.prefix { $0.isNumber }) ?? 0 }
+        guard numbers.count == 2 else { return false }
+        return (numbers[0], numbers[1]) >= (2, 19)
     }
 
     public static func createdID(from data: Data) throws -> Int {
@@ -81,6 +112,26 @@ public enum Paperless {
     private struct Named: Decodable {
         let id: Int
         let name: String
+    }
+
+    private struct Field: Decodable {
+        let id: Int
+        let name: String
+        let dataType: String
+
+        enum CodingKeys: String, CodingKey {
+            case id, name
+            case dataType = "data_type"
+        }
+    }
+
+    private static func createRequest(_ path: String, server: URL, token: String, json: [String: Any]) -> URLRequest {
+        var request = URLRequest(url: server.appending(path: path))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: json, options: .sortedKeys)
+        authorize(&request, token: token)
+        return request
     }
 
     private static func listRequest(_ path: String, server: URL, token: String) -> URLRequest {
@@ -101,8 +152,9 @@ public enum Paperless {
         return request
     }
 
-    /// The form Paperless-ngx takes: the PDF with its file name, the title, the date of the document when known, the document type and the storage path.
-    public static func uploadBody(pdf: Data, fileName: String, title: String, created: Date?, documentType: Int? = nil, storagePath: Int?, boundary: String, timeZone: TimeZone = .current) -> Data {
+    /// The form Paperless-ngx takes: the PDF with its file name, the title, the date of the document when known, the document type, the storage path
+    /// and the values of text custom fields by their ID.
+    public static func uploadBody(pdf: Data, fileName: String, title: String, created: Date?, documentType: Int? = nil, storagePath: Int?, customFields: [Int: String] = [:], boundary: String, timeZone: TimeZone = .current) -> Data {
         var form = MultipartForm(boundary: boundary)
         form.add(name: "title", value: title)
         if let created {
@@ -110,6 +162,12 @@ public enum Paperless {
         }
         if let documentType { form.add(name: "document_type", value: String(documentType)) }
         if let storagePath { form.add(name: "storage_path", value: String(storagePath)) }
+        if !customFields.isEmpty {
+            let values = Dictionary(uniqueKeysWithValues: customFields.map { (String($0.key), String($0.value.unicodeScalars.prefix(maximumFieldLength))) })
+            if let json = try? JSONSerialization.data(withJSONObject: values, options: [.sortedKeys, .withoutEscapingSlashes]) {
+                form.add(name: "custom_fields", value: String(decoding: json, as: UTF8.self))
+            }
+        }
         form.add(name: "document", fileName: fileName, contentType: "application/pdf", data: pdf)
         return form.finished()
     }

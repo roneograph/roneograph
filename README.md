@@ -50,7 +50,7 @@ Sending:
 - New Scan on the review screen starts the next document of a pile right away.
 - Selecting several scans on Home sends them at once, all PDFs in one email per owner; a shortcut selects the scans not sent yet.
 - Owners keep your own paper apart from a company's you scan for: each owner has its email address, folder and file name format, and a document gets the owner recognized from lines seen on that owner's documents sent before, or the one remembered for its issuer, or the default one.
-- Archive uploads PDFs to a Paperless-ngx server, one per owner, into the storage path picked for the owner, with their title, date and category as document type (created when missing); uploads go on in the background and are tried again until the server takes them.
+- Archive uploads PDFs to a Paperless-ngx server, one per owner, into the storage path picked for the owner, with their title, date, category as document type and owner's name in an Owner custom field (both created when missing, the field from Paperless-ngx 2.19), so a single storage path such as `{{ custom_fields|get_cf_value('Owner', 'unsorted') }}/{{ document_type }}/{{ original_name }}` can sort documents by owner; uploads go on in the background and are tried again until the server takes them.
 - Keeps sent scans 1, 7 or 30 days, or forever, visible in Files; never deletes a scan that was not sent.
 
 ## Requirements

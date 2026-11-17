@@ -53,6 +53,8 @@ public final class Archiver {
     private let fetch: Fetch
     /// The document types of each server by lowercased name, read once per launch and completed with the ones created.
     private var documentTypes: [URL: [String: Int]] = [:]
+    /// The ID of each server's Owner custom field, read once per launch; nil for a server that cannot take its value.
+    private var ownerFields: [URL: Int?] = [:]
     /// The model of a scan, set by the app model.
     var model: (UUID) -> ScanModel? = { _ in nil }
     /// The scans, set by the app model.
@@ -118,26 +120,30 @@ public final class Archiver {
         }
     }
 
-    /// Finds or creates the document type of the scan's category, then saves the request body and starts the upload.
-    /// The scan waits for the app to be active again when the server cannot be reached; it goes without a type when the server refuses to make one.
+    /// Finds or creates the document type of the scan's category and the Owner custom field, then saves the request body and starts the upload.
+    /// The scan waits for the app to be active again when the server cannot be reached; it goes without a type or owner when the server refuses to make them.
     private func prepare(_ model: ScanModel) async {
         let owner = model.owner
         guard let server = owner.paperless, let token = tokens.token(for: owner.id) else {
             return fail(model, "Paperless is no longer connected.")
         }
         let documentType: Int?
-        switch await findDocumentType(of: model.scan.details.category, server: server.url, token: token) {
-        case .success(let id): documentType = id
-        case .failure(let unreachable):
+        let ownerField: Int?
+        do throws(Unreachable) {
+            documentType = try await findDocumentType(of: model.scan.details.category, server: server.url, token: token).get()
+            ownerField = try await findOwnerField(server: server.url, token: token).get()
+        } catch {
             guard model.scan.archiving?.isInProgress == true else { return }
-            return model.setArchiving(Archiving(state: .waiting(unreachable.reason), retries: model.scan.archiving?.retries ?? 0))
+            return model.setArchiving(Archiving(state: .waiting(error.reason), retries: model.scan.archiving?.retries ?? 0))
         }
         guard model.scan.archiving?.isInProgress == true, self.model(model.id) === model else { return }
+        let ownerName = owner.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let customFields = if let ownerField, !ownerName.isEmpty { [ownerField: ownerName] } else { [Int: String]() }
         guard case .ready(let url, _) = model.pdf, let pdf = try? Data(contentsOf: url) else {
             return fail(model, "The PDF could not be read. Archive the scan again.")
         }
         let boundary = "Roneograph-\(UUID().uuidString)"
-        let body = Paperless.uploadBody(pdf: pdf, fileName: url.lastPathComponent, title: model.scan.title, created: model.scan.details.date, documentType: documentType, storagePath: server.storagePath?.id, boundary: boundary)
+        let body = Paperless.uploadBody(pdf: pdf, fileName: url.lastPathComponent, title: model.scan.title, created: model.scan.details.date, documentType: documentType, storagePath: server.storagePath?.id, customFields: customFields, boundary: boundary)
         do {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             try body.write(to: bodyURL(model.id), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
@@ -158,7 +164,7 @@ public final class Archiver {
         let key = category.rawValue.lowercased()
         if let id = documentTypes[server]?[key] { return .success(id) }
         switch await send(Paperless.documentTypesRequest(server: server, token: token)) {
-        case .answered(let data):
+        case .answered(let data, _):
             guard let types = try? Paperless.documentTypes(from: data) else { return .success(nil) }
             documentTypes[server] = types
             if let id = types[key] { return .success(id) }
@@ -166,7 +172,7 @@ public final class Archiver {
         case .refused: return .success(nil)
         }
         switch await send(Paperless.createDocumentTypeRequest(server: server, token: token, name: category.rawValue)) {
-        case .answered(let data):
+        case .answered(let data, _):
             guard let id = try? Paperless.createdID(from: data) else { return .success(nil) }
             documentTypes[server, default: [:]][key] = id
             return .success(id)
@@ -175,8 +181,37 @@ public final class Archiver {
         }
     }
 
+    /// The ID of the Owner custom field, created when the server has none; nil when the server is too old to take its value with the upload,
+    /// the field does not take text, or the server refuses to make it.
+    private func findOwnerField(server: URL, token: String) async -> Result<Int?, Unreachable> {
+        if let id = ownerFields[server] { return .success(id) }
+        switch await send(Paperless.customFieldsRequest(server: server, token: token)) {
+        case .answered(let data, let response):
+            guard Paperless.takesCustomFieldValues(version: response.value(forHTTPHeaderField: "X-Version")),
+                  let fields = try? Paperless.customFields(from: data) else {
+                ownerFields[server] = .some(nil)
+                return .success(nil)
+            }
+            if let field = fields[Paperless.ownerField] {
+                let id = field.takesText ? field.id : nil
+                ownerFields[server] = .some(id)
+                return .success(id)
+            }
+        case .unreachable(let reason): return .failure(Unreachable(reason: reason))
+        case .refused: return .success(nil)
+        }
+        switch await send(Paperless.createTextFieldRequest(server: server, token: token, name: Paperless.ownerField)) {
+        case .answered(let data, _):
+            guard let id = try? Paperless.createdID(from: data) else { return .success(nil) }
+            ownerFields[server] = id
+            return .success(id)
+        case .unreachable(let reason): return .failure(Unreachable(reason: reason))
+        case .refused: return .success(nil)
+        }
+    }
+
     private enum Answer {
-        case answered(Data)
+        case answered(Data, HTTPURLResponse)
         case unreachable(String)
         case refused
     }
@@ -184,9 +219,10 @@ public final class Archiver {
     private func send(_ request: URLRequest) async -> Answer {
         let outcome: Paperless.Outcome
         do {
-            let (data, response) = try await fetch(request)
-            outcome = Paperless.outcome(status: (response as? HTTPURLResponse)?.statusCode, body: data, error: nil)
-            if outcome == .delivered { return .answered(data) }
+            let (data, answer) = try await fetch(request)
+            let response = answer as? HTTPURLResponse
+            outcome = Paperless.outcome(status: response?.statusCode, body: data, error: nil)
+            if outcome == .delivered, let response { return .answered(data, response) }
         } catch {
             outcome = Paperless.outcome(status: nil, body: Data(), error: (error as? URLError)?.code ?? .unknown)
         }
@@ -212,7 +248,10 @@ public final class Archiver {
             model.setArchiving(Archiving(state: .waiting(reason), retries: retries))
             restart(model, after: Self.delay(afterRetries: retries))
         case .retry(let reason), .failed(let reason):
-            if let server = model.owner.paperless?.url { documentTypes[server] = nil }
+            if let server = model.owner.paperless?.url {
+                documentTypes[server] = nil
+                ownerFields[server] = nil
+            }
             fail(model, reason)
         }
     }
