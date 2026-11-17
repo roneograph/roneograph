@@ -74,7 +74,7 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
     }
 }
 
-/// How long scans stay on the device before they are deleted, sent or not.
+/// How long sent scans stay on the device before they are deleted; scans never sent stay.
 public enum ScanRetention: String, CaseIterable, Sendable, Codable {
     case day, week, month, forever
 

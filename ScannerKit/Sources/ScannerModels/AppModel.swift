@@ -40,13 +40,17 @@ public final class AppModel {
         if isActive { refresh() } else { settings.save() }
     }
 
-    /// Deletes expired scans, except the one open in Review or in the camera, and unreadable scan folders, then reloads the list.
+    /// Deletes the scans sent longer ago than the retention, except the one open in Review or in the camera, and unreadable scan folders, then reloads the list.
+    /// A scan never sent is never deleted: it is the only copy of the document.
     public func refresh() {
         reload()
         guard let days = settings.value.keepScans.days else { return }
         store.deleteUnreadableScans(keeping: Set(models.keys))
         let cutoff = now().addingTimeInterval(-Double(days) * 86400)
-        delete(Set(scans.filter { $0.created < cutoff && camera?.id != $0.id && path.last != $0.id }.map(\.id)))
+        delete(Set(scans.filter { scan in
+            guard let sent = scan.sent else { return false }
+            return sent.date < cutoff && camera?.id != scan.id && path.last != scan.id
+        }.map(\.id)))
     }
 
     private func reload() {

@@ -123,7 +123,7 @@ struct HomeView: View {
                 Text("Recent")
             } footer: {
                 if let days = app.settings.value.keepScans.days {
-                    Text("Scans are deleted after \(days.counted("day")).")
+                    Text("Sent scans are deleted after \(days.counted("day")).")
                         .frame(maxWidth: .infinity)
                 }
             }

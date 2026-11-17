@@ -71,7 +71,7 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Picker("Keep scans for", selection: $settings.value.keepScans) {
+                    Picker("Keep sent scans for", selection: $settings.value.keepScans) {
                         ForEach(ScanRetention.allCases, id: \.self) { Text($0.label).tag($0) }
                     }
                     LabeledContent("Stored", value: stored)
@@ -82,7 +82,7 @@ struct SettingsView: View {
                 } footer: {
                     Text(settings.value.keepScans == .forever
                         ? "Scans stay until you delete them. PDFs saved with Save to Files or sent stay where they are."
-                        : "Scans are deleted after this time, sent or not. PDFs saved with Save to Files or sent stay where they are.")
+                        : "Scans are deleted this long after they were sent; scans never sent stay until you delete them. PDFs saved with Save to Files or sent stay where they are.")
                 }
                 .confirmationDialog("Delete \(app.scans.count == 1 ? "the scan" : "all \(app.scans.count) scans")?", isPresented: $deletingScans, titleVisibility: .visible) {
                     Button("Delete All Scans", role: .destructive) {

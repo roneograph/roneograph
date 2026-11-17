@@ -560,12 +560,13 @@ struct AppModelTests {
         #expect(await fixture.store.byteCount() == 0)
     }
 
-    @Test func listsScansNewestFirstAndDropsExpiredOnes() throws {
+    @Test func listsScansNewestFirstAndDropsTheOnesSentLongerAgoThanTheRetention() throws {
         let fixture = try Fixture()
         let now = Date()
         for (name, age) in [("Old", 8.0), ("Week", 6.0), ("Today", 0.0)] {
-            var scan = Scan(created: now.addingTimeInterval(-age * 86400), name: name)
+            var scan = Scan(created: now.addingTimeInterval(-(age + 20) * 86400), name: name)
             scan.pages = [ScanPage(quad: nil, analysis: .sample)]
+            scan.sent = Sent(date: now.addingTimeInterval(-age * 86400), method: .email)
             try fixture.store.save(scan)
         }
         let app = AppModel(processor: fixture.processor, settings: fixture.settings, now: { now })
@@ -576,6 +577,22 @@ struct AppModelTests {
         #expect(app.scans.map(\.name) == ["Today"])
     }
 
+    @Test func neverDeletesAScanThatWasNotSent() throws {
+        let fixture = try Fixture()
+        let now = Date()
+        var finished = Scan(created: now.addingTimeInterval(-400 * 86400), name: "Finished")
+        finished.pages = [ScanPage(quad: nil, analysis: .sample)]
+        finished.isFinished = true
+        var inProgress = Scan(created: now.addingTimeInterval(-400 * 86400), name: "In progress")
+        inProgress.pages = [ScanPage(quad: nil, analysis: .sample)]
+        try fixture.store.save(finished)
+        try fixture.store.save(inProgress)
+        fixture.settings.value.keepScans = .day
+
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings, now: { now })
+        #expect(Set(app.scans.map(\.name)) == ["Finished", "In progress"])
+    }
+
     @Test func keepsAnExpiredScanWhileItIsOpen() throws {
         let fixture = try Fixture()
         let now = Date()
@@ -583,6 +600,8 @@ struct AppModelTests {
         var scanned = Scan(created: now.addingTimeInterval(-9 * 86400), name: "Scanned")
         reviewed.pages = [ScanPage(quad: nil, analysis: .sample)]
         scanned.pages = [ScanPage(quad: nil, analysis: .sample)]
+        reviewed.sent = Sent(date: now.addingTimeInterval(-8 * 86400), method: .share)
+        scanned.sent = Sent(date: now.addingTimeInterval(-9 * 86400), method: .files)
         try fixture.store.save(reviewed)
         try fixture.store.save(scanned)
         fixture.settings.value.keepScans = .forever
@@ -649,6 +668,7 @@ struct AppModelTests {
         let now = Date()
         var scan = Scan(created: now.addingTimeInterval(-400 * 86400), name: "Old")
         scan.pages = [ScanPage(quad: nil, analysis: .sample)]
+        scan.sent = Sent(date: now.addingTimeInterval(-400 * 86400), method: .email)
         try fixture.store.save(scan)
         fixture.settings.value.keepScans = .forever
         let app = AppModel(processor: fixture.processor, settings: fixture.settings, now: { now })

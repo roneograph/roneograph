@@ -24,7 +24,7 @@ A PDF leaves your iPhone only when you send it: with Email or Share, to the reci
 
 ## How long it is kept, and deleting it
 
-- Scans are deleted after the time chosen in Settings › Keep scans for (7 days by default, or 1 day, 30 days or Forever), the next time the app is opened. Delete a scan at any time from the app, or all of them with Settings › Delete All Scans. PDFs you sent or saved with Save to Files are not affected.
+- Scans you sent or saved with Save to Files are deleted after the time chosen in Settings › Keep sent scans for (7 days by default, or 1 day, 30 days or Forever), counted from when they were sent, the next time the app is opened. Scans never sent stay until you delete them. Delete a scan at any time from the app, or all of them with Settings › Delete All Scans. PDFs you sent or saved with Save to Files are not affected.
 - Corrections and fingerprints are kept until you forget them: Settings › Memory shows what is remembered for each issuer, and forgets one issuer or everything.
 - Settings are kept until you change them: clear an email address, forget the folder, or delete an owner.
 - Deleting the app deletes everything it kept.

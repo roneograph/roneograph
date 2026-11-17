@@ -49,7 +49,7 @@ Sending:
 - New Scan on the review screen starts the next document of a pile right away.
 - Selecting several scans on Home sends them at once, all PDFs in one email per owner; a shortcut selects the scans not sent yet.
 - Owners keep your own paper apart from a company's you scan for: each owner has its email address, folder and file name format, and a document gets the owner recognized from lines seen on that owner's documents sent before, or the one remembered for its issuer, or the default one.
-- Keeps scans 1, 7 or 30 days, or forever, visible in Files.
+- Keeps sent scans 1, 7 or 30 days, or forever, visible in Files; never deletes a scan that was not sent.
 
 ## Requirements
 
