@@ -5,13 +5,14 @@ import SwiftUI
 
 /// Archive and Email when the owners of the scans have a Paperless server or an address, Save to Files and Share unless turned off in Settings, and Delete, for the scan under review or the scans selected on Home.
 /// A button that sends in a single tap is filled with the accent color.
-struct SendBar<Summary: View>: View {
+struct SendBar: View {
     let app: AppModel
     let scans: [ScanModel]
     let isReady: Bool
     /// The scans that went out or were deleted.
     var finished: (Set<UUID>) -> Void = { _ in }
-    @ViewBuilder let summary: () -> Summary
+    let summary: String
+    var warning: String?
     @State private var showingMail = false
     @State private var showingShare = false
     @State private var confirmingDelete = false
@@ -71,10 +72,12 @@ struct SendBar<Summary: View>: View {
             .controlSize(.large)
             .font(.title3)
             VStack(spacing: 2) {
-                if let destination = app.destination(of: scans) {
-                    Text(destination).lineLimitUnlessAccessibilitySize(1).truncationMode(.middle)
+                Text([app.ownerLabel(of: scans), summary].compactMap(\.self).joined(separator: " · "))
+                if let warning {
+                    Label(warning, systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(Color(.warning))
+                        .lineLimitUnlessAccessibilitySize(1)
                 }
-                summary()
             }
             .font(.footnote)
             .foregroundStyle(.secondary)

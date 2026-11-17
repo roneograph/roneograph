@@ -202,17 +202,15 @@ public final class AppModel {
         }
     }
 
-    /// Under the send buttons: where Email sends the scans, when there is something to say.
-    public func destination(of models: [ScanModel]) -> String? {
-        let groups = byOwner(models)
-        guard !groups.isEmpty else { return nil }
-        guard settings.value.hasSeveralOwners else {
-            return groups.first.flatMap { $0.owner.hasValidEmail ? "To \($0.owner.email)" : nil }
+    /// Under the send buttons, before the pages and size, with several owners: the owner of the scans, or how many there are.
+    public func ownerLabel(of models: [ScanModel]) -> String? {
+        guard settings.value.hasSeveralOwners else { return nil }
+        let owners = Self.owners(of: models)
+        return switch owners.count {
+        case 0: nil
+        case 1: owners[0].name
+        default: owners.count.counted("owner")
         }
-        guard groups.count == 1, let owner = groups.first?.owner else {
-            return "\(groups.count) emails: " + groups.map { "\($0.owner.name) (\($0.scans.count))" }.joined(separator: ", ")
-        }
-        return owner.hasValidEmail ? "\(owner.name) · To \(owner.email)" : owner.name
     }
 
     /// The scans of an owner, which deleting it moves or deletes.

@@ -28,7 +28,7 @@ struct HomeView: View {
                         .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
                 }
                 if isSelecting {
-                    SendBar(app: app, scans: selected, isReady: isReady, finished: sent) { selectionSummary }
+                    SendBar(app: app, scans: selected, isReady: isReady, finished: sent, summary: selected.selectionSummary, warning: selected.map(\.scan).alreadySent)
                 } else {
                     Button { app.startScan() } label: {
                         Label("Scan", systemImage: "doc.viewfinder").frame(maxWidth: .infinity)
@@ -157,17 +157,6 @@ struct HomeView: View {
     private var isReady: Bool {
         let selected = selected
         return !selected.isEmpty && selected.allSatisfy(\.hasCurrentPDF)
-    }
-
-    @ViewBuilder
-    private var selectionSummary: some View {
-        let selected = selected
-        Text(selected.selectionSummary)
-        if let warning = selected.map(\.scan).alreadySent {
-            Label(warning, systemImage: "exclamationmark.triangle.fill")
-                .foregroundStyle(Color(.warning))
-                .lineLimitUnlessAccessibilitySize(1)
-        }
     }
 
     private func startSelecting(_ ids: Set<UUID>) {

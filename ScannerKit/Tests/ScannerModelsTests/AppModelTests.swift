@@ -442,21 +442,21 @@ struct AppModelTests {
         #expect(!app.suggestsSendSetup)
     }
 
-    @Test func saysWhereEmailSendsTheScansOfEachOwner() async throws {
+    @Test func namesTheOwnersOfTheScansOnlyWhenThereAreSeveral() async throws {
         let fixture = try Fixture()
         fixture.settings.value.defaultOwner.email = "me@example.com"
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)
         let mine = await fixture.capturedScan(in: app)
         let other = await fixture.capturedScan(in: app)
         let third = await fixture.capturedScan(in: app)
-        #expect(app.destination(of: [mine]) == "To me@example.com")
+        #expect(app.ownerLabel(of: [mine]) == nil)
 
         let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
-        #expect(app.destination(of: []) == nil)
-        #expect(app.destination(of: [mine]) == "Personal · To me@example.com")
+        #expect(app.ownerLabel(of: []) == nil)
+        #expect(app.ownerLabel(of: [mine]) == "Personal")
         other.setOwner(holding.id)
-        #expect(app.destination(of: [other]) == "Fernwood Holding")
-        #expect(app.destination(of: [mine, other, third]) == "2 emails: Personal (2), Fernwood Holding (1)")
+        #expect(app.ownerLabel(of: [other, third]) == "2 owners")
+        #expect(app.ownerLabel(of: [mine, other, third]) == "2 owners")
         #expect(app.byOwner([other, mine]).map(\.owner.id) == [holding.id, fixture.settings.value.defaultOwnerID])
 
         app.didSend([other], by: .email)
