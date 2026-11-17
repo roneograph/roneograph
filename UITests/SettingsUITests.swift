@@ -40,6 +40,22 @@ final class SettingsUITests: XCTestCase {
         XCTAssertEqual(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Me, default")).count, 1)
     }
 
+    func testAddsAnAddressOnTheOwnerPage() {
+        let roneograph = Roneograph()
+        roneograph.openSettings()
+        roneograph.openOwner("Me")
+        let app = roneograph.app
+        XCTAssertTrue(app.staticTexts["Type your name above: documents addressed to you are then recognized."].exists)
+        roneograph.tap(roneograph.button("Add Address…"))
+        let sheet = app.navigationBars["New Address"]
+        XCTAssertTrue(sheet.waitForExistence(timeout: Roneograph.timeout), "New Address did not open")
+        app.typeText("8 rue des Glycines 69007 Lyon")
+        roneograph.tap(sheet.buttons["Done"])
+        XCTAssertTrue(sheet.waitForNonExistence(timeout: Roneograph.timeout))
+        XCTAssertTrue(app.buttons["8 rue des Glycines 69007 Lyon"].waitForExistence(timeout: Roneograph.timeout), "The address is not listed")
+        XCTAssertTrue(app.navigationBars["Me"].isHittable)
+    }
+
     func testConnectKeepsTheOwnerPage() {
         let roneograph = Roneograph()
         roneograph.openSettings()

@@ -32,6 +32,36 @@ struct WordingTests {
         #expect(settings.forgetEverythingMessage == "Corrections and owners remembered for 1 issuer. Scans, owners and settings stay.")
     }
 
+    @Test func explainsHowTheNamesOfAnOwnerAreRecognized() {
+        var settings = ScannerSettings()
+        let me = settings.defaultOwnerID
+        #expect(settings.addressedToFooter(of: me, region: "FR", language: "en") == "Type your name above: documents addressed to you are then recognized.")
+        settings.defaultOwner.name = "Camille Rouvière"
+        #expect(settings.addressedToFooter(of: me, region: "FR", language: "en") == "Also recognized: C. Rouvière, Mme Rouvière, M. et Mme Rouvière, Famille Rouvière. Case, accents and word order do not matter.")
+        let holding = Owner(name: "Fernwood Holding")
+        settings.addOwner(holding)
+        #expect(settings.addressedToFooter(of: holding.id, region: "FR", language: "en") == "Also recognized: Fernwood Holding SAS, Fernwood SAS, Fernwood. Case, accents and word order do not matter.")
+        settings.defaultOwner.name = "Personal"
+        #expect(settings.addressedToFooter(of: me, region: "FR", language: "en") == "Name this owner as on its mail, with a first and a last name: documents addressed to it are then recognized.")
+    }
+
+    @Test func warnsOfAnAddressAnotherOwnerHas() {
+        var settings = ScannerSettings()
+        settings.defaultOwner.name = "Camille Rouvière"
+        settings.defaultOwner.addresses = ["8 rue des Glycines\n69007 Lyon"]
+        var holding = Owner(name: "Fernwood Holding")
+        holding.addresses = ["3 impasse des Tilleuls 38000 Grenoble"]
+        settings.addOwner(holding)
+        #expect(settings.sharedAddressWarning(of: holding.id) == nil)
+        holding.addresses.append("8, rue des Glycines 69007 LYON")
+        settings.updateOwner(holding)
+        #expect(settings.sharedAddressWarning(of: holding.id) == "Camille Rouvière has this address too: only the names tell them apart.")
+        var noe = Owner(name: "Noé Rouvière", symbol: .person)
+        noe.addresses = ["8 rue des Glycines 69007 Lyon"]
+        settings.addOwner(noe)
+        #expect(settings.sharedAddressWarning(of: holding.id) == "Camille Rouvière and Noé Rouvière have this address too: only the names tell them apart.")
+    }
+
     @Test func namesTheIssuerInSentences() {
         #expect(DocumentDetails(issuer: "Lumen Energy").issuerName == "Lumen Energy")
         #expect(DocumentDetails().issuerName == "this issuer")

@@ -24,6 +24,25 @@ extension ScannerSettings {
             : "Corrections for \(issuers). Scans and settings stay."
     }
 
+    /// Under the names and addresses of an owner in Settings: how else its names are recognized, or what to type for them to be.
+    public func addressedToFooter(of ownerID: UUID, region: String?, language: String?) -> String {
+        let owner = owner(ownerID)
+        let forms = owner.otherForms(region: region, language: language)
+        if !forms.isEmpty { return "Also recognized: \(forms.joined(separator: ", ")). Case, accents and word order do not matter." }
+        if owner.hasPlaceholderName { return "Type your name above: documents addressed to you are then recognized." }
+        return "Name this owner as on its mail, with a first and a last name: documents addressed to it are then recognized."
+    }
+
+    /// The other owners with one of the addresses of an owner, which only names can then tell apart.
+    public func sharedAddressWarning(of ownerID: UUID) -> String? {
+        let addresses = owner(ownerID).addresses
+        let others = owners.filter { other in
+            other.id != ownerID && other.addresses.contains { address in addresses.contains { Owner.isSameAddress($0, as: address) } }
+        }.map(\.name)
+        guard !others.isEmpty else { return nil }
+        return "\(others.formatted(.list(type: .and).locale(Locale(identifier: "en")))) \(others.count == 1 ? "has" : "have") this address too: only the names tell them apart."
+    }
+
     /// In Settings › Memory › Issuers, before anything is remembered.
     public var nothingRemembered: String {
         "Correct the \(hasSeveralOwners ? "name, issuer, category or owner" : "name, issuer or category") of a scan, and it is reused for the next documents from the same issuer."

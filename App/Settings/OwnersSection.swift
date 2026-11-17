@@ -76,7 +76,7 @@ private struct OwnerRow: View {
     }
 }
 
-/// One owner: its name, how its PDFs go out, how they are named and how its documents are recognized.
+/// One owner: its name, the names and addresses its mail is sent to, how its PDFs go out and how they are named.
 struct OwnerView: View {
     let app: AppModel
     @Bindable var settings: SettingsStore
@@ -101,6 +101,7 @@ struct OwnerView: View {
                 .pickerStyle(.segmented)
             }
 
+            AddressedToSection(settings: settings, ownerID: ownerID)
             SendingSection(app: app, ownerID: ownerID, title: "Sending")
             FileNameSection(owner: owner)
 
