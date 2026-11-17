@@ -19,6 +19,7 @@ struct SendBar<Summary: View>: View {
     @State private var choosingFolder = false
     @State private var savingFailed = false
     @State private var mailUnavailable = false
+    @State private var folderInsideApp = false
     /// The owner the folder picker and the email question are for.
     @State private var ownerID: UUID?
     @State private var mails: MailQueue?
@@ -92,9 +93,17 @@ struct SendBar<Summary: View>: View {
             do {
                 try app.settings.chooseArchiveFolder(url, for: ownerID)
                 saveToFiles()
+            } catch SettingsStore.FolderError.insideApp {
+                folderInsideApp = true
             } catch {
                 savingFailed = true
             }
+        }
+        .alert("This folder cannot be used", isPresented: $folderInsideApp) {
+            Button("Choose Folder") { choosingFolder = true }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(SettingsStore.FolderError.insideApp.localizedDescription)
         }
         .alert("No account in Mail", isPresented: $mailUnavailable) {
             Button("Share") { showingShare = true }

@@ -12,6 +12,7 @@ struct OwnerSections: View {
     var askForName: Binding<Bool>?
     @State private var choosingFolder = false
     @State private var folderFailed = false
+    @State private var folderMessage = ""
 
     var body: some View {
         Section {
@@ -40,10 +41,17 @@ struct OwnerSections: View {
         }
         .fileImporter(isPresented: $choosingFolder, allowedContentTypes: [.folder]) { result in
             guard case .success(let url) = result else { return }
-            do { try settings.chooseArchiveFolder(url, for: owner.id) } catch { folderFailed = true }
+            do {
+                try settings.chooseArchiveFolder(url, for: owner.id)
+            } catch {
+                folderMessage = (error as? SettingsStore.FolderError)?.localizedDescription ?? ""
+                folderFailed = true
+            }
         }
         .alert("This folder cannot be used", isPresented: $folderFailed) {
             Button("OK") {}
+        } message: {
+            if !folderMessage.isEmpty { Text(folderMessage) }
         }
 
         Section {

@@ -14,7 +14,7 @@ struct RoneographApp: App {
         let context = CIContext()
         let support = URL.applicationSupportDirectory.appending(path: "Scans", directoryHint: .isDirectory)
         let store = ScanStore(scansDirectory: support, documentsDirectory: .documentsDirectory)
-        let app = AppModel(processor: ScanProcessor(store: store, context: context), settings: SettingsStore())
+        let app = AppModel(processor: ScanProcessor(store: store, context: context), settings: SettingsStore(appFolder: .documentsDirectory))
         _app = State(initialValue: app)
         let service = CameraService(extractor: PageExtractor(context: context))
         session = service.session

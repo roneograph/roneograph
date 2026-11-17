@@ -9,14 +9,25 @@ public final class SettingsStore {
     }
 
     private let defaults: UserDefaults
+    /// The app's own folder in Files, where scan PDFs are deleted with their scans.
+    private let appFolder: URL?
     private static let key = "settings"
     static let learnedIssuersLimit = 200
     static let headerLinesLimit = 500
     /// A header line seen this often, with documents from different issuers, is the user's own name or address.
     static let ownLineScans = 3
 
-    public init(defaults: UserDefaults = .standard) {
+    public enum FolderError: LocalizedError {
+        case insideApp
+
+        public var errorDescription: String? {
+            "Roneograph deletes the PDFs in its own folder with their scans. Choose a folder outside it."
+        }
+    }
+
+    public init(defaults: UserDefaults = .standard, appFolder: URL? = nil) {
         self.defaults = defaults
+        self.appFolder = appFolder
         value = defaults.data(forKey: Self.key).flatMap { try? JSONDecoder().decode(ScannerSettings.self, from: $0) } ?? ScannerSettings()
     }
 
@@ -35,8 +46,11 @@ public final class SettingsStore {
         value.updateOwner(owner)
     }
 
-    /// Remembers the folder picked in Files for the Save button of an owner.
+    /// Remembers the folder picked in Files for the Save button of an owner; refuses the app's own folder.
     public func chooseArchiveFolder(_ url: URL, for ownerID: UUID?) throws {
+        if let appFolder, url.resolvingSymlinksInPath().pathComponents.starts(with: appFolder.resolvingSymlinksInPath().pathComponents) {
+            throw FolderError.insideApp
+        }
         var owner = value.owner(ownerID)
         owner.archiveFolder = try ArchiveFolder(url: url)
         value.updateOwner(owner)

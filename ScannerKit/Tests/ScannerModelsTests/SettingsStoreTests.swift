@@ -6,6 +6,23 @@ import Testing
 @MainActor
 @Suite(.serialized)
 struct SettingsStoreTests {
+    @Test(arguments: ["", "Invoice"])
+    func refusesTheAppsOwnFolderForSaveToFiles(subfolder: String) throws {
+        let fixture = try Fixture()
+        let folder = fixture.store.documentsDirectory.appending(path: subfolder, directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        #expect(throws: SettingsStore.FolderError.insideApp) { try fixture.settings.chooseArchiveFolder(folder, for: nil) }
+        #expect(fixture.settings.value.defaultOwner.archiveFolder == nil)
+    }
+
+    @Test func acceptsAFolderNextToTheAppsOwnFolder() throws {
+        let fixture = try Fixture()
+        let folder = fixture.root.appending(path: "Documents archive", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try fixture.settings.chooseArchiveFolder(folder, for: nil)
+        #expect(fixture.settings.value.defaultOwner.archiveFolder?.name == "Documents archive")
+    }
+
     @Test func asksForAnEmailOnlyWhenNoneIsSet() throws {
         let fixture = try Fixture()
         #expect(fixture.settings.shouldAskForEmail(for: nil))

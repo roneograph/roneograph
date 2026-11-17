@@ -20,7 +20,7 @@ final class Fixture {
         store = ScanStore(scansDirectory: root.appending(path: "Application Support/Scans"), documentsDirectory: root.appending(path: "Documents"))
         try FileManager.default.createDirectory(at: store.documentsDirectory, withIntermediateDirectories: true)
         defaults = UserDefaults(suiteName: suite)!
-        settings = SettingsStore(defaults: defaults)
+        settings = SettingsStore(defaults: defaults, appFolder: store.documentsDirectory)
         processor = ScanProcessor(store: store, context: CIContext(), paper: .a4)
     }
 
