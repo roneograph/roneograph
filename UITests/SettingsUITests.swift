@@ -25,6 +25,14 @@ final class SettingsUITests: XCTestCase {
         roneograph.present("Storage path", shows: paperless, close: paperless.buttons["Cancel"])
     }
 
+    func testPaperlessSetupShowsWhatArchiveSends() {
+        let roneograph = Roneograph()
+        roneograph.openSettings()
+        roneograph.tap(roneograph.button("Connect…"))
+        roneograph.tap(roneograph.button("What Archive Sends"))
+        XCTAssertTrue(roneograph.app.staticTexts["{{ correspondent }}"].waitForExistence(timeout: Roneograph.timeout), "What Archive Sends did not open")
+    }
+
     func testFolderPickerKeepsSettings() {
         let roneograph = Roneograph()
         roneograph.openSettings()

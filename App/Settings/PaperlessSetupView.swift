@@ -6,11 +6,13 @@ import SwiftUI
 struct PaperlessSetupView: View {
     @State private var setup: PaperlessSetup
     private let title: String
+    private let owner: Owner
     @State private var saveFailed = false
     @Environment(\.dismiss) private var dismiss
 
     init(ownerID: UUID, settings: SettingsStore, archiver: Archiver) {
         _setup = State(initialValue: PaperlessSetup(ownerID: ownerID, settings: settings, archiver: archiver, fetch: PaperlessHTTP.fetch))
+        owner = settings.value.owner(ownerID)
         title = settings.value.hasSeveralOwners ? "Paperless for \(settings.value.owner(ownerID).name)" : "Paperless"
     }
 
@@ -58,8 +60,12 @@ struct PaperlessSetupView: View {
                             ForEach(paths) { Text($0.name).tag(Optional($0)) }
                         }
                     } footer: {
-                        Text("Where Paperless-ngx files these documents.")
+                        Text("Where Paperless-ngx files these documents. Storage paths are made in Paperless-ngx, under Manage › Storage Paths.")
                     }
+                }
+
+                Section {
+                    NavigationLink("What Archive Sends") { PaperlessGuideView(owner: owner) }
                 }
             }
             .navigationTitle(title)
