@@ -9,7 +9,7 @@ enum DocumentField: Identifiable {
     var id: Self { self }
 }
 
-/// The name and details of the scan, each row editing its own value: a sheet for text, a menu for the category, a calendar for the date.
+/// The name of the scan and its details as chips, each editing its own value: a sheet for text, a menu for the owner and the category, a calendar for the date.
 struct DocumentCard: View {
     let scan: ScanModel
     let settings: SettingsStore
@@ -23,27 +23,19 @@ struct DocumentCard: View {
 
     private var details: DocumentDetails { scan.scan.details }
     private var remembered: Set<RememberedValue> { scan.scan.remembered }
+
     var body: some View {
-        VStack(spacing: 0) {
-            nameRow
-            Divider().padding(.leading, 50)
-            if settings.value.hasSeveralOwners {
-                ownerRow
-                Divider().padding(.leading, 50)
+        VStack(alignment: .leading, spacing: 10) {
+            nameButton
+            FlowLayout(spacing: 6, lineSpacing: 6) {
+                if settings.value.hasSeveralOwners { ownerChip }
+                categoryChip
+                textChip(.issuer, title: "Issuer", systemImage: "person.text.rectangle", value: details.issuer)
+                dateChip
+                textChip(.number, title: "Number", systemImage: "number", value: details.number.map { "No. \($0)" })
             }
-            categoryRow
-            Divider().padding(.leading, 50)
-            textRow(.issuer, title: "Issuer", systemImage: "person.text.rectangle", value: details.issuer)
-            Divider().padding(.leading, 50)
-            dateRow
-            Divider().padding(.leading, 50)
-            textRow(.number, title: "Number", systemImage: "number", value: details.number)
-            if !remembered.isEmpty {
-                Divider()
-                legend
-            }
+            if !remembered.isEmpty { legend }
         }
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 18))
         .alert("New Category", isPresented: $addingCategory) {
             TextField("Name", text: $newCategory)
             Button("Add") {
@@ -64,8 +56,39 @@ struct DocumentCard: View {
         }
     }
 
-    /// Who the document belongs to, which decides where it goes and how it is named; tinted for that reason.
-    private var ownerRow: some View {
+    private var nameButton: some View {
+        Button { edit(.name) } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(scan.scan.title)
+                        .font(.title3.bold())
+                        .multilineTextAlignment(.leading)
+                    if remembered.contains(.name) { RememberedMark().font(.footnote) }
+                    Image(systemName: "chevron.right").font(.footnote.bold()).foregroundStyle(.tertiary)
+                }
+                Label(fileName, systemImage: "doc")
+                    .labelStyle(.titleAndIcon)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .lineLimitUnlessAccessibilitySize(1)
+                    .truncationMode(.middle)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Name, \(scan.scan.title)\(remembered.contains(.name) ? ", remembered" : ""), file name \(fileName)")
+        .accessibilityHint("Renames the PDF")
+        .accessibilityAddTraits(.isButton)
+    }
+
+    private var fileName: String {
+        "\(scan.scan.name.replacing("/", with: " / ")).pdf"
+    }
+
+    /// Who the document belongs to, which decides where it goes and how it is named.
+    private var ownerChip: some View {
         let owner = scan.owner
         return Menu {
             Picker("Owner", selection: Binding(get: { scan.hasDefaultOwner ? nil : owner.id }, set: { id in if let id { scan.setOwner(id) } })) {
@@ -76,72 +99,13 @@ struct DocumentCard: View {
             Divider()
             Button("New Owner…", systemImage: "plus") { addingOwner = true }
         } label: {
-            HStack(spacing: 14) {
-                icon(owner.symbol.systemImage)
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("Owner")
-                    if let caption = scan.ownerCaption {
-                        Text(caption).font(.caption).foregroundStyle(.secondary)
-                    }
-                }
-                Spacer(minLength: 12)
-                HStack(spacing: 4) {
-                    Text(owner.name)
-                        .multilineTextAlignment(.trailing)
-                        .lineLimitUnlessAccessibilitySize(1)
-                    Image(systemName: "chevron.up.chevron.down").font(.caption2.bold())
-                }
-                .foregroundStyle(.tint)
-                mark(.owner)
-            }
-            .padding(.horizontal, 14)
-            .frame(minHeight: 46)
-            .background(Color.accentColor.opacity(0.08))
-            .contentShape(Rectangle())
+            Chip(text: owner.name, systemImage: owner.symbol.systemImage, isRemembered: remembered.contains(.owner), opensMenu: true)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Owner, \(owner.name)\(scan.hasDefaultOwner ? ", default" : "")\(remembered.contains(.owner) ? ", remembered" : "")")
     }
 
-    private var nameRow: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Button { edit(.name) } label: {
-                HStack(spacing: 14) {
-                    icon("character.cursor.ibeam")
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Name").font(.caption).foregroundStyle(.secondary)
-                        Text(scan.scan.title)
-                            .font(.title3.bold())
-                            .multilineTextAlignment(.leading)
-                    }
-                    Spacer(minLength: 0)
-                    chevron
-                    mark(.name)
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Name, \(scan.scan.title)\(remembered.contains(.name) ? ", remembered" : "")")
-            .accessibilityHint("Renames the PDF")
-            .accessibilityAddTraits(.isButton)
-            HStack(spacing: 14) {
-                Image(systemName: "doc").frame(width: 22)
-                Text(fileName).lineLimitUnlessAccessibilitySize(2)
-            }
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("File name \(fileName)")
-        }
-        .padding(.horizontal, 14).padding(.vertical, 10)
-    }
-
-    private var fileName: String {
-        "\(scan.scan.name.replacing("/", with: " / ")).pdf"
-    }
-
-    private var categoryRow: some View {
+    private var categoryChip: some View {
         Menu {
             Picker("Category", selection: Binding(get: { details.category }, set: { category in update { $0.category = category } })) {
                 ForEach(settings.value.categories(keeping: details.category), id: \.self) { Text($0.rawValue).tag($0) }
@@ -149,30 +113,22 @@ struct DocumentCard: View {
             Divider()
             Button("New Category…", systemImage: "plus") { addingCategory = true }
         } label: {
-            row(title: "Category", systemImage: "square.grid.2x2", remembered: .category) {
-                HStack(spacing: 4) {
-                    Text(details.category.rawValue)
-                    Image(systemName: "chevron.up.chevron.down").font(.caption2.bold())
-                }
-                .foregroundStyle(.tint)
-            }
+            Chip(text: details.category.rawValue, systemImage: "square.grid.2x2", isRemembered: remembered.contains(.category), opensMenu: true)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Category, \(details.category.rawValue)\(remembered.contains(.category) ? ", remembered" : "")")
     }
 
-    private var dateRow: some View {
+    private var dateChip: some View {
         Button { pickingDate = true } label: {
-            row(title: "Date", systemImage: "calendar") {
-                if let date = details.date {
-                    Text(date.formatted(date: .abbreviated, time: .omitted))
-                        .padding(.horizontal, 10).padding(.vertical, 5)
-                        .background(.fill.tertiary, in: Capsule())
-                } else {
-                    add
-                }
+            if let date = details.date {
+                Chip(text: date.formatted(date: .abbreviated, time: .omitted), systemImage: "calendar")
+            } else {
+                AddChip(title: "Date")
             }
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(details.date.map { "Date, \($0.formatted(date: .long, time: .omitted))" } ?? "Add Date")
         .popover(isPresented: $pickingDate) {
             VStack(spacing: 8) {
                 DatePicker("Date", selection: Binding(get: { details.date ?? scan.scan.created }, set: { date in update { $0.date = date } }), displayedComponents: .date)
@@ -191,62 +147,33 @@ struct DocumentCard: View {
         }
     }
 
-    private func textRow(_ field: DocumentField, title: String, systemImage: String, value: String?) -> some View {
-        Button { edit(field) } label: {
-            row(title: title, systemImage: systemImage, remembered: field == .issuer ? .issuer : nil) {
-                HStack(spacing: 8) {
-                    if let value {
-                        Text(value)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.trailing)
-                            .lineLimitUnlessAccessibilitySize(1)
-                    } else {
-                        add
-                    }
-                    chevron
-                }
+    private func textChip(_ field: DocumentField, title: String, systemImage: String, value: String?) -> some View {
+        let isRemembered = field == .issuer && remembered.contains(.issuer)
+        return Button { edit(field) } label: {
+            if let value {
+                Chip(text: value, systemImage: systemImage, isRemembered: isRemembered)
+            } else {
+                AddChip(title: title)
             }
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(value.map { "\(title), \($0)\(isRemembered ? ", remembered" : "")" } ?? "Add \(title)")
     }
 
-    private func row(title: String, systemImage: String, remembered value: RememberedValue? = nil, @ViewBuilder value content: () -> some View) -> some View {
-        HStack(spacing: 14) {
-            icon(systemImage)
-            Text(title)
-            Spacer(minLength: 12)
-            content()
-            mark(value)
-        }
-        .padding(.horizontal, 14)
-        .frame(minHeight: 46)
-        .contentShape(Rectangle())
-    }
-
-    /// A column at the trailing edge, so remembered values line up; absent when nothing is remembered.
-    @ViewBuilder
-    private func mark(_ value: RememberedValue?) -> some View {
-        if !remembered.isEmpty {
-            Group {
-                if let value, remembered.contains(value) { RememberedMark() } else { Color.clear }
-            }
-            .frame(width: 18)
-            .padding(.leading, -6)
-        }
-    }
-
-    /// Says what the marks mean and how to undo them.
+    /// Says that the marked values come from a past correction, and how to undo them.
     private var legend: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 6) {
             RememberedMark().accessibilityHidden(true)
-            Text("\(remembered.listed) remembered for \(details.issuerName)")
+            Text("Remembered for \(details.issuerName)")
                 .foregroundStyle(.secondary)
+                .lineLimitUnlessAccessibilitySize(1)
             Spacer(minLength: 8)
             Button("Forget") { forgetting = true }
                 .fontWeight(.semibold)
         }
         .font(.footnote)
-        .padding(.horizontal, 14).padding(.vertical, 10)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(remembered.listed) remembered for \(details.issuerName)")
         .confirmationDialog("Remembered for \(details.issuerName)", isPresented: $forgetting, titleVisibility: .visible) {
             ForEach(remembered.sorted(), id: \.self) { value in
                 Button("Forget the \(value.rawValue.capitalized)", role: .destructive) { scan.forget([value]) }
@@ -259,22 +186,51 @@ struct DocumentCard: View {
         }
     }
 
-    private func icon(_ systemImage: String) -> some View {
-        Image(systemName: systemImage).foregroundStyle(.tint).frame(width: 22)
-    }
-
-    private var add: some View {
-        Text("Add").foregroundStyle(.tint)
-    }
-
-    private var chevron: some View {
-        Image(systemName: "chevron.right").font(.footnote.bold()).foregroundStyle(.tertiary)
-    }
-
     private func update(_ change: (inout DocumentDetails) -> Void) {
         var details = details
         change(&details)
         scan.setDetails(details)
+    }
+}
+
+/// A detail of the scan: tinted when it opens a menu, with the remembered mark in place of its icon.
+private struct Chip: View {
+    let text: String
+    let systemImage: String
+    var isRemembered = false
+    var opensMenu = false
+
+    var body: some View {
+        HStack(spacing: 5) {
+            if isRemembered {
+                RememberedMark()
+            } else {
+                Image(systemName: systemImage).foregroundStyle(.tint)
+            }
+            Text(text).lineLimitUnlessAccessibilitySize(1)
+            if opensMenu {
+                Image(systemName: "chevron.up.chevron.down").font(.caption2.bold())
+            }
+        }
+        .font(.subheadline.weight(opensMenu ? .semibold : .regular))
+        .foregroundStyle(opensMenu ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary))
+        .padding(.horizontal, 11).padding(.vertical, 7)
+        .background(opensMenu ? AnyShapeStyle(.tint.opacity(0.12)) : AnyShapeStyle(Color(.secondarySystemBackground)), in: Capsule())
+        .contentShape(Capsule())
+    }
+}
+
+/// A missing detail, which adds it.
+private struct AddChip: View {
+    let title: String
+
+    var body: some View {
+        Label(title, systemImage: "plus")
+            .font(.subheadline)
+            .foregroundStyle(.tint)
+            .padding(.horizontal, 11).padding(.vertical, 7)
+            .overlay(Capsule().strokeBorder(.tertiary, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])))
+            .contentShape(Capsule())
     }
 }
 
