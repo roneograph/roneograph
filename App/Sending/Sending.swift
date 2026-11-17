@@ -7,7 +7,7 @@ struct MailView: UIViewControllerRepresentable {
     let recipient: String?
     let subject: String
     let attachments: [MailAttachment]
-    let finished: (_ sent: Bool) -> Void
+    let finished: (MFMailComposeResult) -> Void
     @Environment(\.dismiss) private var dismiss
 
     func makeUIViewController(context: Context) -> MFMailComposeViewController {
@@ -24,21 +24,21 @@ struct MailView: UIViewControllerRepresentable {
     func updateUIViewController(_ controller: MFMailComposeViewController, context: Context) {}
 
     func makeCoordinator() -> Coordinator {
-        Coordinator { sent in
-            finished(sent)
+        Coordinator { result in
+            finished(result)
             dismiss()
         }
     }
 
     final class Coordinator: NSObject, MFMailComposeViewControllerDelegate {
-        let finished: (Bool) -> Void
+        let finished: (MFMailComposeResult) -> Void
 
-        init(finished: @escaping (Bool) -> Void) {
+        init(finished: @escaping (MFMailComposeResult) -> Void) {
             self.finished = finished
         }
 
         func mailComposeController(_ controller: MFMailComposeViewController, didFinishWith result: MFMailComposeResult, error: Error?) {
-            finished(result == .sent)
+            finished(result)
         }
     }
 }

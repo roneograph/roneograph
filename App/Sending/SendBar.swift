@@ -21,6 +21,9 @@ struct SendBar<Summary: View>: View {
     @State private var isSaving = false
     @State private var mailUnavailable = false
     @State private var attachingFailed = false
+    /// Set when Mail could not send, told once the mail sheet is gone.
+    @State private var mailFailed = false
+    @State private var showingMailFailure = false
     @State private var folderInsideApp = false
     /// The owner the folder picker and the email question are for.
     @State private var ownerID: UUID?
@@ -70,8 +73,9 @@ struct SendBar<Summary: View>: View {
             Button(scans.count > 1 ? "Delete \(scans.count) Scans" : "Delete Scan", role: .destructive, action: delete)
         }
         .sheet(isPresented: $showingMail, onDismiss: finishMail) {
-            MailView(recipient: mails?.recipient, subject: (mails?.scans ?? []).map(\.scan).mailSubject, attachments: attachments) { sent in
-                if sent { sentBy = .email }
+            MailView(recipient: mails?.recipient, subject: (mails?.scans ?? []).map(\.scan).mailSubject, attachments: attachments) { result in
+                if result == .sent { sentBy = .email }
+                if result == .failed { mailFailed = true }
             }
             .ignoresSafeArea()
         }
@@ -113,6 +117,11 @@ struct SendBar<Summary: View>: View {
         } message: {
             Text("Email needs an account in the Mail app. Share the PDFs to send them with another app.")
         }
+        .alert("The mail was not sent", isPresented: $showingMailFailure) {
+            Button("OK") {}
+        } message: {
+            Text("Try to email the PDFs again.")
+        }
         .alert("The PDFs could not be attached", isPresented: $attachingFailed) {
             Button("OK") {}
         } message: {
@@ -137,6 +146,10 @@ struct SendBar<Summary: View>: View {
         let sent = mails?.closeMail(sent: sentBy != nil) ?? []
         sentBy = nil
         if !sent.isEmpty { finished(Set(sent.map(\.id))) }
+        if mailFailed {
+            mailFailed = false
+            showingMailFailure = true
+        }
         nextMail()
     }
 
