@@ -19,14 +19,14 @@ struct ScanTests {
         #expect(page.analysis.orientation == .right)
     }
 
-    @Test func aPageTurnedClockwiseRendersSideways() async {
+    @Test func aPageTurnedClockwiseRendersSideways() async throws {
         let cleaner = PageCleaner(context: CIContext())
         let flat = SyntheticPage().render()
-        var page = ScanPage(quad: nil, analysis: await cleaner.analyze(flat))
+        var page = ScanPage(quad: nil, analysis: try await cleaner.analyze(flat))
         page.rotate()
         let turned = cleaner.render(flat, analysis: page.analysis, look: page.look)
         #expect(turned.extent.width > turned.extent.height)
-        #expect(await cleaner.analyze(turned).orientation == .left)
+        #expect(try await cleaner.analyze(turned).orientation == .left)
     }
 
     @Test func keepsWhatWasReadAndWhatIsRemembered() throws {

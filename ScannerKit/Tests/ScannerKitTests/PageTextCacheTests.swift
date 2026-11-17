@@ -21,6 +21,14 @@ struct PageTextCacheTests {
         #expect(reads == 3)
     }
 
+    @Test func readsAPageAgainAfterAFailedRead() async throws {
+        struct Failure: Error {}
+        let cache = PageTextCache()
+        let page = ScanPage(quad: nil, analysis: .sample)
+        await #expect(throws: Failure.self) { try await cache.lines(of: page) { throw Failure() } }
+        #expect(try await cache.lines(of: page) { [TextLine(text: "Read", frame: .zero)] }.first?.text == "Read")
+    }
+
     @Test func keepsOnlyTheLatestRevisionOfAPage() async {
         let cache = PageTextCache()
         let original = ScanPage(quad: nil, analysis: .sample)

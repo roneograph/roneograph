@@ -32,11 +32,11 @@ public struct TextReader: Sendable {
 
     public init() {}
 
-    public func lines(in page: CIImage) async -> [TextLine] {
+    public func lines(in page: CIImage) async throws -> [TextLine] {
         let image = page.atOrigin.scaled(by: page.scale(toLongSide: longSide))
         var request = RecognizeTextRequest.page()
         request.automaticallyDetectsLanguage = true
-        let observations = (try? await request.perform(on: image)) ?? []
+        let observations = try await request.perform(on: image)
         return observations.compactMap { observation in
             guard let candidate = observation.topCandidates(1).first else { return nil }
             let box = observation.boundingBox.cgRect

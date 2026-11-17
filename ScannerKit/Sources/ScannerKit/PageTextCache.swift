@@ -7,9 +7,9 @@ public final class PageTextCache: Sendable {
 
     public init() {}
 
-    public func lines(of page: ScanPage, read: () async -> [TextLine]) async -> [TextLine] {
+    public func lines(of page: ScanPage, read: () async throws -> [TextLine]) async rethrows -> [TextLine] {
         if let cached = lines.withLock({ $0[page.id] }), cached.revision == page.revision { return cached.lines }
-        let read = await read()
+        let read = try await read()
         lines.withLock { $0[page.id] = (page.revision, read) }
         return read
     }

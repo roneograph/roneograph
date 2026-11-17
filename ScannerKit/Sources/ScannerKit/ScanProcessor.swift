@@ -53,7 +53,7 @@ public struct ScanProcessor: Sendable {
     /// Cuts the page out of the photo, then saves the flat page and its preview for the page `makePage` builds from the analysis.
     private func flatten(_ photo: CIImage, quad: Quad?, scanID: UUID, makePage: (PageAnalysis) -> ScanPage) async throws -> ScanPage {
         let flat = quad.map { extractor.correct(photo, quad: $0) } ?? photo
-        let page = makePage(await cleaner.analyze(flat))
+        let page = makePage(try await cleaner.analyze(flat))
         guard let data = extractor.jpegData(of: flat, quality: 0.9) else { throw ProcessingError.cannotEncode }
         try data.write(to: store.flatURL(scanID: scanID, pageID: page.id), options: .atomic)
         try writePreview(of: page, scanID: scanID, flat: flat)
@@ -69,9 +69,9 @@ public struct ScanProcessor: Sendable {
     }
 
     /// The details of the document and the words to name it after, from the text of the page; `ownLines` are never taken as the issuer.
-    public func detectDocument(on page: ScanPage, scanID: UUID, ownLines: Set<String> = []) async -> DetectedDocument? {
+    public func detectDocument(on page: ScanPage, scanID: UUID, ownLines: Set<String> = []) async throws -> DetectedDocument? {
         guard let preview = CIImage(contentsOf: store.previewURL(scanID: scanID, pageID: page.id)) else { return nil }
-        return DocumentDetector().detect(lines: await reader.lines(in: preview), ownLines: ownLines, aspectRatio: preview.extent.width / preview.extent.height)
+        return DocumentDetector().detect(lines: try await reader.lines(in: preview), ownLines: ownLines, aspectRatio: preview.extent.width / preview.extent.height)
     }
 
     /// Renders, reads and writes one page after the other, so only one page image is in memory at a time.
@@ -80,7 +80,7 @@ public struct ScanProcessor: Sendable {
         for page in scan.pages {
             guard let flat = CIImage(contentsOf: store.flatURL(scanID: scan.id, pageID: page.id)) else { throw ProcessingError.unreadablePage }
             let image = cleaner.render(flat, analysis: page.analysis, look: page.look)
-            let text = await texts.lines(of: page) { await reader.lines(in: image) }
+            let text = try await texts.lines(of: page) { try await reader.lines(in: image) }
             try document.add(PDFPageContent(image: image, look: page.look, textLineHeight: page.analysis.textLineHeight, text: text))
         }
         return document.close()

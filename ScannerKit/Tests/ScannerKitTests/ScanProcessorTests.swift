@@ -54,12 +54,25 @@ final class ScanProcessorTests {
         #expect(document.string?.contains("The quick brown fox jumps over the lazy dog") == true)
     }
 
+    @Test func readsTheTextOfAPageAgainWhenReadingItFailed() async throws {
+        var scan = Scan(name: "Invoice")
+        let page = ScanPage(quad: nil, analysis: .sample)
+        try FileManager.default.createDirectory(at: store.directory(of: scan.id), withIntermediateDirectories: true)
+        try #require(PageExtractor(context: CIContext()).jpegData(of: SyntheticPage().render(), quality: 0.9)).write(to: store.flatURL(scanID: scan.id, pageID: page.id))
+        scan.pages = [page]
+        let processor = processor, failing = scan
+
+        await #expect(throws: (any Error).self) { try await inCancelledTask { try await processor.pdfData(of: failing) } }
+        let document = try #require(PDFDocument(data: try await processor.pdfData(of: scan)))
+        #expect(document.string?.contains("The quick brown fox jumps over the lazy dog") == true)
+    }
+
     @Test func detectsTheDocumentFromTheTextOfThePreview() async throws {
         let scanID = UUID()
         let page = ScanPage(quad: nil, analysis: .sample)
         try FileManager.default.createDirectory(at: store.directory(of: scanID), withIntermediateDirectories: true)
         try processor.writePreview(of: page, scanID: scanID, flat: SyntheticPage(title: "INVOICE").render())
-        let document = try #require(await processor.detectDocument(on: page, scanID: scanID))
+        let document = try #require(try await processor.detectDocument(on: page, scanID: scanID))
         #expect(document.details.category == .invoice)
         #expect(document.parts.type == "Invoice")
     }

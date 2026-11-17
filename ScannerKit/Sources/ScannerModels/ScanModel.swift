@@ -117,8 +117,8 @@ public final class ScanModel: Identifiable {
     /// Reads the details and names on the first page; what the user corrected for the same issuer before wins over what was read.
     private func suggestNames(from page: ScanPage) async {
         let processor = processor, scanID = scan.id, date = scan.created, ownLines = settings.ownLines
-        guard var document = await Task.detached(priority: .userInitiated, operation: {
-            await processor.detectDocument(on: page, scanID: scanID, ownLines: ownLines)
+        guard var document = try? await Task.detached(priority: .userInitiated, operation: {
+            try await processor.detectDocument(on: page, scanID: scanID, ownLines: ownLines)
         }).value, !isDeleted else { return }
         settings.recordHeaderLines(document.headerLines, issuerEvidence: document.issuerEvidence)
         scan.read = ReadDocument(details: document.details, parts: document.parts)

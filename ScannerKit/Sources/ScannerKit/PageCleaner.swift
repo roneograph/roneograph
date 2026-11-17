@@ -88,9 +88,9 @@ public struct PageCleaner: Sendable {
         self.context = context
     }
 
-    public func analyze(_ page: CIImage) async -> PageAnalysis {
+    public func analyze(_ page: CIImage) async throws -> PageAnalysis {
         let page = page.atOrigin
-        let (orientation, textLineHeight) = await orientationAndTextLineHeight(of: page)
+        let (orientation, textLineHeight) = try await orientationAndTextLineHeight(of: page)
         let upright = page.oriented(orientation.imageOrientation)
         let paper = background(of: upright)
         let normalized = divide(upright, by: paper)
@@ -255,11 +255,11 @@ public struct PageCleaner: Sendable {
 
     /// The accurate recognizer reads text in any orientation; the direction of its lines says how the page is turned,
     /// and their median height, as a share of the page's long side, how big the text is.
-    private func orientationAndTextLineHeight(of page: CIImage) async -> (PageOrientation, Double?) {
+    private func orientationAndTextLineHeight(of page: CIImage) async throws -> (PageOrientation, Double?) {
         let extent = page.extent
         var request = RecognizeTextRequest.page()
         request.usesLanguageCorrection = false
-        let lines = (try? await request.perform(on: page.scaled(by: page.scale(toLongSide: textSize)))) ?? []
+        let lines = try await request.perform(on: page.scaled(by: page.scale(toLongSide: textSize)))
 
         var votes: [PageOrientation: Double] = [:]
         var heights: [Double] = []

@@ -25,14 +25,14 @@ for path in arguments.dropFirst() {
         continue
     }
     let started = Date()
-    let analysis = await cleaner.analyze(page)
+    let analysis = try await cleaner.analyze(page)
     let analyzed = Date()
     let name = url.deletingPathExtension().lastPathComponent
     for look in [nil] + PageLook.allCases.map(Optional.some) {
         let image = cleaner.render(page, analysis: analysis, look: look ?? analysis.suggestedLook)
         if look == nil {
             let reading = Date()
-            let lines = await TextReader().lines(in: image)
+            let lines = try await TextReader().lines(in: image)
             print(String(format: "  text: %d lines, %d characters, %.0f ms", lines.count, lines.reduce(0) { $0 + $1.text.count }, Date().timeIntervalSince(reading) * 1000))
             pdfPages.append(PDFPageContent(image: image, look: analysis.suggestedLook, textLineHeight: analysis.textLineHeight, text: lines))
             let document = DocumentDetector().detect(lines: lines, aspectRatio: image.extent.width / image.extent.height)
