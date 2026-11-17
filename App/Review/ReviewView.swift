@@ -79,53 +79,9 @@ private struct PageGrid: View {
     var body: some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 18, alignment: .top), count: 2), spacing: 16) {
             ForEach(Array(scan.scan.pages.enumerated()), id: \.element.id) { index, page in
-                Button { open(page) } label: {
-                    VStack(spacing: 5) {
-                        Color.clear
-                            .aspectRatio(Paper.a4.aspectRatio, contentMode: .fit)
-                            .overlay {
-                                PageImage(url: scan.previewURL(of: page), revision: page.revision, maximumSize: 600)
-                                    .shadow(color: .black.opacity(0.18), radius: 3, y: 1)
-                            }
-                        HStack(spacing: 3) {
-                            Text("\(index + 1) · \(page.look.title)")
-                            Image(systemName: "chevron.right").font(.caption2.bold())
-                        }
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(.tint)
-                        .padding(.horizontal, 9).padding(.vertical, 3)
-                        .background(.tint.opacity(0.12), in: Capsule())
-                    }
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Page \(index + 1), \(page.look.title)")
-                .accessibilityHint("Changes its look, rotates or crops it")
-                .accessibilityActions {
-                    if index > 0 {
-                        Button("Move Earlier") { move(page, by: -1) }
-                    }
-                    if index < scan.scan.pages.count - 1 {
-                        Button("Move Later") { move(page, by: 1) }
-                    }
-                }
-                .draggable(page.id.uuidString) {
-                    PageImage(url: scan.previewURL(of: page), revision: page.revision, maximumSize: 300).frame(width: 120)
-                }
-                .dropDestination(for: String.self) { items, _ in
-                    guard let id = items.first.flatMap(UUID.init(uuidString:)) else { return false }
-                    withAnimation { scan.movePage(id, to: page.id) }
-                    return true
-                }
-                .contextMenu {
-                    if scan.canDeletePage {
-                        Button("Delete", systemImage: "trash", role: .destructive) { deleting = page.id }
-                    }
-                }
-                .overlay(alignment: .bottomTrailing) {
+                VStack(alignment: .trailing, spacing: 0) {
+                    pageButton(page, number: index + 1)
                     if scan.canDeletePage { deleteButton(page, number: index + 1) }
-                }
-                .confirmationDialog("Delete page \(index + 1)?", isPresented: Binding(get: { deleting == page.id }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible) {
-                    Button("Delete Page", role: .destructive) { withAnimation { scan.deletePage(page.id) } }
                 }
             }
             ForEach(0..<scan.processing, id: \.self) { _ in
@@ -147,6 +103,45 @@ private struct PageGrid: View {
         }
     }
 
+    private func pageButton(_ page: ScanPage, number: Int) -> some View {
+        let pages = scan.scan.pages
+        return Button { open(page) } label: {
+            Color.clear
+                .aspectRatio(Paper.a4.aspectRatio, contentMode: .fit)
+                .overlay {
+                    PageImage(url: scan.previewURL(of: page), revision: page.revision, maximumSize: 600)
+                        .shadow(color: .black.opacity(0.18), radius: 3, y: 1)
+                }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Page \(number), \(page.look.title)")
+        .accessibilityHint("Changes its look, rotates or crops it")
+        .accessibilityActions {
+            if number > 1 {
+                Button("Move Earlier") { move(page, by: -1) }
+            }
+            if number < pages.count {
+                Button("Move Later") { move(page, by: 1) }
+            }
+        }
+        .draggable(page.id.uuidString) {
+            PageImage(url: scan.previewURL(of: page), revision: page.revision, maximumSize: 300).frame(width: 120)
+        }
+        .dropDestination(for: String.self) { items, _ in
+            guard let id = items.first.flatMap(UUID.init(uuidString:)) else { return false }
+            withAnimation { scan.movePage(id, to: page.id) }
+            return true
+        }
+        .contextMenu {
+            if scan.canDeletePage {
+                Button("Delete", systemImage: "trash", role: .destructive) { deleting = page.id }
+            }
+        }
+        .confirmationDialog("Delete page \(number)?", isPresented: Binding(get: { deleting == page.id }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible) {
+            Button("Delete Page", role: .destructive) { withAnimation { scan.deletePage(page.id) } }
+        }
+    }
+
     private func move(_ page: ScanPage, by offset: Int) {
         let pages = scan.scan.pages
         guard let index = pages.firstIndex(where: { $0.id == page.id }), pages.indices.contains(index + offset) else { return }
@@ -160,7 +155,8 @@ private struct PageGrid: View {
             .foregroundStyle(.secondary)
             .frame(width: 44, height: 44)
             .contentShape(Rectangle())
-            .padding(.vertical, -10)
+            .padding(.vertical, -12)
+            .padding(.top, 6)
             .buttonStyle(.plain)
     }
 }
