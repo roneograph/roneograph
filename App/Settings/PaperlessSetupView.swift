@@ -33,7 +33,7 @@ struct PaperlessSetupView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                 } footer: {
-                    Text("The Archive button sends PDFs to this Paperless-ngx server, with their title, date, issuer as correspondent, category as document type and owner in the Owner custom field, each created when missing. The token is in Paperless-ngx, under My Profile › API Auth Token. It stays in the Keychain of this iPhone.")
+                    Text("The token is in Paperless-ngx, under My Profile › API Auth Token. It stays in the Keychain of this iPhone.")
                 }
 
                 Section {

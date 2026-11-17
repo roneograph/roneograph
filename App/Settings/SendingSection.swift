@@ -43,13 +43,13 @@ struct SendingSection: View {
                 folder(current.archiveFolder)
             }
 
-            Toggle(isOn: owner.showsShare) { label(.share) }
+            Toggle(isOn: owner.showsShare) { label(.share, subtitle: "Any app on this iPhone") }
         } header: {
             Text(title)
         } footer: {
             VStack(alignment: .leading, spacing: 4) {
                 if let archiver = app.archiver, current.paperless != nil, !archiver.isConnected(current) {
-                    Text("The Paperless token is no longer on this iPhone. Tap the server to connect again.").foregroundStyle(.red)
+                    Text("The Paperless token is no longer on this iPhone. Tap Archive to Paperless to connect again.").foregroundStyle(.red)
                 }
                 if !current.email.isEmpty, !current.hasValidEmail {
                     Text("This is not a valid email address.").foregroundStyle(.red)
@@ -66,10 +66,10 @@ struct SendingSection: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(method == .paperless ? "Archive to Paperless" : method.title)
                 if let subtitle {
-                    Text(subtitle).font(.footnote).foregroundStyle(.secondary)
+                    Text(subtitle).font(.footnote).foregroundStyle(Color.secondary)
                 }
             }
-            .foregroundStyle(.primary)
+            .foregroundStyle(Color.primary)
         } icon: {
             SendingTile(method: method, isSet: app.isSet(method, for: owner.wrappedValue))
         }
@@ -84,11 +84,11 @@ struct SendingSection: View {
                     Button("Choose Another Folder…", systemImage: "folder") { choosingFolder = true }
                     Button("Forget Folder", systemImage: "folder.badge.minus", role: .destructive) { owner.wrappedValue.archiveFolder = nil }
                 } label: {
-                    LabeledContent("Folder", value: folder.name).foregroundStyle(.primary)
+                    folderLabel(folder.name)
                 }
             } else {
                 Button { choosingFolder = true } label: {
-                    LabeledContent("Folder", value: "Choose…").foregroundStyle(.primary)
+                    folderLabel("Choose…")
                 }
             }
         }
@@ -105,6 +105,14 @@ struct SendingSection: View {
             Button("OK") {}
         } message: {
             if !folderMessage.isEmpty { Text(folderMessage) }
+        }
+    }
+
+    private func folderLabel(_ value: String) -> some View {
+        LabeledContent {
+            Text(value)
+        } label: {
+            Text("Folder").foregroundStyle(Color.primary)
         }
     }
 }
