@@ -93,12 +93,23 @@ public final class ScanModel: Identifiable {
         }
     }
 
+    /// Like `enqueue`, for work on page images, which also waits for the page work of other scans.
+    private func enqueuePageWork(_ work: @escaping @MainActor () async -> Void) {
+        let gate = processor.gate
+        enqueue { [self] in
+            await gate.run {
+                guard !isDeleted else { return }
+                await work()
+            }
+        }
+    }
+
     // MARK: Capture
 
     public func addPhoto(_ data: Data, liveQuad: Quad?) {
         processing += 1
         let processor = processor, scanID = scan.id
-        enqueue { [self] in
+        enqueuePageWork { [self] in
             defer { processing -= 1 }
             do {
                 let page = try await Task.detached(priority: .userInitiated) {
@@ -224,7 +235,7 @@ public final class ScanModel: Identifiable {
     private func update(_ id: UUID, _ change: @escaping @Sendable (ScanPage, ScanProcessor, UUID) async throws -> ScanPage) {
         updating += 1
         let processor = processor, scanID = scan.id
-        enqueue { [self] in
+        enqueuePageWork { [self] in
             defer { updating -= 1 }
             guard let page = scan.pages.first(where: { $0.id == id }) else { return }
             do {

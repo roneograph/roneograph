@@ -11,6 +11,8 @@ public struct ScanProcessor: Sendable {
     private let texts = PageTextCache()
     private let detectionSize: CGFloat = 1600
     private let previewSize: CGFloat = 1200
+    /// Shared by every scan: callers run adding, recropping, previewing and reading a page in it, and the PDF runs each of its pages in it.
+    public let gate = ProcessingGate()
     /// The paper of pages whose size is not clear from their proportions.
     public let paper: Paper
 
@@ -79,11 +81,13 @@ public struct ScanProcessor: Sendable {
     public func pdfData(of scan: Scan) async throws -> Data {
         let document = try writer.document(title: scan.title, defaultPaper: paper)
         for page in scan.pages {
-            try Task.checkCancellation()
-            guard let flat = CIImage(contentsOf: store.flatURL(scanID: scan.id, pageID: page.id)) else { throw ProcessingError.unreadablePage }
-            let image = cleaner.render(flat, analysis: page.analysis, look: page.look)
-            let text = try await texts.lines(of: page) { try await reader.lines(in: image) }
-            try document.add(PDFPageContent(image: image, look: page.look, textLineHeight: page.analysis.textLineHeight, text: text))
+            try await gate.run {
+                try Task.checkCancellation()
+                guard let flat = CIImage(contentsOf: store.flatURL(scanID: scan.id, pageID: page.id)) else { throw ProcessingError.unreadablePage }
+                let image = cleaner.render(flat, analysis: page.analysis, look: page.look)
+                let text = try await texts.lines(of: page) { try await reader.lines(in: image) }
+                try document.add(PDFPageContent(image: image, look: page.look, textLineHeight: page.analysis.textLineHeight, text: text))
+            }
         }
         return document.close()
     }

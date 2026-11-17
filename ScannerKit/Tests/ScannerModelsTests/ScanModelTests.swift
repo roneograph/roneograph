@@ -429,6 +429,32 @@ struct ScanModelTests {
         #expect(!fixture.pdfExists(gas))
     }
 
+    @Test(.timeLimit(.minutes(1)))
+    func pageWorkOfEveryScanWaitsForItsTurn() async throws {
+        let fixture = try Fixture()
+        let edited = await fixture.scanModel(pages: 1)
+        let page = edited.scan.pages[0]
+        let built = await fixture.scanModel(pages: 1)
+        let captured = fixture.scanModel()
+        let release = await fixture.holdGate()
+
+        captured.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
+        edited.rotatePage(page.id)
+        let build = Task { await built.buildPDF(delay: .zero) }
+        try await fixture.waitUntilGateHasWaiting(3)
+        #expect(captured.scan.pages.isEmpty)
+        #expect(edited.scan.pages[0].revision == page.revision)
+        #expect(!fixture.pdfExists(built.scan.fileName))
+
+        await release()
+        await captured.waitUntilIdle()
+        await edited.waitUntilIdle()
+        await build.value
+        #expect(captured.scan.pages.count == 1)
+        #expect(edited.scan.pages[0].revision == page.revision + 1)
+        #expect(built.hasCurrentPDF)
+    }
+
     @Test func editedDetailsRenameTheFileWithACustomFormat() async throws {
         let fixture = try Fixture()
         fixture.settings.value.defaultOwner.fileNameFormat = FileNameFormat(isCustom: true, template: "{CATEGORY}/{YYYY} {ISSUER} {NUMBER}")

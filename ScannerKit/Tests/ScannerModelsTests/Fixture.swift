@@ -1,6 +1,6 @@
 import CoreImage
 import Foundation
-import ScannerKit
+@testable import ScannerKit
 import ScannerKitTesting
 @testable import ScannerModels
 
@@ -51,6 +51,29 @@ final class Fixture {
         await scan.waitUntilIdle()
         app.finishCapture(scan)
         return scan
+    }
+
+    /// Holds the processing gate, so the page work of every scan waits, until the returned closure is called.
+    func holdGate() async -> () async -> Void {
+        let (entered, didEnter) = AsyncStream<Void>.makeStream()
+        let (released, release) = AsyncStream<Void>.makeStream()
+        let gate = processor.gate
+        let holder = Task {
+            await gate.run {
+                didEnter.finish()
+                for await _ in released {}
+            }
+        }
+        for await _ in entered {}
+        return {
+            release.finish()
+            await holder.value
+        }
+    }
+
+    /// Waits until that much work waits for the processing gate.
+    func waitUntilGateHasWaiting(_ count: Int) async throws {
+        while processor.gate.waitingCount < count { try await Task.sleep(for: .milliseconds(1)) }
     }
 
     func pdfExists(_ name: String) -> Bool {
