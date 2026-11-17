@@ -135,6 +135,27 @@ struct AppModelTests {
         #expect(app.scans.map(\.id) == [elsewhere.id, old.id])
     }
 
+    @Test func namesAvoidTheOtherScansAndTheFilesInDocuments() async throws {
+        let fixture = try Fixture()
+        var stored = Scan(name: "Letter")
+        stored.pages = [ScanPage(quad: nil, analysis: .sample)]
+        try fixture.store.save(stored)
+        try Data().write(to: fixture.store.documentsDirectory.appending(path: "Receipt.pdf"))
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+        let first = await fixture.capturedScan(in: app)
+        let second = await fixture.capturedScan(in: app)
+
+        first.rename("Invoice")
+        second.rename("invoice")
+        #expect(second.scan.name == "invoice 2")
+        first.rename("Invoice")
+        #expect(first.scan.name == "Invoice")
+        first.rename("Letter")
+        #expect(first.scan.name == "Letter 2")
+        second.rename("Receipt")
+        #expect(second.scan.name == "Receipt 2")
+    }
+
     @Test func doneOpensReview() async throws {
         let fixture = try Fixture()
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)

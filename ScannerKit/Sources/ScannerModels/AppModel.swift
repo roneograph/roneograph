@@ -212,6 +212,7 @@ public final class AppModel {
         let model = ScanModel(scan: scan, processor: processor, settings: settings, now: now)
         model.didSave = { [weak self] in self?.list($0) }
         model.didDeleteStoredScan = { [weak self] id in self?.scans.removeAll { $0.id == id } }
+        model.otherScans = { [weak self] in self?.scans ?? [] }
         models[scan.id] = model
         return model
     }

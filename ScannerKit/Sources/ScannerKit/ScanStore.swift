@@ -82,10 +82,10 @@ public struct ScanStore: Sendable {
         return (files + pdfs).reduce(0) { $0 + ((try? $1.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0) }
     }
 
-    /// A name whose PDF does not collide with another scan's PDF or any other file: "Invoice", then "Invoice 2", and so on.
+    /// A name whose PDF does not collide with the PDF of another of the scans or any other file: "Invoice", then "Invoice 2", and so on.
     /// Only the file name counts, as all local PDFs share one folder; the folders of the name are kept.
-    public func availableName(_ name: String, for scan: Scan, separator: String = " ") -> String {
-        let taken = Set(all().filter { $0.id != scan.id }.map { $0.fileName.lowercased() })
+    public func availableName(_ name: String, for scan: Scan, among scans: [Scan], separator: String = " ") -> String {
+        let taken = Set(scans.filter { $0.id != scan.id }.map { $0.fileName.lowercased() })
         let folders = name.split(separator: "/").dropLast().map { "\($0)/" }.joined()
         let fileName = Scan(name: name).fileName
         return folders + FileNamer.available(fileName, separator: separator) { candidate in

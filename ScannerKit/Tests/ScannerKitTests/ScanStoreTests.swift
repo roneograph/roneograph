@@ -36,16 +36,16 @@ final class ScanStoreTests {
     }
 
     @Test func picksAnAvailableName() throws {
-        try store.save(Scan(name: "Invoice"))
+        let scans = [Scan(name: "Invoice")]
         try Data().write(to: root.appending(path: "Documents/Receipt.pdf"))
         try Data().write(to: root.appending(path: "Documents/Lumen invoice.pdf"))
         let scan = Scan(name: "Scan")
-        #expect(store.availableName("Lumen invoice", for: scan) == "Lumen invoice 2")
-        #expect(store.availableName("Invoice", for: scan) == "Invoice 2")
-        #expect(store.availableName("invoice", for: scan) == "invoice 2")
-        #expect(store.availableName("Receipt", for: scan) == "Receipt 2")
-        #expect(store.availableName("Letter", for: scan) == "Letter")
-        #expect(store.availableName("Invoice", for: scan, separator: "-") == "Invoice-2")
+        #expect(store.availableName("Lumen invoice", for: scan, among: scans) == "Lumen invoice 2")
+        #expect(store.availableName("Invoice", for: scan, among: scans) == "Invoice 2")
+        #expect(store.availableName("invoice", for: scan, among: scans) == "invoice 2")
+        #expect(store.availableName("Receipt", for: scan, among: scans) == "Receipt 2")
+        #expect(store.availableName("Letter", for: scan, among: scans) == "Letter")
+        #expect(store.availableName("Invoice", for: scan, among: scans, separator: "-") == "Invoice-2")
     }
 
     @Test func handlesNamesAndFoldersWithSpaces() throws {
@@ -53,7 +53,7 @@ final class ScanStoreTests {
         var scan = Scan(name: "Lumen invoice")
         try store.save(scan)
         try Data("%PDF".utf8).write(to: store.pdfURL(of: scan))
-        #expect(store.availableName("Lumen invoice", for: Scan(name: "Other")) == "Lumen invoice 2")
+        #expect(store.availableName("Lumen invoice", for: Scan(name: "Other"), among: [scan]) == "Lumen invoice 2")
         scan.name = "Lumen invoice November"
         store.movePDF(from: "Lumen invoice", to: scan)
         #expect(FileManager.default.fileExists(atPath: store.pdfURL(of: scan).path(percentEncoded: false)))
@@ -64,7 +64,7 @@ final class ScanStoreTests {
         let scan = Scan(name: "Invoice")
         try store.save(scan)
         try Data().write(to: store.pdfURL(of: scan))
-        #expect(store.availableName("Invoice", for: scan) == "Invoice")
+        #expect(store.availableName("Invoice", for: scan, among: [scan]) == "Invoice")
     }
 
     @Test func movesThePDFWhenRenamed() throws {
@@ -99,7 +99,6 @@ final class ScanStoreTests {
     }
 
     @Test func numbersATakenFileNameInsideItsFolders() throws {
-        try store.save(Scan(name: "Receipt/2026 Lumen"))
-        #expect(store.availableName("Invoice/2026 Lumen", for: Scan(name: "Scan")) == "Invoice/2026 Lumen 2")
+        #expect(store.availableName("Invoice/2026 Lumen", for: Scan(name: "Scan"), among: [Scan(name: "Receipt/2026 Lumen")]) == "Invoice/2026 Lumen 2")
     }
 }

@@ -37,6 +37,8 @@ public final class ScanModel: Identifiable {
     var didSave: ((Scan) -> Void)?
     /// Called when the stored scan is deleted because no page is left.
     var didDeleteStoredScan: ((UUID) -> Void)?
+    /// The other scans, whose names this one cannot take.
+    var otherScans: () -> [Scan] = { [] }
     private var queue: Task<Void, Never>?
     private var isDeleted = false
     private let now: @Sendable () -> Date
@@ -386,7 +388,7 @@ public final class ScanModel: Identifiable {
     /// Derives the file name from the name and details, after a change of either.
     public func applyFileName() {
         let old = scan.fileName
-        scan.name = store.availableName(fileName(for: scan.title), for: scan, separator: fileNameFormat.separator.character)
+        scan.name = store.availableName(fileName(for: scan.title), for: scan, among: otherScans(), separator: fileNameFormat.separator.character)
         if !old.isEmpty { store.movePDF(from: old, to: scan) }
         save()
     }

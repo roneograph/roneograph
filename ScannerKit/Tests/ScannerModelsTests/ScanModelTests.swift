@@ -295,8 +295,9 @@ struct ScanModelTests {
     @Test func twoScansWithTheSameNameGetDifferentFiles() async throws {
         let fixture = try Fixture()
         fixture.settings.value.defaultOwner.fileNameFormat = FileNameFormat(separator: .dash)
-        let first = await fixture.scanModel(pages: 1)
-        let second = await fixture.scanModel(pages: 1)
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+        let first = await fixture.capturedScan(in: app)
+        let second = await fixture.capturedScan(in: app)
         first.rename("Invoice")
         second.rename("Invoice")
         #expect(first.scan.name == "Invoice")
