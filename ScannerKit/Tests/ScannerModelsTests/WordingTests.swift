@@ -127,6 +127,7 @@ struct WordingTests {
         #expect(second.summary == "1 page · the PDF could not be made")
         #expect([second].selectionSummary == "1 document · 1 page · the PDF could not be made")
         #expect([first, second].selectionSummary == "2 documents · 2 pages · a PDF could not be made")
+        first.rename("Gas bill")
         await first.buildPDF(delay: .zero)
         #expect([first, second].selectionSummary == "2 documents · 2 pages · 2 PDFs could not be made")
     }

@@ -75,9 +75,11 @@ public struct ScanProcessor: Sendable {
     }
 
     /// Renders, reads and writes one page after the other, so only one page image is in memory at a time.
+    @concurrent
     public func pdfData(of scan: Scan) async throws -> Data {
         let document = try writer.document(title: scan.title, defaultPaper: paper)
         for page in scan.pages {
+            try Task.checkCancellation()
             guard let flat = CIImage(contentsOf: store.flatURL(scanID: scan.id, pageID: page.id)) else { throw ProcessingError.unreadablePage }
             let image = cleaner.render(flat, analysis: page.analysis, look: page.look)
             let text = try await texts.lines(of: page) { try await reader.lines(in: image) }

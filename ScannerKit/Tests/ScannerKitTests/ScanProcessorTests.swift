@@ -67,6 +67,18 @@ final class ScanProcessorTests {
         #expect(document.string?.contains("The quick brown fox jumps over the lazy dog") == true)
     }
 
+    @Test func stopsMakingThePDFWhenCancelled() async throws {
+        var scan = Scan(name: "Invoice")
+        let page = ScanPage(quad: nil, analysis: .sample)
+        try FileManager.default.createDirectory(at: store.directory(of: scan.id), withIntermediateDirectories: true)
+        try #require(PageExtractor(context: CIContext()).jpegData(of: SyntheticPage(lines: 5).render(), quality: 0.9)).write(to: store.flatURL(scanID: scan.id, pageID: page.id))
+        scan.pages = [page]
+        let processor = processor, cancelled = scan
+        _ = try await processor.pdfData(of: scan)
+
+        await #expect(throws: CancellationError.self) { try await inCancelledTask { try await processor.pdfData(of: cancelled) } }
+    }
+
     @Test func detectsTheDocumentFromTheTextOfThePreview() async throws {
         let scanID = UUID()
         let page = ScanPage(quad: nil, analysis: .sample)

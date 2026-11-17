@@ -1,6 +1,7 @@
 import CoreImage
 import Foundation
 import ScannerKit
+import Synchronization
 import ScannerKitTesting
 @testable import ScannerModels
 import Testing
@@ -348,6 +349,84 @@ struct ScanModelTests {
             return
         }
         #expect(url == fixture.store.pdfURL(of: model.scan))
+    }
+
+    @Test func doesNotRebuildACurrentPDF() async throws {
+        let fixture = try Fixture()
+        let model = await fixture.scanModel(pages: 1)
+        await model.buildPDF(delay: .zero)
+        guard case .ready(let url, _) = model.pdf else {
+            Issue.record("PDF not ready: \(model.pdf)")
+            return
+        }
+        try Data("%PDF".utf8).write(to: url)
+        await model.buildPDF(delay: .zero)
+        #expect(try Data(contentsOf: url) == Data("%PDF".utf8))
+    }
+
+    @Test(.timeLimit(.minutes(1)))
+    func cancellingTheCallerStopsTheBuild() async throws {
+        let fixture = try Fixture()
+        let model = await fixture.scanModel(pages: 1)
+        let builds = PDFBuilds()
+        model.makePDFData = { _ in
+            builds.start()
+            try await Task.sleep(for: .seconds(120))
+            return Data("%PDF".utf8)
+        }
+        let caller = Task { await model.buildPDF(delay: .zero) }
+        await builds.waitForStart()
+        caller.cancel()
+        await caller.value
+        #expect(model.pdf != .failed)
+        #expect(!fixture.pdfExists(model.scan.fileName))
+    }
+
+    @Test func keepsABuildThatFinishedAfterItsCallerWasCancelled() async throws {
+        let fixture = try Fixture()
+        let model = await fixture.scanModel(pages: 1)
+        let builds = PDFBuilds()
+        model.makePDFData = { _ in
+            builds.start()
+            await builds.waitForRelease()
+            return Data("%PDF".utf8)
+        }
+        let caller = Task { await model.buildPDF(delay: .zero) }
+        await builds.waitForStart()
+        caller.cancel()
+        builds.release()
+        await caller.value
+        #expect(model.hasCurrentPDF)
+        #expect(fixture.pdfExists(model.scan.fileName))
+    }
+
+    @Test func neverRunsTwoBuildsOfAScanAtOnce() async throws {
+        let fixture = try Fixture()
+        let model = await fixture.scanModel(pages: 1)
+        let builds = PDFBuilds()
+        model.makePDFData = { scan in
+            builds.start()
+            try await Task.sleep(for: .milliseconds(100))
+            builds.finish()
+            return Data("%PDF \(scan.title)".utf8)
+        }
+        async let first: Void = model.buildPDF(delay: .zero)
+        async let second: Void = model.buildPDF(delay: .zero)
+        _ = await (first, second)
+        #expect(builds.count == 1)
+
+        model.rename("Gas bill")
+        let gas = model.scan.fileName
+        let stale = Task { await model.buildPDF(delay: .zero) }
+        await builds.waitForStart(of: 2)
+        model.rename("Water bill")
+        await model.buildPDF(delay: .zero)
+        await stale.value
+        #expect(builds.count == 3)
+        #expect(builds.mostAtOnce == 1)
+        #expect(model.hasCurrentPDF)
+        #expect(try Data(contentsOf: fixture.store.pdfURL(of: model.scan)) == Data("%PDF Water bill".utf8))
+        #expect(!fixture.pdfExists(gas))
     }
 
     @Test func editedDetailsRenameTheFileWithACustomFormat() async throws {
@@ -716,5 +795,71 @@ struct ScanModelTests {
         model.applyName("Mine", shownName: read)
         #expect(model.scan.title == "Mine")
         #expect(model.scan.isNamedByUser)
+    }
+}
+
+/// Follows the PDF builds of a scan model, and holds them until released.
+private final class PDFBuilds: Sendable {
+    private struct State {
+        var count = 0
+        var running = 0
+        var mostAtOnce = 0
+        var started: [CheckedContinuation<Void, Never>] = []
+        var isReleased = false
+        var released: [CheckedContinuation<Void, Never>] = []
+    }
+
+    private let state = Mutex(State())
+
+    var count: Int { state.withLock(\.count) }
+    var mostAtOnce: Int { state.withLock(\.mostAtOnce) }
+
+    func start() {
+        let waiting = state.withLock { state in
+            state.count += 1
+            state.running += 1
+            state.mostAtOnce = max(state.mostAtOnce, state.running)
+            defer { state.started = [] }
+            return state.started
+        }
+        waiting.forEach { $0.resume() }
+    }
+
+    func finish() {
+        state.withLock { $0.running -= 1 }
+    }
+
+    /// Waits until that many builds started.
+    func waitForStart(of count: Int = 1) async {
+        while state.withLock({ $0.count < count }) {
+            await withCheckedContinuation { continuation in
+                let started = state.withLock { state in
+                    if state.count >= count { return true }
+                    state.started.append(continuation)
+                    return false
+                }
+                if started { continuation.resume() }
+            }
+        }
+    }
+
+    func release() {
+        let waiting = state.withLock { state in
+            state.isReleased = true
+            defer { state.released = [] }
+            return state.released
+        }
+        waiting.forEach { $0.resume() }
+    }
+
+    func waitForRelease() async {
+        await withCheckedContinuation { continuation in
+            let released = state.withLock { state in
+                if state.isReleased { return true }
+                state.released.append(continuation)
+                return false
+            }
+            if released { continuation.resume() }
+        }
     }
 }

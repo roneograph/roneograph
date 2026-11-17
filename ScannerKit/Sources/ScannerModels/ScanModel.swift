@@ -26,6 +26,10 @@ public final class ScanModel: Identifiable {
     public private(set) var pdf = PDFState.idle
     /// What the ready PDF was made from, to tell whether it is still current.
     private var pdfMadeFrom: PDFInputs?
+    /// The PDF being made; another build waits for it, so two never run at once.
+    private var pdfBuild: Task<Void, Never>?
+    /// Replaced in tests, to hold or count builds.
+    var makePDFData: @concurrent @Sendable (Scan) async throws -> Data
     public private(set) var failure: String?
     private let processor: ScanProcessor
     private let settings: SettingsStore
@@ -43,6 +47,7 @@ public final class ScanModel: Identifiable {
         self.processor = processor
         self.settings = settings
         self.now = now
+        makePDFData = { scan in try await processor.pdfData(of: scan) }
     }
 
     private var store: ScanStore { processor.store }
@@ -357,25 +362,44 @@ public final class ScanModel: Identifiable {
         applyFileName()
     }
 
+    /// Makes the PDF unless it is current, after the build in progress; cancelling the caller stops the build at the next page.
     public func buildPDF(delay: Duration = .milliseconds(200)) async {
         guard !scan.pages.isEmpty else {
             pdf = .idle
             return
         }
+        guard !hasCurrentPDFOnDisk else { return }
         pdf = .building
         try? await Task.sleep(for: delay)
-        guard !Task.isCancelled else { return }
-        let processor = processor, scan = scan, inputs = pdfInputs
+        while let running = pdfBuild {
+            await running.value
+            if pdfBuild == running { pdfBuild = nil }
+        }
+        guard !Task.isCancelled, !hasCurrentPDFOnDisk else { return }
+        let build = Task { await makePDF() }
+        pdfBuild = build
+        await withTaskCancellationHandler { await build.value } onCancel: { build.cancel() }
+        if pdfBuild == build { pdfBuild = nil }
+    }
+
+    /// Keeps the PDF only while the scan is still as it was made from, even when the build was cancelled after its last page.
+    private func makePDF() async {
+        let makePDFData = makePDFData, scan = scan, inputs = pdfInputs, url = store.pdfURL(of: scan)
         do {
-            let data = try await Task.detached(priority: .userInitiated) { try await processor.pdfData(of: scan) }.value
-            guard !Task.isCancelled, !isDeleted else { return }
-            let url = store.pdfURL(of: scan)
-            try data.write(to: url, options: .atomic)
+            let data = try await makePDFData(scan)
+            guard !isDeleted, pdfInputs == inputs else { return }
+            try await Self.write(data, to: url)
+            guard !isDeleted, pdfInputs == inputs else { return }
             pdf = .ready(url: url, size: data.count)
             pdfMadeFrom = inputs
         } catch {
-            pdf = .failed
+            if !Task.isCancelled { pdf = .failed }
         }
+    }
+
+    @concurrent
+    private static func write(_ data: Data, to url: URL) async throws {
+        try data.write(to: url, options: .atomic)
     }
 
     /// Whether the PDF is made, from the pages and name as they are now.
@@ -383,16 +407,22 @@ public final class ScanModel: Identifiable {
         if case .ready = pdf { !isBusy && pdfMadeFrom == pdfInputs } else { false }
     }
 
-    /// Makes the PDF, unless the one already made is still current and still there, as Files can delete or rename it; called before sending.
+    /// Whether the current PDF is still there, as Files can delete or rename it.
+    private var hasCurrentPDFOnDisk: Bool {
+        guard hasCurrentPDF, case .ready(let url, _) = pdf else { return false }
+        return FileManager.default.fileExists(atPath: url.path(percentEncoded: false))
+    }
+
+    /// Makes the PDF once every page and edit is done, unless the one already made is current; called before sending.
     public func preparePDF() async {
         await waitUntilIdle()
-        if hasCurrentPDF, case .ready(let url, _) = pdf, FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) { return }
         await buildPDF(delay: .zero)
     }
 
     /// Deletes the scan; pages still being processed are dropped when they finish, then their files are deleted too.
     public func delete() {
         isDeleted = true
+        pdfBuild?.cancel()
         store.delete(scan)
         let store = store, scan = scan, previous = queue
         queue = Task {
