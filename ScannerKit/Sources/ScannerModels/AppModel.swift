@@ -115,20 +115,28 @@ public final class AppModel {
     }
 
     /// Copies each PDF to the folder of its owner, in order, up to the first that cannot be saved, and confirms the ones saved like any other sending.
-    public func saveToArchive(_ models: [ScanModel]) throws {
+    /// The copies run off the main actor, as a folder in iCloud Drive or another provider can take long to reach.
+    public func saveToArchive(_ models: [ScanModel]) async throws {
         var saved: [ScanModel] = []
         defer { didSend(saved, by: .files) }
         for model in models {
-            var owner = model.owner
-            guard var folder = owner.archiveFolder, case .ready(let url, _) = model.pdf else { throw ArchiveError(saved: saved.map(\.id)) }
+            let owner = model.owner
+            guard let folder = owner.archiveFolder, case .ready(let url, _) = model.pdf else { throw ArchiveError(saved: saved.map(\.id)) }
+            let name = model.scan.name, separator = owner.fileNameFormat.separator.character
+            let refreshed: ArchiveFolder
             do {
-                try folder.save(url, as: model.scan.name, separator: owner.fileNameFormat.separator.character)
+                refreshed = try await Task.detached(priority: .userInitiated) {
+                    var folder = folder
+                    try folder.save(url, as: name, separator: separator)
+                    return folder
+                }.value
             } catch {
                 throw ArchiveError(saved: saved.map(\.id))
             }
-            if folder != owner.archiveFolder {
-                owner.archiveFolder = folder
-                settings.value.updateOwner(owner)
+            var current = settings.value.owner(owner.id)
+            if refreshed != folder, current.archiveFolder == folder {
+                current.archiveFolder = refreshed
+                settings.value.updateOwner(current)
             }
             saved.append(model)
         }

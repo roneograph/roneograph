@@ -18,6 +18,7 @@ struct SendBar<Summary: View>: View {
     @State private var confirmingDelete = false
     @State private var choosingFolder = false
     @State private var savingFailed = false
+    @State private var isSaving = false
     @State private var mailUnavailable = false
     @State private var attachingFailed = false
     @State private var folderInsideApp = false
@@ -42,7 +43,7 @@ struct SendBar<Summary: View>: View {
                     .disabled(!isReady)
                 Button("Save to Files", systemImage: "folder", action: saveToFiles)
                     .buttonStyle(.glass)
-                    .disabled(!isReady)
+                    .disabled(!isReady || isSaving)
                 Button("Share", systemImage: "square.and.arrow.up", action: share)
                     .buttonStyle(.glass)
                     .disabled(!isReady)
@@ -146,10 +147,12 @@ struct SendBar<Summary: View>: View {
             choosingFolder = true
             return
         }
+        isSaving = true
         Task {
+            defer { isSaving = false }
             guard await preparePDFs(scans) else { return }
             do {
-                try app.saveToArchive(scans)
+                try await app.saveToArchive(scans)
                 finished(Set(scans.map(\.id)))
             } catch {
                 let saved = (error as? AppModel.ArchiveError)?.saved ?? []

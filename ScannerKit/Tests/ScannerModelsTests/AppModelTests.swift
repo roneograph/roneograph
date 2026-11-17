@@ -116,10 +116,38 @@ struct AppModelTests {
         let scan = await fixture.capturedScan(in: app)
         await scan.buildPDF(delay: .zero)
 
-        try app.saveToArchive([scan])
+        try await app.saveToArchive([scan])
         #expect(FileManager.default.fileExists(atPath: folder.appending(path: "\(scan.scan.name).pdf").path(percentEncoded: false)))
         #expect(app.toast == "Saved to Paperwork")
         #expect(app.scans.first?.sent?.method == .files)
+    }
+
+    @Test func savesToTheArchiveFolderWithoutBlockingTheMainActor() async throws {
+        let fixture = try Fixture()
+        let folder = fixture.root.appending(path: "Paperwork", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try fixture.settings.chooseArchiveFolder(folder, for: nil)
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+        let scan = await fixture.capturedScan(in: app)
+        await scan.preparePDF()
+        let done = DispatchSemaphore(value: 0)
+        await withCheckedContinuation { busy in
+            Thread {
+                NSFileCoordinator().coordinate(writingItemAt: folder, options: [], error: nil) { _ in
+                    busy.resume()
+                    _ = done.wait(timeout: .now() + 2)
+                }
+            }.start()
+        }
+
+        let saving = Task { try await app.saveToArchive([scan]) }
+        let start = ContinuousClock.now
+        try await Task.sleep(for: .milliseconds(50))
+        let waited = ContinuousClock.now - start
+        done.signal()
+        try await saving.value
+        #expect(waited < .seconds(1))
+        #expect(FileManager.default.fileExists(atPath: folder.appending(path: "\(scan.scan.name).pdf").path(percentEncoded: false)))
     }
 
     @Test func savesIntoTheFoldersOfACustomFormat() async throws {
@@ -133,7 +161,7 @@ struct AppModelTests {
         scan.setDetails(DocumentDetails(category: .payslip, issuer: "Acme"))
         await scan.buildPDF(delay: .zero)
 
-        try app.saveToArchive([scan])
+        try await app.saveToArchive([scan])
         #expect(FileManager.default.fileExists(atPath: folder.appending(path: "Payslip/Acme.pdf").path(percentEncoded: false)))
         #expect(fixture.pdfExists("Acme"))
     }
@@ -144,7 +172,7 @@ struct AppModelTests {
         let scan = await fixture.capturedScan(in: app)
         await scan.buildPDF(delay: .zero)
 
-        #expect(throws: AppModel.ArchiveError.self) { try app.saveToArchive([scan]) }
+        await #expect(throws: AppModel.ArchiveError.self) { try await app.saveToArchive([scan]) }
         #expect(scan.scan.sent == nil)
     }
 
@@ -187,7 +215,7 @@ struct AppModelTests {
         await first.preparePDF()
         await second.preparePDF()
 
-        try app.saveToArchive([first, second])
+        try await app.saveToArchive([first, second])
         let saved = try FileManager.default.contentsOfDirectory(atPath: folder.path(percentEncoded: false)).sorted()
         #expect(saved == ["\(first.scan.name).pdf", "\(second.scan.name).pdf"].sorted())
         #expect(app.toast == "2 scans saved to Paperwork")
@@ -203,7 +231,7 @@ struct AppModelTests {
         let notReady = await fixture.capturedScan(in: app)
         await ready.preparePDF()
 
-        let error = #expect(throws: AppModel.ArchiveError.self) { try app.saveToArchive([ready, notReady]) }
+        let error = await #expect(throws: AppModel.ArchiveError.self) { try await app.saveToArchive([ready, notReady]) }
         #expect(error?.saved == [ready.id])
         #expect(ready.scan.sent?.method == .files)
         #expect(notReady.scan.sent == nil)
@@ -229,7 +257,7 @@ struct AppModelTests {
         try fixture.settings.chooseArchiveFolder(company, for: holding.id)
         #expect(app.ownerWithoutFolder(among: [mine, theirs]) == nil)
 
-        try app.saveToArchive([mine, theirs])
+        try await app.saveToArchive([mine, theirs])
         #expect(try FileManager.default.contentsOfDirectory(atPath: personal.path(percentEncoded: false)) == ["\(mine.scan.name).pdf"])
         #expect(try FileManager.default.contentsOfDirectory(atPath: company.path(percentEncoded: false)) == ["Office power.pdf"])
         #expect(app.toast == "2 scans saved to Files")
