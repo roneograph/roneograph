@@ -113,6 +113,38 @@ struct CropView: View {
                     dragStart = nil
                 })
             .accessibilityLabel(Self.name(of: handle))
+            .accessibilityValue(Self.place(of: editor.position(of: handle, in: quad)))
+            .accessibilityActions {
+                if Self.moves(handle, horizontally: false) {
+                    Button("Move Up") { nudge(handle, dx: 0, dy: -nudgeStep) }
+                    Button("Move Down") { nudge(handle, dx: 0, dy: nudgeStep) }
+                }
+                if Self.moves(handle, horizontally: true) {
+                    Button("Move Left") { nudge(handle, dx: -nudgeStep, dy: 0) }
+                    Button("Move Right") { nudge(handle, dx: nudgeStep, dy: 0) }
+                }
+            }
+    }
+
+    /// How far a VoiceOver action moves a handle, as a share of the photo.
+    private let nudgeStep: CGFloat = 0.01
+
+    /// Without snapping, which would pull a corner back onto the target it is moved away from.
+    private func nudge(_ handle: QuadEditor.Handle, dx: CGFloat, dy: CGFloat) {
+        let position = editor.position(of: handle, in: quad)
+        quad = editor.moving(handle, in: quad, to: CGPoint(x: position.x + dx, y: position.y + dy))
+    }
+
+    /// Corners move both ways; a side only moves across itself.
+    private static func moves(_ handle: QuadEditor.Handle, horizontally: Bool) -> Bool {
+        switch handle {
+        case .corner: true
+        case .side(let i): (i % 2 == 1) == horizontally
+        }
+    }
+
+    private static func place(of point: CGPoint) -> String {
+        "\(Int((point.x * 100).rounded()))% from the left, \(Int((point.y * 100).rounded()))% from the top"
     }
 
     /// Corners snap to where the page was found, and to the corners of the photo.

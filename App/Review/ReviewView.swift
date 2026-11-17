@@ -84,6 +84,14 @@ private struct PageGrid: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Page \(index + 1), \(page.look.title)")
                 .accessibilityHint("Changes its look, rotates or crops it")
+                .accessibilityActions {
+                    if index > 0 {
+                        Button("Move Earlier") { move(page, by: -1) }
+                    }
+                    if index < scan.scan.pages.count - 1 {
+                        Button("Move Later") { move(page, by: 1) }
+                    }
+                }
                 .draggable(page.id.uuidString) {
                     PageImage(url: scan.previewURL(of: page), revision: page.revision, maximumSize: 300).frame(width: 120)
                 }
@@ -120,6 +128,12 @@ private struct PageGrid: View {
             .buttonStyle(.plain)
             .foregroundStyle(.tint)
         }
+    }
+
+    private func move(_ page: ScanPage, by offset: Int) {
+        let pages = scan.scan.pages
+        guard let index = pages.firstIndex(where: { $0.id == page.id }), pages.indices.contains(index + offset) else { return }
+        withAnimation { scan.movePage(page.id, to: pages[index + offset].id) }
     }
 
     private func deleteButton(_ page: ScanPage, number: Int) -> some View {
