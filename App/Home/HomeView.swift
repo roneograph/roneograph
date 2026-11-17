@@ -244,7 +244,8 @@ private struct SendSetupCard: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.borderless)
-            .padding(-12)
+            .padding(.vertical, -12)
+            .padding(.horizontal, -16)
         }
     }
 }
