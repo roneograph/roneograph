@@ -365,6 +365,25 @@ struct AppModelTests {
         #expect(app.toast == "Saved to Paperwork")
     }
 
+    @Test func tellsWhenSavingToTheFolderFailedAsTheStorageIsFull() async throws {
+        let fixture = try Fixture()
+        let folder = fixture.root.appending(path: "Paperwork", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try fixture.settings.chooseArchiveFolder(folder, for: nil)
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+        let scan = await fixture.capturedScan(in: app)
+        await scan.preparePDF()
+
+        app.saveToFolder = { _, _, _, _ in throw CocoaError(.fileWriteOutOfSpace) }
+        let full = await #expect(throws: AppModel.ArchiveError.self) { try await app.saveToArchive([scan]) }
+        #expect(full?.isStorageFull == true)
+
+        app.saveToFolder = { _, _, _, _ in throw ArchiveFolder.SaveError.unavailable }
+        let unreachable = await #expect(throws: AppModel.ArchiveError.self) { try await app.saveToArchive([scan]) }
+        #expect(unreachable?.isStorageFull == false)
+        #expect(scan.scan.sent == nil)
+    }
+
     @Test func savesEachScanToTheFolderOfItsOwner() async throws {
         let fixture = try Fixture()
         let personal = fixture.root.appending(path: "Personal", directoryHint: .isDirectory)

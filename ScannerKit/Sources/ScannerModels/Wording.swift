@@ -137,7 +137,11 @@ extension ScanModel {
         guard count > 0 else { return "No pages" }
         let pages = count.counted("page")
         if let size = [self].currentPDFSize { return "\(pages) · \(size.fileSize)" }
-        return pdf == .failed ? "\(pages) · the PDF could not be made" : "\(pages) · preparing the PDF…"
+        return switch pdf {
+        case .failed: "\(pages) · the PDF could not be made"
+        case .storageFull: "\(pages) · the iPhone storage is full"
+        default: "\(pages) · preparing the PDF…"
+        }
     }
 }
 
@@ -147,9 +151,10 @@ extension Collection<ScanModel> {
     public var selectionSummary: String {
         guard !isEmpty else { return "Select the scans to send" }
         let pages = reduce(0) { $0 + $1.scan.pages.count }.counted("page")
-        let failed = filter { $0.pdf == .failed }.count
+        let failed = filter { $0.pdf == .failed || $0.pdf == .storageFull }.count
         let state = switch failed {
         case 0: currentPDFSize?.fileSize ?? "preparing the PDFs…"
+        case _ where contains(where: { $0.pdf == .storageFull }): "the iPhone storage is full"
         case 1: count == 1 ? "the PDF could not be made" : "a PDF could not be made"
         default: "\(failed) PDFs could not be made"
         }

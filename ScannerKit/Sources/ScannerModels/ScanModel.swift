@@ -6,7 +6,7 @@ import ScannerKit
 @MainActor @Observable
 public final class ScanModel: Identifiable {
     public enum PDFState: Equatable {
-        case idle, building, failed
+        case idle, building, failed, storageFull
         case ready(url: URL, size: Int)
     }
 
@@ -30,6 +30,8 @@ public final class ScanModel: Identifiable {
     @ObservationIgnored var makePDFData: @concurrent @Sendable (Scan) async throws -> Data
     /// Replaced in tests, to fail reading the page.
     @ObservationIgnored var readDocument: @concurrent @Sendable (ScanPage, UUID, Set<String>) async throws -> DetectedDocument?
+    /// Replaced in tests, to fail saving.
+    @ObservationIgnored var saveScan: (Scan) throws -> Void
     public private(set) var failure: String?
     private let processor: ScanProcessor
     private let settings: SettingsStore
@@ -53,6 +55,7 @@ public final class ScanModel: Identifiable {
         self.now = now
         makePDFData = { scan in try await processor.pdfData(of: scan) }
         readDocument = { page, scanID, ownLines in try await processor.detectDocument(on: page, scanID: scanID, ownLines: ownLines) }
+        saveScan = { [store = processor.store] in try store.save($0) }
         for page in scan.pending { process(page) }
     }
 
@@ -121,7 +124,7 @@ public final class ScanModel: Identifiable {
         do {
             try store.savePhoto(data, scanID: scan.id, pageID: pending.id)
         } catch {
-            failure = "A page could not be processed."
+            fail("A page could not be processed", because: error)
             return
         }
         scan.pending.append(pending)
@@ -155,7 +158,7 @@ public final class ScanModel: Identifiable {
                 } else {
                     save()
                 }
-                failure = "A page could not be processed."
+                fail("A page could not be processed", because: error)
             }
         }
     }
@@ -292,7 +295,7 @@ public final class ScanModel: Identifiable {
                 scan.pages[index] = changed
                 if save(), changed.crop != replaced.crop { try? FileManager.default.removeItem(at: store.flatURL(scanID: scanID, page: replaced)) }
             } catch {
-                failure = "The page could not be changed."
+                fail("The page could not be changed", because: error)
             }
         }
     }
@@ -455,7 +458,7 @@ public final class ScanModel: Identifiable {
             pdf = .ready(url: url, size: data.count)
             pdfMadeFrom = inputs
         } catch {
-            if !Task.isCancelled { pdf = .failed }
+            if !Task.isCancelled { pdf = error.isStorageFull ? .storageFull : .failed }
         }
     }
 
@@ -512,12 +515,17 @@ public final class ScanModel: Identifiable {
     private func save() -> Bool {
         guard !isEmpty, !isDeleted else { return false }
         do {
-            try store.save(scan)
+            try saveScan(scan)
             didSave?(scan)
             return true
         } catch {
-            failure = "The scan could not be saved."
+            fail("The scan could not be saved", because: error)
             return false
         }
+    }
+
+    /// Says when the iPhone storage is full, as freeing space is then what helps.
+    private func fail(_ message: String, because error: any Error) {
+        failure = error.isStorageFull ? "\(message): the iPhone storage is full." : "\(message)."
     }
 }

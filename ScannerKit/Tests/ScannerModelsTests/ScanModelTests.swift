@@ -145,6 +145,36 @@ struct ScanModelTests {
         #expect(fixture.store.all().first?.pages == model.scan.pages)
     }
 
+    @Test func tellsWritesThatFailedForLackOfSpace() {
+        #expect(CocoaError(.fileWriteOutOfSpace).isStorageFull)
+        #expect(POSIXError(.ENOSPC).isStorageFull)
+        #expect(NSError(domain: NSCocoaErrorDomain, code: NSFileWriteUnknownError, userInfo: [NSUnderlyingErrorKey: POSIXError(.ENOSPC)]).isStorageFull)
+        #expect(!CocoaError(.fileWriteNoPermission).isStorageFull)
+        #expect(!POSIXError(.EACCES).isStorageFull)
+    }
+
+    @Test func saysWhenTheScanCouldNotBeSavedAsTheStorageIsFull() async throws {
+        let fixture = try Fixture()
+        let model = await fixture.scanModel(pages: 1)
+        model.saveScan = { _ in throw CocoaError(.fileWriteOutOfSpace) }
+        model.rename("Water bill")
+        #expect(model.failure == "The scan could not be saved: the iPhone storage is full.")
+
+        model.saveScan = { _ in throw CocoaError(.fileWriteNoPermission) }
+        model.rename("Gas bill")
+        #expect(model.failure == "The scan could not be saved.")
+    }
+
+    @Test func saysWhenThePDFCouldNotBeMadeAsTheStorageIsFull() async throws {
+        let fixture = try Fixture()
+        let model = await fixture.scanModel(pages: 1)
+        model.makePDFData = { _ in throw POSIXError(.ENOSPC) }
+        await model.buildPDF(delay: .zero)
+        #expect(model.pdf == .storageFull)
+        #expect(model.summary == "1 page · the iPhone storage is full")
+        #expect([model].selectionSummary == "1 document · 1 page · the iPhone storage is full")
+    }
+
     @Test func deletingTheLastPageLeavesNothingBehind() async throws {
         let fixture = try Fixture()
         let model = await fixture.scanModel(pages: 1)

@@ -16,6 +16,12 @@ public final class AppModel {
     private let now: @Sendable () -> Date
     @ObservationIgnored private var models: [UUID: ScanModel] = [:]
     @ObservationIgnored private var toastTask: Task<Void, Never>?
+    /// Replaced in tests, to fail saving to the folder.
+    @ObservationIgnored var saveToFolder: @Sendable (ArchiveFolder, URL, String, String) throws -> ArchiveFolder = { folder, file, name, separator in
+        var folder = folder
+        try folder.save(file, as: name, separator: separator)
+        return folder
+    }
 
     public init(processor: ScanProcessor, settings: SettingsStore, now: @escaping @Sendable () -> Date = Date.init) {
         self.processor = processor
@@ -126,6 +132,7 @@ public final class AppModel {
     /// A PDF could not be saved; `saved` lists the scans saved before it.
     public struct ArchiveError: Error {
         public let saved: [UUID]
+        public var isStorageFull = false
     }
 
     /// Copies each PDF to the folder of its owner, in order, up to the first that cannot be saved, and confirms the ones saved like any other sending.
@@ -139,13 +146,12 @@ public final class AppModel {
             let name = model.scan.name, separator = owner.fileNameFormat.separator.character
             let refreshed: ArchiveFolder
             do {
+                let saveToFolder = saveToFolder
                 refreshed = try await Task.detached(priority: .userInitiated) {
-                    var folder = folder
-                    try folder.save(url, as: name, separator: separator)
-                    return folder
+                    try saveToFolder(folder, url, name, separator)
                 }.value
             } catch {
-                throw ArchiveError(saved: saved.map(\.id))
+                throw ArchiveError(saved: saved.map(\.id), isStorageFull: error.isStorageFull)
             }
             var current = settings.value.owner(owner.id)
             if refreshed != folder, current.archiveFolder == folder {

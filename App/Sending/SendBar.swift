@@ -18,6 +18,7 @@ struct SendBar<Summary: View>: View {
     @State private var confirmingDelete = false
     @State private var choosingFolder = false
     @State private var savingFailed = false
+    @State private var storageFull = false
     @State private var isSaving = false
     @State private var mailUnavailable = false
     @State private var attachingFailed = false
@@ -133,6 +134,11 @@ struct SendBar<Summary: View>: View {
         } message: {
             Text("Choose the folder for saved PDFs again.")
         }
+        .alert("The iPhone storage is full", isPresented: $storageFull) {
+            Button("OK") {}
+        } message: {
+            Text("Free up space, then save the PDFs again.")
+        }
     }
 
     private func finishSharing() {
@@ -168,10 +174,11 @@ struct SendBar<Summary: View>: View {
                 try await app.saveToArchive(scans)
                 finished(Set(scans.map(\.id)))
             } catch {
-                let saved = (error as? AppModel.ArchiveError)?.saved ?? []
+                let error = error as? AppModel.ArchiveError
+                let saved = error?.saved ?? []
                 if !saved.isEmpty { finished(Set(saved)) }
                 ownerID = scans.first { !saved.contains($0.id) }?.owner.id
-                savingFailed = true
+                if error?.isStorageFull == true { storageFull = true } else { savingFailed = true }
             }
         }
     }
