@@ -17,8 +17,9 @@ public struct TextLine: Equatable, Sendable {
 
 extension RecognizeTextRequest {
     /// The accurate recognizer, reading text of any size: the default skips text smaller than 1/32 of the image and measures lines coarsely.
+    /// The revision is pinned, as the confidence thresholds of DocumentDetector were tuned on it.
     static func page() -> Self {
-        var request = RecognizeTextRequest()
+        var request = RecognizeTextRequest(.revision3)
         request.recognitionLevel = .accurate
         request.minimumTextHeightFraction = 0
         return request

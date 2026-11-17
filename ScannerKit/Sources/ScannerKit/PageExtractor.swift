@@ -63,10 +63,10 @@ public struct PageExtractor: @unchecked Sendable {
     }
 
     private func detect(with handler: ImageRequestHandler) async -> Quad? {
-        if let page = try? await handler.perform(DetectDocumentSegmentationRequest()), page.confidence >= 0.5 {
+        if let page = try? await handler.perform(DetectDocumentSegmentationRequest(.revision1)), page.confidence >= 0.5 {
             return Quad(page)
         }
-        var rectangles = DetectRectanglesRequest()
+        var rectangles = DetectRectanglesRequest(.revision1)
         rectangles.maximumObservations = 1
         rectangles.minimumAspectRatio = 0.2
         rectangles.maximumAspectRatio = 1
