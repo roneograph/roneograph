@@ -57,7 +57,7 @@ final class SendBarUITests: XCTestCase {
         roneograph.tap(app.buttons["Set Up"])
         let sheet = app.navigationBars["Sending for Me"]
         XCTAssertTrue(sheet.waitForExistence(timeout: Roneograph.timeout), "Sending for Me did not open")
-        let email = app.textFields["Email"]
+        let email = app.textFields.matching(NSPredicate(format: "placeholderValue == %@", "you@example.com")).firstMatch
         XCTAssertTrue(email.waitForExistence(timeout: Roneograph.timeout))
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: Roneograph.timeout), "The keyboard is not up")
         XCTAssertEqual(email.value(forKey: "hasKeyboardFocus") as? Bool, true, "The Email field has no focus")
