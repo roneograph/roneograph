@@ -81,8 +81,8 @@ struct SettingsView: View {
                     Text("Scans on this iPhone")
                 } footer: {
                     Text(settings.value.keepScans == .forever
-                        ? "Scans stay until you delete them. PDFs already saved to Files or sent stay where they are."
-                        : "Scans are deleted after this time, sent or not. PDFs already saved to Files or sent stay where they are.")
+                        ? "Scans stay until you delete them. PDFs saved with Save to Files or sent stay where they are."
+                        : "Scans are deleted after this time, sent or not. PDFs saved with Save to Files or sent stay where they are.")
                 }
                 .confirmationDialog("Delete \(app.scans.count == 1 ? "the scan" : "all \(app.scans.count) scans")?", isPresented: $deletingScans, titleVisibility: .visible) {
                     Button("Delete All Scans", role: .destructive) {
@@ -90,7 +90,7 @@ struct SettingsView: View {
                         storedBytes = app.store.byteCount()
                     }
                 } message: {
-                    Text("Their pages and PDFs are deleted from this iPhone. PDFs you saved to Files or sent are not affected.")
+                    Text("Their pages and PDFs are deleted from this iPhone. PDFs saved with Save to Files or sent are not affected.")
                 }
 
                 Section {
