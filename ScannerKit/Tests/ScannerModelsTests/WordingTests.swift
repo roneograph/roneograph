@@ -106,6 +106,15 @@ struct WordingTests {
     }
 
     @MainActor
+    @Test func saysThereAreNoPagesOnceTheLastOneIsDeleted() async throws {
+        let fixture = try Fixture()
+        let model = await fixture.scanModel(pages: 1)
+        model.deletePage(model.scan.pages[0].id)
+        await model.waitUntilIdle()
+        #expect(model.summary == "No pages")
+    }
+
+    @MainActor
     @Test func saysWhenAPDFCouldNotBeMade() async throws {
         let fixture = try Fixture()
         let first = await fixture.scanModel(pages: 1)

@@ -133,7 +133,9 @@ extension Int {
 extension ScanModel {
     /// Under the send buttons in Review: "3 pages · 1.2 MB", or where the PDF is at.
     public var summary: String {
-        let pages = (scan.pages.count + processing).counted("page")
+        let count = scan.pages.count + processing
+        guard count > 0 else { return "No pages" }
+        let pages = count.counted("page")
         if let size = [self].currentPDFSize { return "\(pages) · \(size.fileSize)" }
         return pdf == .failed ? "\(pages) · the PDF could not be made" : "\(pages) · preparing the PDF…"
     }
