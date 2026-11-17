@@ -44,11 +44,7 @@ struct ReviewView: View {
         .fullScreenCover(item: $viewedPage) { page in
             PageViewer(scan: scan, selection: page.id)
         }
-        .alert("Something went wrong", isPresented: Binding(get: { scan.failure != nil }, set: { if !$0 { scan.dismissFailure() } })) {
-            Button("OK") {}
-        } message: {
-            Text(scan.failure ?? "")
-        }
+        .failureAlert(of: scan, isFrontmost: viewedPage == nil && editing == nil)
     }
 
     private func open(_ page: ScanPage) {

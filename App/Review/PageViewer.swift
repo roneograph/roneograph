@@ -35,6 +35,7 @@ struct PageViewer: View {
         .fullScreenCover(item: $cropping) { page in
             CropView(scan: scan, page: page)
         }
+        .failureAlert(of: scan, isFrontmost: cropping == nil)
         .onChange(of: scan.scan.pages.isEmpty) { _, empty in
             if empty { dismiss() }
         }

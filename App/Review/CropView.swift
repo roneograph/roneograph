@@ -49,6 +49,7 @@ struct CropView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .failureAlert(of: scan)
         .task {
             photo = await PageImage.load(scan.photoURL(of: page), maximumSize: 2400)
         }
