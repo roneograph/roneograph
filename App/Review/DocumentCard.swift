@@ -91,9 +91,11 @@ struct DocumentCard: View {
     private var ownerChip: some View {
         let owner = scan.owner
         return Menu {
-            Picker("Owner", selection: Binding(get: { scan.hasDefaultOwner ? nil : owner.id }, set: { id in if let id { scan.setOwner(id) } })) {
-                ForEach(settings.value.owners) { owner in
-                    Label(owner.name, systemImage: owner.symbol.systemImage).tag(Optional(owner.id))
+            Section(scan.ownerCaption ?? "") {
+                Picker("Owner", selection: Binding(get: { scan.hasDefaultOwner ? nil : owner.id }, set: { id in if let id { scan.setOwner(id) } })) {
+                    ForEach(settings.value.owners) { owner in
+                        Label(owner.name, systemImage: owner.symbol.systemImage).tag(Optional(owner.id))
+                    }
                 }
             }
             Divider()
@@ -102,7 +104,7 @@ struct DocumentCard: View {
             Chip(text: owner.name, systemImage: owner.symbol.systemImage, isRemembered: remembered.contains(.owner), opensMenu: true)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Owner, \(owner.name)\(scan.hasDefaultOwner ? ", default" : "")\(remembered.contains(.owner) ? ", remembered" : "")")
+        .accessibilityLabel(["Owner", owner.name, scan.ownerCaption, remembered.contains(.owner) ? "remembered" : nil].compactMap(\.self).joined(separator: ", "))
     }
 
     private var categoryChip: some View {
