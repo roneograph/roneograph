@@ -77,7 +77,7 @@ private struct IssuerRow: View {
         .padding(.vertical, 2)
     }
 
-    /// The remembered name, with what follows the next document shown as green tokens.
+    /// The remembered name, with what follows the next document shown as green tokens in braces.
     private func nameLine(_ pattern: NamePattern) -> AttributedString {
         var line = AttributedString("Name: ")
         for part in pattern.parts {
@@ -91,7 +91,7 @@ private struct IssuerRow: View {
     }
 
     private func token(_ text: String) -> AttributedString {
-        var token = AttributedString(" \(text) ")
+        var token = AttributedString(" {\(text)} ")
         token.foregroundColor = .accentColor
         token.backgroundColor = Color.accentColor.opacity(0.14)
         return token

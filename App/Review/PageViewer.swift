@@ -16,8 +16,8 @@ struct PageViewer: View {
     var body: some View {
         NavigationStack {
             TabView(selection: $selection) {
-                ForEach(scan.scan.pages) { page in
-                    ZoomablePage(url: scan.previewURL(of: page), revision: page.revision)
+                ForEach(Array(scan.scan.pages.enumerated()), id: \.element.id) { index, page in
+                    ZoomablePage(url: scan.previewURL(of: page), revision: page.revision, label: "Page \(index + 1)")
                         .tag(page.id)
                 }
             }
@@ -88,10 +88,11 @@ struct PageViewer: View {
 private struct ZoomablePage: View {
     let url: URL
     let revision: Int
+    let label: String
     @State private var image: UIImage?
 
     var body: some View {
-        ZoomableImage(image: image)
+        ZoomableImage(image: image, label: label)
             .task(id: PageImage.Key(url: url, revision: revision)) {
                 if let loaded = await PageImage.load(url, maximumSize: 2000) { image = loaded }
             }
@@ -100,11 +101,13 @@ private struct ZoomablePage: View {
 
 private struct ZoomableImage: UIViewRepresentable {
     let image: UIImage?
+    let label: String
 
     func makeUIView(context: Context) -> ZoomingScrollView { ZoomingScrollView() }
 
     func updateUIView(_ view: ZoomingScrollView, context: Context) {
         view.image = image
+        view.imageLabel = label
     }
 }
 
@@ -123,6 +126,11 @@ private final class ZoomingScrollView: UIScrollView, UIScrollViewDelegate {
         }
     }
 
+    var imageLabel: String? {
+        get { imageView.accessibilityLabel }
+        set { imageView.accessibilityLabel = newValue }
+    }
+
     override init(frame: CGRect) {
         super.init(frame: frame)
         delegate = self
@@ -132,6 +140,8 @@ private final class ZoomingScrollView: UIScrollView, UIScrollViewDelegate {
         showsVerticalScrollIndicator = false
         contentInsetAdjustmentBehavior = .never
         decelerationRate = .fast
+        imageView.isAccessibilityElement = true
+        imageView.accessibilityTraits = .image
         addSubview(imageView)
         let doubleTap = UITapGestureRecognizer(target: self, action: #selector(toggleZoom))
         doubleTap.numberOfTapsRequired = 2

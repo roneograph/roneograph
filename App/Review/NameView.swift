@@ -36,10 +36,11 @@ struct NameView: View {
                                             RememberedMark()
                                         }
                                         Spacer()
-                                        if rememberedName == name { Image(systemName: "checkmark").foregroundStyle(.tint) }
+                                        if rememberedName == name { Image(systemName: "checkmark").foregroundStyle(.tint).accessibilityHidden(true) }
                                     }
                                     .contentShape(Rectangle())
                                 }
+                                .accessibilityAddTraits(rememberedName == name ? .isSelected : [])
                                 Button("Forget", role: .destructive) { scan.forget([.name]) }
                                     .font(.footnote.weight(.semibold))
                             }
@@ -52,9 +53,10 @@ struct NameView: View {
                                 HStack {
                                     Label(suggestion, systemImage: "sparkles")
                                     Spacer()
-                                    if suggestion == name { Image(systemName: "checkmark").foregroundStyle(.tint) }
+                                    if suggestion == name { Image(systemName: "checkmark").foregroundStyle(.tint).accessibilityHidden(true) }
                                 }
                             }
+                            .accessibilityAddTraits(suggestion == name ? .isSelected : [])
                         }
                     }
                 }
