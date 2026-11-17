@@ -107,6 +107,7 @@ struct NameView: View {
                 focused = true
             }
         }
+        .interactiveDismissDisabled(name != shownName)
     }
 
     private var segments: [FileNameSegment] {

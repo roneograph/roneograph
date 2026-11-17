@@ -318,6 +318,7 @@ struct DetailTextView: View {
             }
         }
         .presentationDetents([.medium])
+        .interactiveDismissDisabled(value != scan.scan.details[keyPath: detail] ?? "")
     }
 
     private var title: String { field == .issuer ? "Issuer" : "Number" }
