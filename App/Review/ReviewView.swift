@@ -42,8 +42,8 @@ struct ReviewView: View {
             }
         }
         .task(id: scan.pdfInputs) { await scan.buildPDF() }
-        .task {
-            if settings.askForName, !scan.scan.isNamedByUser, !askedForName {
+        .task(id: isReadyToAskForName) {
+            if isReadyToAskForName, settings.askForName, !scan.scan.isNamedByUser, !askedForName {
                 askedForName = true
                 editing = .name
             }
@@ -62,6 +62,9 @@ struct ReviewView: View {
             if pagesFailed { app.delete(scan.id) }
         }
     }
+
+    /// The name is asked for once the page is read, so it does not change under the sheet, and when nothing else is on screen.
+    private var isReadyToAskForName: Bool { !scan.isReading && viewedPage == nil && app.camera == nil }
 
     private func open(_ page: ScanPage) {
         app.settings.dismissPageTip()
