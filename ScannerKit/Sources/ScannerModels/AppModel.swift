@@ -39,9 +39,7 @@ public final class AppModel {
         guard let days = settings.value.keepScans.days else { return }
         store.deleteUnreadableScans(keeping: Set(models.keys))
         let cutoff = now().addingTimeInterval(-Double(days) * 86400)
-        for scan in scans where scan.created < cutoff && camera?.id != scan.id && path.last != scan.id {
-            delete(scan.id)
-        }
+        delete(Set(scans.filter { $0.created < cutoff && camera?.id != $0.id && path.last != $0.id }.map(\.id)))
     }
 
     private func reload() {
@@ -179,32 +177,38 @@ public final class AppModel {
     public func deleteOwner(_ id: UUID, movingScansTo newOwner: UUID?) {
         guard id != settings.value.defaultOwnerID, settings.value.hasOwner(id) else { return }
         if let newOwner, newOwner == id || !settings.value.hasOwner(newOwner) { return }
-        for scan in scans(of: id) {
-            if let newOwner {
-                model(for: scan.id)?.assignOwner(newOwner)
-            } else {
-                delete(scan.id)
-            }
+        let owned = scans(of: id)
+        if let newOwner {
+            for scan in owned { model(for: scan.id)?.assignOwner(newOwner) }
+        } else {
+            delete(Set(owned.map(\.id)))
         }
         settings.removeOwner(id, movingTo: newOwner)
-        reload()
     }
 
     public func delete(_ id: UUID) {
-        if let model = models.removeValue(forKey: id) {
-            model.delete()
-        } else if let scan = scans.first(where: { $0.id == id }) {
-            store.delete(scan)
+        delete([id])
+    }
+
+    /// Deletes the scans, then updates the list once.
+    public func delete(_ ids: Set<UUID>) {
+        guard !ids.isEmpty else { return }
+        for id in ids {
+            if let model = models.removeValue(forKey: id) {
+                model.delete()
+            } else if let scan = scans.first(where: { $0.id == id }) {
+                store.delete(scan)
+            }
         }
-        path.removeAll { $0 == id }
-        if camera?.id == id { camera = nil }
-        reload()
+        scans.removeAll { ids.contains($0.id) }
+        path.removeAll(where: ids.contains)
+        if let camera, ids.contains(camera.id) { self.camera = nil }
     }
 
     /// Deletes every scan and its PDF from this device; what was sent or saved elsewhere stays.
     public func deleteAllScans() {
         reload()
-        for scan in scans { delete(scan.id) }
+        delete(Set(scans.map(\.id)))
         store.deleteUnreadableScans(keeping: Set(models.keys))
     }
 

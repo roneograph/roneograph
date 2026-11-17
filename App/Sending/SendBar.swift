@@ -225,7 +225,7 @@ struct SendBar<Summary: View>: View {
     private func delete() {
         let ids = Set(scans.map(\.id))
         withAnimation {
-            for id in ids { app.delete(id) }
+            app.delete(ids)
         }
         finished(ids)
     }

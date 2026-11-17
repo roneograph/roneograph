@@ -463,6 +463,24 @@ struct AppModelTests {
         #expect(fixture.store.all().isEmpty)
     }
 
+    @Test func deletesSeveralScansAtOnce() async throws {
+        let fixture = try Fixture()
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+        let first = await fixture.capturedScan(in: app)
+        let second = await fixture.capturedScan(in: app)
+        let kept = await fixture.capturedScan(in: app)
+        var elsewhere = Scan(name: "Elsewhere")
+        elsewhere.pages = [ScanPage(quad: nil, analysis: .sample)]
+        try fixture.store.save(elsewhere)
+        app.path = [second.id]
+
+        app.delete([first.id, second.id])
+        #expect(app.scans.map(\.id) == [kept.id])
+        #expect(app.path.isEmpty)
+        #expect(Set(fixture.store.all().map(\.id)) == [kept.id, elsewhere.id])
+        #expect(app.model(for: first.id) == nil)
+    }
+
     @Test func deletesAScanNotOpenedSinceLaunch() throws {
         let fixture = try Fixture()
         var scan = Scan(name: "Bill")
