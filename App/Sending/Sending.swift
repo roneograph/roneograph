@@ -6,7 +6,7 @@ import UIKit
 struct MailView: UIViewControllerRepresentable {
     let recipient: String?
     let subject: String
-    let attachments: [URL]
+    let attachments: [MailAttachment]
     let finished: (_ sent: Bool) -> Void
     @Environment(\.dismiss) private var dismiss
 
@@ -16,9 +16,7 @@ struct MailView: UIViewControllerRepresentable {
         controller.setSubject(subject)
         if let recipient { controller.setToRecipients([recipient]) }
         for attachment in attachments {
-            if let data = try? Data(contentsOf: attachment) {
-                controller.addAttachmentData(data, mimeType: "application/pdf", fileName: attachment.lastPathComponent)
-            }
+            controller.addAttachmentData(attachment.data, mimeType: "application/pdf", fileName: attachment.fileName)
         }
         return controller
     }
@@ -42,6 +40,17 @@ struct MailView: UIViewControllerRepresentable {
         func mailComposeController(_ controller: MFMailComposeViewController, didFinishWith result: MFMailComposeResult, error: Error?) {
             finished(result == .sent)
         }
+    }
+}
+
+/// A PDF read before the mail is composed, so that one that cannot be read stops the mail instead of going missing from it.
+struct MailAttachment {
+    let data: Data
+    let fileName: String
+
+    init(contentsOf url: URL) throws {
+        data = try Data(contentsOf: url)
+        fileName = url.lastPathComponent
     }
 }
 

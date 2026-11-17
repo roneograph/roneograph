@@ -278,9 +278,9 @@ struct ScanModelTests {
             return
         }
         #expect(model.hasCurrentPDF)
-        try FileManager.default.removeItem(at: url)
+        try Data("%PDF".utf8).write(to: url)
         await model.preparePDF()
-        #expect(!FileManager.default.fileExists(atPath: url.path(percentEncoded: false)))
+        #expect(try Data(contentsOf: url) == Data("%PDF".utf8))
 
         model.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
         #expect(!model.hasCurrentPDF)
@@ -291,6 +291,25 @@ struct ScanModelTests {
         }
         #expect(grown > size)
         #expect(FileManager.default.fileExists(atPath: url.path(percentEncoded: false)))
+    }
+
+    @Test func rebuildsAPDFRenamedOrDeletedInFiles() async throws {
+        let fixture = try Fixture()
+        let model = await fixture.scanModel(pages: 1)
+        await model.preparePDF()
+        guard case .ready(let url, _) = model.pdf else {
+            Issue.record("PDF not ready: \(model.pdf)")
+            return
+        }
+
+        try FileManager.default.moveItem(at: url, to: fixture.store.documentsDirectory.appending(path: "Mine.pdf"))
+        await model.preparePDF()
+        #expect(FileManager.default.fileExists(atPath: url.path(percentEncoded: false)))
+
+        try FileManager.default.removeItem(at: url)
+        await model.preparePDF()
+        #expect(FileManager.default.fileExists(atPath: url.path(percentEncoded: false)))
+        #expect(model.hasCurrentPDF)
     }
 
     @Test func aRenameMakesThePDFNotCurrent() async throws {

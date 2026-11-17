@@ -19,10 +19,12 @@ struct SendBar<Summary: View>: View {
     @State private var choosingFolder = false
     @State private var savingFailed = false
     @State private var mailUnavailable = false
+    @State private var attachingFailed = false
     @State private var folderInsideApp = false
     /// The owner the folder picker and the email question are for.
     @State private var ownerID: UUID?
     @State private var mails: MailQueue?
+    @State private var attachments: [MailAttachment] = []
     /// Set when the PDFs went out, acted on once the mail or share sheet is gone.
     @State private var sentBy: SendMethod?
 
@@ -41,7 +43,7 @@ struct SendBar<Summary: View>: View {
                 Button("Save to Files", systemImage: "folder", action: saveToFiles)
                     .buttonStyle(.glass)
                     .disabled(!isReady)
-                Button("Share", systemImage: "square.and.arrow.up") { showingShare = true }
+                Button("Share", systemImage: "square.and.arrow.up", action: share)
                     .buttonStyle(.glass)
                     .disabled(!isReady)
                 Button(scans.count > 1 ? "Delete Scans" : "Delete Scan", systemImage: "trash", role: .destructive) { confirmingDelete = true }
@@ -67,8 +69,7 @@ struct SendBar<Summary: View>: View {
             Button(scans.count > 1 ? "Delete \(scans.count) Scans" : "Delete Scan", role: .destructive, action: delete)
         }
         .sheet(isPresented: $showingMail, onDismiss: finishMail) {
-            let mail = mails?.scans ?? []
-            MailView(recipient: mails?.recipient, subject: mail.map(\.scan).mailSubject, attachments: pdfs(of: mail)) { sent in
+            MailView(recipient: mails?.recipient, subject: (mails?.scans ?? []).map(\.scan).mailSubject, attachments: attachments) { sent in
                 if sent { sentBy = .email }
             }
             .ignoresSafeArea()
@@ -106,10 +107,15 @@ struct SendBar<Summary: View>: View {
             Text(SettingsStore.FolderError.insideApp.localizedDescription)
         }
         .alert("No account in Mail", isPresented: $mailUnavailable) {
-            Button("Share") { showingShare = true }
+            Button("Share", action: share)
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Email needs an account in the Mail app. Share the PDFs to send them with another app.")
+        }
+        .alert("The PDFs could not be attached", isPresented: $attachingFailed) {
+            Button("OK") {}
+        } message: {
+            Text("Try to email them again.")
         }
         .alert("The folder cannot be reached", isPresented: $savingFailed) {
             Button("Choose Folder") { choosingFolder = true }
@@ -140,15 +146,30 @@ struct SendBar<Summary: View>: View {
             choosingFolder = true
             return
         }
-        do {
-            try app.saveToArchive(scans)
-            finished(Set(scans.map(\.id)))
-        } catch {
-            let saved = (error as? AppModel.ArchiveError)?.saved ?? []
-            if !saved.isEmpty { finished(Set(saved)) }
-            ownerID = scans.first { !saved.contains($0.id) }?.owner.id
-            savingFailed = true
+        Task {
+            guard await preparePDFs(scans) else { return }
+            do {
+                try app.saveToArchive(scans)
+                finished(Set(scans.map(\.id)))
+            } catch {
+                let saved = (error as? AppModel.ArchiveError)?.saved ?? []
+                if !saved.isEmpty { finished(Set(saved)) }
+                ownerID = scans.first { !saved.contains($0.id) }?.owner.id
+                savingFailed = true
+            }
         }
+    }
+
+    private func share() {
+        Task {
+            if await preparePDFs(scans) { showingShare = true }
+        }
+    }
+
+    /// Rebuilds a PDF deleted or renamed in Files since it was made; false when one cannot be made.
+    private func preparePDFs(_ scans: [ScanModel]) async -> Bool {
+        for scan in scans { await scan.preparePDF() }
+        return scans.allSatisfy(\.hasCurrentPDF)
     }
 
     /// Mail needs an account in the Mail app; without one, the share sheet is offered so another app can send the PDFs.
@@ -168,10 +189,21 @@ struct SendBar<Summary: View>: View {
             ownerID = id
             showingEmailQuestion = true
         case .compose:
-            showingMail = true
+            Task { await composeMail() }
         case .done, nil:
             mails = nil
         }
+    }
+
+    private func composeMail() async {
+        let scans = mails?.scans ?? []
+        guard await preparePDFs(scans), let read = try? pdfs(of: scans).map(MailAttachment.init(contentsOf:)) else {
+            mails = nil
+            attachingFailed = true
+            return
+        }
+        attachments = read
+        showingMail = true
     }
 
     private func delete() {

@@ -381,10 +381,10 @@ public final class ScanModel: Identifiable {
         if case .ready = pdf { !isBusy && pdfMadeFrom == pdfInputs } else { false }
     }
 
-    /// Makes the PDF, unless the one already made is still current, for sending from Home.
+    /// Makes the PDF, unless the one already made is still current and still there, as Files can delete or rename it; called before sending.
     public func preparePDF() async {
         await waitUntilIdle()
-        if hasCurrentPDF { return }
+        if hasCurrentPDF, case .ready(let url, _) = pdf, FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) { return }
         await buildPDF(delay: .zero)
     }
 
