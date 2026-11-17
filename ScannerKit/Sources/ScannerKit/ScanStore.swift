@@ -33,12 +33,25 @@ public struct ScanStore: Sendable {
 
     /// All scans, newest first; unreadable folders are skipped.
     public func all() -> [Scan] {
+        folders().compactMap(read).sorted { $0.created > $1.created }
+    }
+
+    /// Deletes the scan folders without a readable scan.json, as left when the app quits before a scan is first saved, except the kept ones.
+    public func deleteUnreadableScans(keeping kept: Set<UUID>) {
+        for folder in folders() where read(folder) == nil {
+            guard let id = UUID(uuidString: folder.lastPathComponent), !kept.contains(id) else { continue }
+            try? FileManager.default.removeItem(at: folder)
+        }
+    }
+
+    private func folders() -> [URL] {
+        (try? FileManager.default.contentsOfDirectory(at: scansDirectory, includingPropertiesForKeys: nil)) ?? []
+    }
+
+    private func read(_ folder: URL) -> Scan? {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        let folders = (try? FileManager.default.contentsOfDirectory(at: scansDirectory, includingPropertiesForKeys: nil)) ?? []
-        return folders.compactMap { folder in
-            (try? Data(contentsOf: folder.appending(path: "scan.json"))).flatMap { try? decoder.decode(Scan.self, from: $0) }
-        }.sorted { $0.created > $1.created }
+        return (try? Data(contentsOf: folder.appending(path: "scan.json"))).flatMap { try? decoder.decode(Scan.self, from: $0) }
     }
 
     public func delete(_ scan: Scan) {

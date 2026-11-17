@@ -389,6 +389,45 @@ struct AppModelTests {
         #expect(app.model(for: reviewed.id) == nil)
     }
 
+    @Test func retentionDeletesScanFoldersWithoutAReadableScan() throws {
+        let fixture = try Fixture()
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+        let capturing = app.startScan()
+        let unsaved = try unreadableScanFolder(in: fixture.store)
+        let corrupt = try unreadableScanFolder(in: fixture.store, json: Data("{".utf8))
+        let processing = try unreadableScanFolder(in: fixture.store, id: capturing.id)
+
+        app.refresh()
+        #expect(!exists(unsaved))
+        #expect(!exists(corrupt))
+        #expect(exists(processing))
+    }
+
+    @Test func deletingAllScansDeletesScanFoldersWithoutAReadableScan() throws {
+        let fixture = try Fixture()
+        fixture.settings.value.keepScans = .forever
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+        let unsaved = try unreadableScanFolder(in: fixture.store)
+        app.refresh()
+        #expect(exists(unsaved))
+
+        app.deleteAllScans()
+        #expect(!exists(unsaved))
+        #expect(fixture.store.byteCount() == 0)
+    }
+
+    private func unreadableScanFolder(in store: ScanStore, id: UUID = UUID(), json: Data? = nil) throws -> URL {
+        let folder = store.directory(of: id)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try SyntheticPhoto.jpeg().write(to: store.photoURL(scanID: id, pageID: UUID()))
+        if let json { try json.write(to: folder.appending(path: "scan.json")) }
+        return folder
+    }
+
+    private func exists(_ url: URL) -> Bool {
+        FileManager.default.fileExists(atPath: url.path(percentEncoded: false))
+    }
+
     @Test func keepsScansForeverWhenAsked() throws {
         let fixture = try Fixture()
         let now = Date()
