@@ -83,7 +83,7 @@ struct OwnerView: View {
                 .pickerStyle(.segmented)
             }
 
-            OwnerSections(settings: settings, owner: owner, includesCustomFormat: true)
+            OwnerSections(settings: settings, archiver: app.archiver, owner: owner, includesCustomFormat: true)
 
             if settings.value.hasSeveralOwners {
                 Section {

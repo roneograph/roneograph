@@ -21,7 +21,7 @@ struct SettingsView: View {
                         Text("The name is found in the text, and a name you correct is reused for the next documents from the same issuer, with their own date and number where yours had them.")
                     }
                 } else {
-                    OwnerSections(settings: settings, owner: $settings.value.defaultOwner, askForName: $settings.value.askForName)
+                    OwnerSections(settings: settings, archiver: app.archiver, owner: $settings.value.defaultOwner, askForName: $settings.value.askForName)
                 }
 
                 Section {

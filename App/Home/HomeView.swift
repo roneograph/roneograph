@@ -268,6 +268,13 @@ private struct ScanRow: View {
     private var status: some View {
         if !scan.isFinished {
             Text(scan.status).foregroundStyle(.tint)
+        } else if let archiving = scan.archiving {
+            HStack(spacing: 4) {
+                Image(systemName: archiving.isInProgress ? "arrow.up.circle" : "exclamationmark.triangle.fill")
+                Text(scan.status)
+            }
+            .foregroundStyle(archiving.isInProgress ? AnyShapeStyle(.tint) : AnyShapeStyle(Color(.warning)))
+            .lineLimitUnlessAccessibilitySize(1)
         } else if scan.sent != nil {
             HStack(spacing: 4) {
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)

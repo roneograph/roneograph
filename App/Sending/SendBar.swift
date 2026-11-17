@@ -3,7 +3,7 @@ import ScannerKit
 import ScannerModels
 import SwiftUI
 
-/// Email, Save to Files, Share and Delete, for the scan under review or the scans selected on Home.
+/// Email, Save to Files, Archive once a Paperless server is connected, Share and Delete, for the scan under review or the scans selected on Home.
 struct SendBar<Summary: View>: View {
     let app: AppModel
     let scans: [ScanModel]
@@ -26,6 +26,8 @@ struct SendBar<Summary: View>: View {
     @State private var mailFailed = false
     @State private var showingMailFailure = false
     @State private var folderInsideApp = false
+    @State private var settingUpPaperless = false
+    @State private var archivingFailed = false
     /// The owner the folder picker and the email question are for.
     @State private var ownerID: UUID?
     @State private var mails: MailQueue?
@@ -48,6 +50,11 @@ struct SendBar<Summary: View>: View {
                 Button("Save to Files", systemImage: "folder", action: saveToFiles)
                     .buttonStyle(.glass)
                     .disabled(!isReady || isSaving)
+                if app.canArchive {
+                    Button("Archive", systemImage: "archivebox", action: archive)
+                        .buttonStyle(.glass)
+                        .disabled(!isReady)
+                }
                 Button("Share", systemImage: "square.and.arrow.up", action: share)
                     .buttonStyle(.glass)
                     .disabled(!isReady)
@@ -105,6 +112,16 @@ struct SendBar<Summary: View>: View {
             } catch {
                 savingFailed = true
             }
+        }
+        .sheet(isPresented: $settingUpPaperless) {
+            if let archiver = app.archiver, let ownerID {
+                PaperlessSetupView(ownerID: ownerID, settings: app.settings, archiver: archiver, saved: archive)
+            }
+        }
+        .alert("The PDFs could not be archived", isPresented: $archivingFailed) {
+            Button("OK") {}
+        } message: {
+            Text("Try to archive them again.")
         }
         .alert("This folder cannot be used", isPresented: $folderInsideApp) {
             Button("Choose Folder") { choosingFolder = true }
@@ -179,6 +196,24 @@ struct SendBar<Summary: View>: View {
                 if !saved.isEmpty { finished(Set(saved)) }
                 ownerID = scans.first { !saved.contains($0.id) }?.owner.id
                 if error?.isStorageFull == true { storageFull = true } else { savingFailed = true }
+            }
+        }
+    }
+
+    /// The first tap for an owner without a Paperless server connects one; the uploads go on in the background.
+    private func archive() {
+        if let owner = app.ownerWithoutPaperless(among: scans) {
+            ownerID = owner.id
+            settingUpPaperless = true
+            return
+        }
+        Task {
+            guard await preparePDFs(scans) else { return }
+            do {
+                try app.archive(scans)
+                finished(Set(scans.map(\.id)))
+            } catch {
+                archivingFailed = true
             }
         }
     }

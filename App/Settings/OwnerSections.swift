@@ -5,6 +5,7 @@ import SwiftUI
 /// Where an owner's PDFs go and how they are named: in Settings with one owner, in the owner's page with several.
 struct OwnerSections: View {
     let settings: SettingsStore
+    let archiver: Archiver?
     @Binding var owner: Owner
     /// With several owners, the custom format switch sits with the rest of the owner's file name.
     var includesCustomFormat = false
@@ -13,6 +14,7 @@ struct OwnerSections: View {
     @State private var choosingFolder = false
     @State private var folderFailed = false
     @State private var folderMessage = ""
+    @State private var settingUpPaperless = false
 
     var body: some View {
         Section {
@@ -52,6 +54,31 @@ struct OwnerSections: View {
             Button("OK") {}
         } message: {
             if !folderMessage.isEmpty { Text(folderMessage) }
+        }
+
+        if let archiver {
+            Section {
+                if let server = owner.paperless {
+                    Button { settingUpPaperless = true } label: {
+                        LabeledContent("Server", value: server.url.host() ?? server.url.absoluteString)
+                    }
+                    LabeledContent("Storage path", value: server.storagePath?.name ?? "Chosen by Paperless")
+                    Button("Disconnect", role: .destructive) { PaperlessSetup.disconnect(owner.id, settings: settings, archiver: archiver) }
+                } else {
+                    Button("Connect…") { settingUpPaperless = true }
+                }
+            } header: {
+                Text("Paperless")
+            } footer: {
+                if owner.paperless != nil, !archiver.isConnected(owner) {
+                    Text("The token is no longer on this iPhone. Tap the server to connect again.").foregroundStyle(.red)
+                } else {
+                    Text("The Archive button sends PDFs to this Paperless-ngx server, with their title and date.")
+                }
+            }
+            .sheet(isPresented: $settingUpPaperless) {
+                PaperlessSetupView(ownerID: owner.id, settings: settings, archiver: archiver)
+            }
         }
 
         Section {
