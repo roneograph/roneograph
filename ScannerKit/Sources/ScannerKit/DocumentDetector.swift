@@ -716,10 +716,11 @@ public struct DocumentDetector: Sendable {
         var date: Date
     }
 
-    private static let isoDate = try! NSRegularExpression(pattern: #"(?<!\d)(\d{4})[\-/.](\d{1,2})[\-/.](\d{1,2})(?!\d)"#)
-    private static let numericDate = try! NSRegularExpression(pattern: #"(?<![\d.,])(\d{1,2})([/.\-])(\d{1,2})[/.\-](\d{4}|\d{2})(?![\d,]|\.\d)"#)
-    private static let dayMonthDate = try! NSRegularExpression(pattern: #"(?<!\d)(\d{1,2})(?:er|st|nd|rd|th|º|°)?\.?\s+(?:de\s+)?(\p{L}+)\.?,?\s+(?:de\s+|del\s+)?(\d{4})(?!\d)"#)
-    private static let monthDayDate = try! NSRegularExpression(pattern: #"\b(\p{L}+)\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})(?!\d)"#)
+    // Captures are [0-9], not \d: \d also matches digits such as ２ or ٢ that Int() cannot parse.
+    private static let isoDate = try! NSRegularExpression(pattern: #"(?<!\d)([0-9]{4})[\-/.]([0-9]{1,2})[\-/.]([0-9]{1,2})(?!\d)"#)
+    private static let numericDate = try! NSRegularExpression(pattern: #"(?<![\d.,])([0-9]{1,2})([/.\-])([0-9]{1,2})[/.\-]([0-9]{4}|[0-9]{2})(?![\d,]|\.\d)"#)
+    private static let dayMonthDate = try! NSRegularExpression(pattern: #"(?<!\d)([0-9]{1,2})(?:er|st|nd|rd|th|º|°)?\.?\s+(?:de\s+)?(\p{L}+)\.?,?\s+(?:de\s+|del\s+)?([0-9]{4})(?!\d)"#)
+    private static let monthDayDate = try! NSRegularExpression(pattern: #"\b(\p{L}+)\.?\s+([0-9]{1,2})(?:st|nd|rd|th)?,?\s+([0-9]{4})(?!\d)"#)
 
     /// Every date written on the folded text, in order: 2026-03-14, 14/03/2026, 14.03.26, 14 mars 2026, March 14, 2026, 14 de marzo de 2026.
     static func dateMatches(in text: String, monthFirst: Bool, timeZone: TimeZone) -> [DateMatch] {

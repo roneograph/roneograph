@@ -445,6 +445,11 @@ struct DocumentDetectorTests {
         #expect(iso(DocumentDetector(monthFirst: true).detect(lines: lines).details.date) == "2026-03-04")
     }
 
+    @Test(arguments: ["２０２６-０３-１４", "١٤/٠٣/٢٠٢٦", "१४ March २०२६", "March १४, २०२६"])
+    func ignoresDatesWrittenWithNonASCIIDigits(text: String) {
+        #expect(detector.detect(lines: [line(text, y: 0.5)]).details.date == nil)
+    }
+
     @Test(arguments: ["Pacific/Kiritimati", "Pacific/Auckland", "Europe/Paris", "Pacific/Pago_Pago"])
     func readsAPrintedDateAsThatDayInTheUserTimeZone(identifier: String) {
         let timeZone = TimeZone(identifier: identifier)!
