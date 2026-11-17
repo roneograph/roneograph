@@ -127,6 +127,20 @@ struct DocumentDetectorTests {
         #expect(detected.headerLines == ["Jordan Ellery", "Northwind Analytics"].map(DocumentDetector.fingerprint))
     }
 
+    @Test func leavesTheRowsOfAReceiptOutOfTheHeaderLines() {
+        let lines = [
+            line("MAISON PERLIER", y: 0.03, height: 0.018),
+            line("Pain aux noix", y: 0.12),
+            TextLine(text: "4,10", frame: CGRect(x: 0.75, y: 0.12, width: 0.1, height: 0.011)),
+            line("TOTAL", y: 0.21, height: 0.018),
+            TextLine(text: "4,10 €", frame: CGRect(x: 0.7, y: 0.21, width: 0.15, height: 0.018)),
+            line("Merci de votre visite", y: 0.34),
+        ]
+        let detected = detector.detect(lines: lines, aspectRatio: 0.36)
+        #expect(detected.details.issuer == "Maison Perlier")
+        #expect(detected.headerLines == [DocumentDetector.fingerprint("MAISON PERLIER")])
+    }
+
     @Test func prefersANameWithALegalForm() {
         let lines = [line("Bright Ideas", y: 0.04, height: 0.018), line("LUMEN ÉNERGIE SAS", y: 0.08), line("Lorem ipsum", y: 0.5)]
         #expect(detector.detect(lines: lines).details.issuer == "Lumen Énergie")

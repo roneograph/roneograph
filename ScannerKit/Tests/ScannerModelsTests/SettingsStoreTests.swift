@@ -1,5 +1,6 @@
 import Foundation
 import ScannerKit
+import ScannerKitTesting
 @testable import ScannerModels
 import Testing
 
@@ -184,6 +185,21 @@ struct SettingsStoreTests {
         fixture.settings.value.defaultOwnerID = holding.id
         fixture.settings.removeOwner(personal)
         #expect(fixture.settings.value.owners.map(\.id) == [holding.id])
+    }
+
+    @Test func aReceiptOfOneOwnerTellsNothingAboutTheReceiptsOfOthers() throws {
+        let fixture = try Fixture()
+        let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
+        let detector = DocumentDetector(monthFirst: false)
+        let receipts = try ["receipt-fr", "receipt-en", "receipt-it", "receipt-es"].map { name in
+            let receipt = try #require(DocumentCorpus.documents.first { $0.name == name })
+            return detector.detect(lines: receipt.lines, aspectRatio: receipt.aspectRatio)
+        }
+        for receipt in receipts.dropLast() {
+            fixture.settings.recordHeaderLines(receipt.headerLines, issuerEvidence: receipt.issuerEvidence)
+        }
+        fixture.settings.link(lines: receipts[0].headerLines, to: holding.id)
+        #expect(fixture.settings.owner(recognizing: receipts[3].headerLines) == nil)
     }
 
     @Test func removingAnOwnerForgetsWhatRecognizedIt() throws {

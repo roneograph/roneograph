@@ -427,8 +427,9 @@ public struct DocumentDetector: Sendable {
     /// A known issuer such as "Finances publiques" counts anywhere in the header; a state emblem such as "République française" never does.
     static func issuerCandidates(in page: Page, clues: [[(range: Range<Int>, tag: Clue)]], evidence: IssuerEvidence) -> [Line] {
         let credentials = credentialLines(of: page)
+        let rows = amountLabels(of: page)
         return joiningContinuations(of: page).filter { indices, line in
-            if indices.contains(where: credentials.contains) { return false }
+            if indices.contains(where: credentials.contains) || indices.contains(where: rows.contains) { return false }
             let text = line.text.trimmingCharacters(in: .whitespaces)
             let letters = text.filter(\.isLetter).count
             let digits = text.filter(\.isNumber).count
@@ -453,6 +454,22 @@ public struct DocumentDetector: Sendable {
     }
 
     private static let emblems = Set(DocumentVocabulary.emblems.map(letters))
+
+    /// The lines with an amount printed on their right, as the rows of a receipt or a table: "TOTAL", "Card", "Pain aux noix".
+    /// They come back on documents from any issuer, so as header lines they would look like the user's own.
+    private static func amountLabels(of page: Page) -> Set<Int> {
+        let amounts = page.lines.filter { isAmount($0.text) }
+        return Set(page.lines.indices.filter { index in
+            let line = page.lines[index]
+            return amounts.contains { amount in
+                amount.frame.minX >= line.frame.maxX - 0.01 && abs(amount.frame.midY - line.frame.midY) < max(amount.frame.height, line.frame.height) / 2
+            }
+        })
+    }
+
+    private static func isAmount(_ text: String) -> Bool {
+        text.trimmingCharacters(in: .whitespaces).wholeMatch(of: /[-−]?(?:[€$£]\s?)?\d{1,3}(?:[ .,'\u{00A0}\u{202F}]?\d{3})*[.,]\d{2}(?:\s?(?:€|EUR|\$|£|CHF))?/) != nil
+    }
 
     /// The lines stacked right under a name such as "Docteur Camille Arnaud": the specialty and titles of that person, not other issuers.
     private static func credentialLines(of page: Page) -> Set<Int> {
