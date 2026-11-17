@@ -76,6 +76,29 @@ struct AppModelTests {
         #expect(app.scans.first?.isFinished == true)
     }
 
+    @Test func aNewScanFromReviewReplacesItWhenDone() async throws {
+        let fixture = try Fixture()
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+        let first = await fixture.capturedScan(in: app)
+        let second = await fixture.capturedScan(in: app)
+
+        #expect(second.id != first.id)
+        #expect(app.path == [second.id])
+        #expect(Set(app.scans.map(\.id)) == [first.id, second.id])
+        #expect(app.scans.allSatisfy { $0.isFinished && $0.sent == nil })
+    }
+
+    @Test func closingANewScanWithoutPagesStaysOnTheReview() async throws {
+        let fixture = try Fixture()
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+        let first = await fixture.capturedScan(in: app)
+        app.startScan()
+        app.closeCamera()
+
+        #expect(app.path == [first.id])
+        #expect(app.scans.map(\.id) == [first.id])
+    }
+
     @Test func continueAddsPagesToTheSameScan() async throws {
         let fixture = try Fixture()
         let scan = await fixture.capturedScan(in: AppModel(processor: fixture.processor, settings: fixture.settings))

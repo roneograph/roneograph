@@ -28,6 +28,19 @@ struct ReviewView: View {
             SendBar(app: app, scans: [scan], isReady: scan.hasCurrentPDF) { Text(scan.summary) }
         }
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { app.startScan() } label: {
+                    HStack(spacing: 4) {
+                        Text("New Scan")
+                        Image(systemName: "arrow.right")
+                    }
+                }
+                .fontWeight(.semibold)
+                .accessibilityLabel("New Scan")
+                .accessibilityHint("Opens the camera for another document. This one stays ready to send.")
+            }
+        }
         .task(id: scan.pdfInputs) { await scan.buildPDF() }
         .task {
             if settings.askForName, !scan.scan.isNamedByUser, !askedForName {
