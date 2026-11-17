@@ -29,6 +29,7 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         ITSAppUsesNonExemptEncryption: false
         NSCameraUsageDescription: The camera finds and captures the pages you scan, such as a letter or an invoice, to make PDFs on this iPhone.
+        NSLocalNetworkUsageDescription: Roneograph connects to the Paperless-ngx server you set up in Settings, when it is on your local network, to archive your scans there.
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
