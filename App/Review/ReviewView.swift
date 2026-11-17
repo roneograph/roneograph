@@ -74,15 +74,11 @@ private struct PageGrid: View {
     let scan: ScanModel
     let open: (ScanPage) -> Void
     let addPages: () -> Void
-    @State private var deleting: UUID?
 
     var body: some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 18, alignment: .top), count: 2), spacing: 16) {
             ForEach(Array(scan.scan.pages.enumerated()), id: \.element.id) { index, page in
-                VStack(alignment: .trailing, spacing: 0) {
-                    pageButton(page, number: index + 1)
-                    if scan.canDeletePage { deleteButton(page, number: index + 1) }
-                }
+                pageButton(page, number: index + 1)
             }
             ForEach(0..<scan.processing, id: \.self) { _ in
                 Rectangle().fill(.quaternary).aspectRatio(Paper.a4.aspectRatio, contentMode: .fit).overlay { ProgressView() }
@@ -115,7 +111,7 @@ private struct PageGrid: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Page \(number), \(page.look.title)")
-        .accessibilityHint("Changes its look, rotates or crops it")
+        .accessibilityHint("Changes its look, rotates, crops or deletes it")
         .accessibilityActions {
             if number > 1 {
                 Button("Move Earlier") { move(page, by: -1) }
@@ -132,32 +128,12 @@ private struct PageGrid: View {
             withAnimation { scan.movePage(id, to: page.id) }
             return true
         }
-        .contextMenu {
-            if scan.canDeletePage {
-                Button("Delete", systemImage: "trash", role: .destructive) { deleting = page.id }
-            }
-        }
-        .confirmationDialog("Delete page \(number)?", isPresented: Binding(get: { deleting == page.id }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible) {
-            Button("Delete Page", role: .destructive) { withAnimation { scan.deletePage(page.id) } }
-        }
     }
 
     private func move(_ page: ScanPage, by offset: Int) {
         let pages = scan.scan.pages
         guard let index = pages.firstIndex(where: { $0.id == page.id }), pages.indices.contains(index + offset) else { return }
         withAnimation { scan.movePage(page.id, to: pages[index + offset].id) }
-    }
-
-    private func deleteButton(_ page: ScanPage, number: Int) -> some View {
-        Button("Delete Page \(number)", systemImage: "trash") { deleting = page.id }
-            .labelStyle(.iconOnly)
-            .font(.footnote.weight(.semibold))
-            .foregroundStyle(.secondary)
-            .frame(width: 44, height: 44)
-            .contentShape(Rectangle())
-            .padding(.vertical, -12)
-            .padding(.top, 6)
-            .buttonStyle(.plain)
     }
 }
 
@@ -170,7 +146,7 @@ private struct PageTip: View {
             Image(systemName: "hand.tap").font(.title2).foregroundStyle(.tint)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Tap a page to adjust it").font(.subheadline.weight(.semibold))
-                Text("Change its look, rotate or crop it. Touch and hold to move it.")
+                Text("Change its look, rotate, crop or delete it. Touch and hold to move it.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
