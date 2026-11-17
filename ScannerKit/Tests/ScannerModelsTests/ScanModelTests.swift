@@ -121,13 +121,37 @@ struct ScanModelTests {
         #expect(FileManager.default.fileExists(atPath: kept))
     }
 
+    @Test func aScanKeepsItsLastPage() async throws {
+        let fixture = try Fixture()
+        let model = await fixture.scanModel(pages: 1)
+        #expect(!model.canDeletePage)
+        model.deletePage(model.scan.pages[0].id)
+        await model.waitUntilIdle()
+
+        #expect(model.scan.pages.count == 1)
+        #expect(fixture.store.all().first?.pages == model.scan.pages)
+    }
+
+    @Test func theCameraCannotTakeTheLastPageOfAFinishedScan() async throws {
+        let fixture = try Fixture()
+        let model = await fixture.scanModel(pages: 1)
+        #expect(model.canDeleteCapturedPage)
+        model.finishCapture()
+        #expect(!model.canDeleteCapturedPage)
+        model.deleteCapturedPage(model.scan.pages[0].id)
+        await model.waitUntilIdle()
+
+        #expect(model.scan.pages.count == 1)
+        #expect(fixture.store.all().first?.pages == model.scan.pages)
+    }
+
     @Test func deletingTheLastPageLeavesNothingBehind() async throws {
         let fixture = try Fixture()
         let model = await fixture.scanModel(pages: 1)
         await model.buildPDF(delay: .zero)
         #expect(fixture.pdfExists(model.scan.fileName))
 
-        model.deletePage(model.scan.pages[0].id)
+        model.deleteCapturedPage(model.scan.pages[0].id)
         await model.waitUntilIdle()
 
         #expect(fixture.store.all().isEmpty)
@@ -140,7 +164,7 @@ struct ScanModelTests {
         let model = await fixture.scanModel(pages: 1)
         let deleted = model.scan.pages[0]
         model.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
-        model.deletePage(deleted.id)
+        model.deleteCapturedPage(deleted.id)
         await model.waitUntilIdle()
 
         let page = try #require(model.scan.pages.first)
@@ -747,7 +771,7 @@ struct ScanModelTests {
         second.addPhoto(photo, liveQuad: nil)
         await second.waitUntilIdle()
         #expect(second.scan.remembered == [.owner])
-        second.deletePage(try #require(second.scan.pages.first?.id))
+        second.deleteCapturedPage(try #require(second.scan.pages.first?.id))
         second.addPhoto(photo, liveQuad: nil)
         await second.waitUntilIdle()
         #expect(second.owner.id == holding.id)

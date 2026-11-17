@@ -37,9 +37,6 @@ struct PageViewer: View {
             CropView(scan: scan, page: page)
         }
         .failureAlert(of: scan, isFrontmost: cropping == nil)
-        .onChange(of: scan.scan.pages.isEmpty) { _, empty in
-            if empty { dismiss() }
-        }
     }
 
     @ViewBuilder
@@ -61,10 +58,12 @@ struct PageViewer: View {
                     Button("Rotate", systemImage: "rotate.right") { scan.rotatePage(page.id) }
                     Button("Crop", systemImage: "crop") { cropping = page }
                     Spacer()
-                    Button("Delete Page", systemImage: "trash", role: .destructive) { confirmingDelete = true }
-                        .confirmationDialog("Delete page \(number)?", isPresented: $confirmingDelete, titleVisibility: .visible) {
-                            Button("Delete Page", role: .destructive) { delete(page) }
-                        }
+                    if scan.canDeletePage {
+                        Button("Delete Page", systemImage: "trash", role: .destructive) { confirmingDelete = true }
+                            .confirmationDialog("Delete page \(number)?", isPresented: $confirmingDelete, titleVisibility: .visible) {
+                                Button("Delete Page", role: .destructive) { delete(page) }
+                            }
+                    }
                 }
                 .labelStyle(.iconOnly)
                 .buttonStyle(.glass)

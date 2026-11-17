@@ -59,7 +59,7 @@ public final class ScanModel: Identifiable {
     public func finalName(_ name: String) -> String { FileNamer.finalName(name, fallback: scan.suggestions.first ?? fallbackTitle) }
     /// Pages captured but not processed yet.
     public var processing: Int { scan.pending.count }
-    private var isEmpty: Bool { scan.pages.isEmpty && scan.pending.isEmpty }
+    public var isEmpty: Bool { scan.pages.isEmpty && scan.pending.isEmpty }
     public var isBusy: Bool { processing > 0 || updating > 0 }
     /// The name remembered for the issuer, while it is the name of the scan.
     public var rememberedName: String? { scan.remembered.contains(.name) ? scan.title : nil }
@@ -211,9 +211,24 @@ public final class ScanModel: Identifiable {
 
     // MARK: Pages
 
+    /// A scan always keeps a page: only the camera can take the last one, from a scan not finished yet.
+    public var canDeletePage: Bool { scan.pages.count > 1 }
+    public var canDeleteCapturedPage: Bool { canDeletePage || !scan.isFinished }
+
+    public func deletePage(_ id: UUID) {
+        guard canDeletePage else { return }
+        removePage(id)
+    }
+
+    /// Deleting the last page of a scan not finished yet deletes the stored scan.
+    public func deleteCapturedPage(_ id: UUID) {
+        guard canDeleteCapturedPage else { return }
+        removePage(id)
+    }
+
     /// The files of the page go once the work queued before is done, so an edit in progress does not write them again.
     /// Without pages left, the stored scan goes too, unless a page still being processed comes in.
-    public func deletePage(_ id: UUID) {
+    private func removePage(_ id: UUID) {
         scan.pages.removeAll { $0.id == id }
         guard isEmpty || save() else { return }
         enqueue { [self] in

@@ -109,7 +109,7 @@ struct WordingTests {
     @Test func saysThereAreNoPagesOnceTheLastOneIsDeleted() async throws {
         let fixture = try Fixture()
         let model = await fixture.scanModel(pages: 1)
-        model.deletePage(model.scan.pages[0].id)
+        model.deleteCapturedPage(model.scan.pages[0].id)
         await model.waitUntilIdle()
         #expect(model.summary == "No pages")
     }

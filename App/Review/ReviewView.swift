@@ -58,6 +58,9 @@ struct ReviewView: View {
             PageViewer(scan: scan, selection: page.id)
         }
         .failureAlert(of: scan, isFrontmost: viewedPage == nil && editing == nil)
+        .onChange(of: scan.isEmpty && scan.failure == nil) { _, pagesFailed in
+            if pagesFailed { app.delete(scan.id) }
+        }
     }
 
     private func open(_ page: ScanPage) {
@@ -115,10 +118,12 @@ private struct PageGrid: View {
                 }
                 .contextMenu {
                     Button("Rotate", systemImage: "rotate.right") { scan.rotatePage(page.id) }
-                    Button("Delete", systemImage: "trash", role: .destructive) { deleting = page.id }
+                    if scan.canDeletePage {
+                        Button("Delete", systemImage: "trash", role: .destructive) { deleting = page.id }
+                    }
                 }
                 .overlay(alignment: .bottomTrailing) {
-                    if scan.scan.pages.count > 1 { deleteButton(page, number: index + 1) }
+                    if scan.canDeletePage { deleteButton(page, number: index + 1) }
                 }
                 .confirmationDialog("Delete page \(index + 1)?", isPresented: Binding(get: { deleting == page.id }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible) {
                     Button("Delete Page", role: .destructive) { withAnimation { scan.deletePage(page.id) } }

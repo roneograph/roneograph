@@ -57,7 +57,7 @@ struct AppModelTests {
         let scan = app.startScan()
         scan.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
         await scan.waitUntilIdle()
-        scan.deletePage(scan.scan.pages[0].id)
+        scan.deleteCapturedPage(scan.scan.pages[0].id)
         await scan.waitUntilIdle()
         app.closeCamera()
 

@@ -231,17 +231,19 @@ private struct LastPageView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Keep") { dismiss() }
                 }
-                ToolbarItemGroup(placement: .bottomBar) {
-                    Button("Delete", systemImage: "trash", role: .destructive) { remove(retake: false) }
-                    Spacer()
-                    Button("Retake", systemImage: "camera") { remove(retake: true) }
+                if scan.canDeleteCapturedPage {
+                    ToolbarItemGroup(placement: .bottomBar) {
+                        Button("Delete", systemImage: "trash", role: .destructive) { remove(retake: false) }
+                        Spacer()
+                        Button("Retake", systemImage: "camera") { remove(retake: true) }
+                    }
                 }
             }
         }
     }
 
     private func remove(retake: Bool) {
-        if let page = scan.scan.pages.last { scan.deletePage(page.id) }
+        if let page = scan.scan.pages.last { scan.deleteCapturedPage(page.id) }
         done(retake)
         dismiss()
     }
