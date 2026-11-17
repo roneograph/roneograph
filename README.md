@@ -46,6 +46,7 @@ Sending:
 - Email fills in your default address, the name as the subject and the PDF; you only tap Send.
 - Save to Files puts the PDF in a folder picked once, or in the folders of a custom format inside it, without replacing a file already there.
 - Share reaches any other app.
+- The send bar shows Email and Archive once the owner has an address or a Paperless server; Save to Files and Share can be turned off in Settings.
 - New Scan on the review screen starts the next document of a pile right away.
 - Selecting several scans on Home sends them at once, all PDFs in one email per owner; a shortcut selects the scans not sent yet.
 - Owners keep your own paper apart from a company's you scan for: each owner has its email address, folder and file name format, and a document gets the owner recognized from lines seen on that owner's documents sent before, or the one remembered for its issuer, or the default one.

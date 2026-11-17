@@ -25,35 +25,37 @@ struct OwnerSections: View {
             if !owner.email.isEmpty, !owner.hasValidEmail {
                 Text("This is not a valid email address.").foregroundStyle(.red)
             } else {
-                Text("Fills in the recipient of the Email button. Needs an account in the Mail app.")
+                Text("Shows the Email button, which fills in this recipient. Needs an account in the Mail app.")
             }
         }
 
-        Section {
-            Button { choosingFolder = true } label: {
-                LabeledContent("Folder", value: owner.archiveFolder?.name ?? "Choose…")
+        if settings.value.showsSaveToFiles {
+            Section {
+                Button { choosingFolder = true } label: {
+                    LabeledContent("Folder", value: owner.archiveFolder?.name ?? "Choose…")
+                }
+                if owner.archiveFolder != nil {
+                    Button("Forget Folder", role: .destructive) { owner.archiveFolder = nil }
+                }
+            } header: {
+                Text("Save to Files")
+            } footer: {
+                Text("The Save button puts PDFs in this folder without asking each time.")
             }
-            if owner.archiveFolder != nil {
-                Button("Forget Folder", role: .destructive) { owner.archiveFolder = nil }
+            .fileImporter(isPresented: $choosingFolder, allowedContentTypes: [.folder]) { result in
+                guard case .success(let url) = result else { return }
+                do {
+                    try settings.chooseArchiveFolder(url, for: owner.id)
+                } catch {
+                    folderMessage = (error as? SettingsStore.FolderError)?.localizedDescription ?? ""
+                    folderFailed = true
+                }
             }
-        } header: {
-            Text("Save to Files")
-        } footer: {
-            Text("The Save button puts PDFs in this folder without asking each time.")
-        }
-        .fileImporter(isPresented: $choosingFolder, allowedContentTypes: [.folder]) { result in
-            guard case .success(let url) = result else { return }
-            do {
-                try settings.chooseArchiveFolder(url, for: owner.id)
-            } catch {
-                folderMessage = (error as? SettingsStore.FolderError)?.localizedDescription ?? ""
-                folderFailed = true
+            .alert("This folder cannot be used", isPresented: $folderFailed) {
+                Button("OK") {}
+            } message: {
+                if !folderMessage.isEmpty { Text(folderMessage) }
             }
-        }
-        .alert("This folder cannot be used", isPresented: $folderFailed) {
-            Button("OK") {}
-        } message: {
-            if !folderMessage.isEmpty { Text(folderMessage) }
         }
 
         if let archiver {

@@ -23,13 +23,10 @@ struct WordingTests {
 
     @Test func mentionsOwnersOnlyWhenThereAreSeveral() {
         var settings = ScannerSettings()
-        #expect(settings.emailQuestionTitle(for: settings.defaultOwnerID) == "Email scans to")
         #expect(settings.nothingRemembered == "Correct the name, issuer or category of a scan, and it is reused for the next documents from the same issuer.")
         #expect(settings.forgetEverythingMessage == "Corrections for 0 issuers, and which lines are your name and address. Scans and settings stay.")
         let holding = Owner(name: "Fernwood Holding")
         settings.addOwner(holding)
-        #expect(settings.emailQuestionTitle(for: holding.id) == "Email Fernwood Holding scans to")
-        #expect(settings.emailQuestionTitle(for: nil) == "Email Personal scans to")
         #expect(settings.nothingRemembered == "Correct the name, issuer, category or owner of a scan, and it is reused for the next documents from the same issuer.")
         settings.learnedIssuers = [LearnedIssuer(keys: ["lumen"], owner: holding.id)]
         #expect(settings.forgetEverythingMessage == "Corrections and owners remembered for 1 issuer, which lines are your name and address, and which lines tell each owner. Scans, owners and settings stay.")

@@ -19,6 +19,11 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
     /// Header lines seen on past scans, to recognize the user's own name and address.
     public var headerLines: [HeaderLine] = []
     public var keepScans = ScanRetention.week
+    /// Whether the send bar has Save to Files and Share; Archive and Email show once the owner has a server or an address.
+    public var showsSaveToFiles = true
+    public var showsShare = true
+    /// Set once the Home card pointing to Settings for Email and Paperless was closed.
+    public var dismissedSendSetup = false
 
     public init() {
         let personal = Owner(name: "Personal", symbol: .house)

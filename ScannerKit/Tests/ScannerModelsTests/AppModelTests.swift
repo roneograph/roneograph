@@ -402,13 +402,44 @@ struct AppModelTests {
         await theirs.preparePDF()
 
         #expect(app.ownerWithoutFolder(among: [mine, theirs])?.id == holding.id)
+        #expect(!app.hasFolder(for: [mine, theirs]))
         try fixture.settings.chooseArchiveFolder(company, for: holding.id)
         #expect(app.ownerWithoutFolder(among: [mine, theirs]) == nil)
+        #expect(app.hasFolder(for: [mine, theirs]))
+        #expect(!app.hasFolder(for: []))
 
         try await app.saveToArchive([mine, theirs])
         #expect(try FileManager.default.contentsOfDirectory(atPath: personal.path(percentEncoded: false)) == ["\(mine.scan.name).pdf"])
         #expect(try FileManager.default.contentsOfDirectory(atPath: company.path(percentEncoded: false)) == ["Office power.pdf"])
         #expect(app.toast == "2 scans saved to Files")
+    }
+
+    @Test func showsSaveToFilesAndShareUnlessTurnedOff() async throws {
+        let fixture = try Fixture()
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+        let scan = await fixture.capturedScan(in: app)
+        #expect(app.sendMethods(for: [scan]) == [.files, .share])
+        fixture.settings.value.defaultOwner.email = "me@example.com"
+        fixture.settings.value.showsSaveToFiles = false
+        #expect(app.sendMethods(for: [scan]) == [.email, .share])
+        fixture.settings.value.showsShare = false
+        #expect(app.sendMethods(for: [scan]) == [.email])
+    }
+
+    @Test func suggestsSettingUpSendingUntilAnOwnerHasAnAddressOrServer() throws {
+        let fixture = try Fixture()
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+        #expect(app.suggestsSendSetup)
+        let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
+        var owner = holding
+        owner.paperless = PaperlessServer(url: URL(string: "https://paperless.example.com/")!)
+        fixture.settings.value.updateOwner(owner)
+        #expect(!app.suggestsSendSetup)
+        fixture.settings.value.updateOwner(holding)
+        fixture.settings.value.defaultOwner.email = "me@example"
+        #expect(app.suggestsSendSetup, "An invalid address sends nothing")
+        fixture.settings.value.dismissedSendSetup = true
+        #expect(!app.suggestsSendSetup)
     }
 
     @Test func saysWhereEmailSendsTheScansOfEachOwner() async throws {

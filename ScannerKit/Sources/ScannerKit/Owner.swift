@@ -11,8 +11,6 @@ public struct Owner: Identifiable, Equatable, Sendable, Codable {
     public var symbol: Symbol
     /// Recipient of the Email button; empty when not set.
     public var email = ""
-    /// Set once the first tap on Email asked for an address, answered or not.
-    public var askedForEmail = false
     /// Where the Save button puts PDFs; nil until a folder is picked.
     public var archiveFolder: ArchiveFolder?
     /// Where the Archive button sends PDFs; nil until a server is connected.

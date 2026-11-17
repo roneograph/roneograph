@@ -139,28 +139,25 @@ public final class AppModel {
         Self.owners(of: models).first { $0.archiveFolder == nil }
     }
 
-    /// Whether an owner has a Paperless server, which shows the Archive button.
-    public var canArchive: Bool {
-        archiver != nil && settings.value.owners.contains { $0.paperless != nil }
+    /// The send buttons for these scans, in the order of the bar: Archive and Email when every owner of the scans has a server or an address, every owner when no scan is selected yet; Save to Files and Share unless turned off in Settings.
+    public func sendMethods(for models: [ScanModel]) -> [SendMethod] {
+        let owners = models.isEmpty ? settings.value.owners : Self.owners(of: models)
+        var methods: [SendMethod] = []
+        if let archiver, owners.allSatisfy(archiver.isConnected) { methods.append(.paperless) }
+        if owners.allSatisfy(\.hasValidEmail) { methods.append(.email) }
+        if settings.value.showsSaveToFiles { methods.append(.files) }
+        if settings.value.showsShare { methods.append(.share) }
+        return methods
     }
 
-    /// Whether every owner of these scans has where this method sends them, which highlights its button: a Paperless server, an email address or a folder.
-    public func hasDestination(_ method: SendMethod, for models: [ScanModel]) -> Bool {
-        let owners = Self.owners(of: models)
-        guard !owners.isEmpty else { return false }
-        return owners.allSatisfy { owner in
-            switch method {
-            case .paperless: archiver?.isConnected(owner) == true
-            case .email: owner.hasValidEmail
-            case .files: owner.archiveFolder != nil
-            case .share: false
-            }
-        }
+    /// Whether every owner of these scans has a folder, so Save to Files needs a single tap.
+    public func hasFolder(for models: [ScanModel]) -> Bool {
+        !models.isEmpty && ownerWithoutFolder(among: models) == nil
     }
 
-    /// The first owner of these scans without a Paperless server to archive them to.
-    public func ownerWithoutPaperless(among models: [ScanModel]) -> Owner? {
-        Self.owners(of: models).first { archiver?.isConnected($0) != true }
+    /// Home points to Settings until an owner has an address or a Paperless server, or the card is closed.
+    public var suggestsSendSetup: Bool {
+        !settings.value.dismissedSendSetup && !settings.value.owners.contains { $0.hasValidEmail || $0.paperless != nil }
     }
 
     /// Starts sending each scan to the Paperless server of its owner; Home tells when they are archived.

@@ -96,6 +96,15 @@ struct HomeView: View {
                         .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 4, trailing: 0))
                 }
                 .listSectionSpacing(.compact)
+                if app.suggestsSendSetup {
+                    Section {
+                        SendSetupCard {
+                            app.showingSettings = true
+                        } close: {
+                            withAnimation { app.settings.value.dismissedSendSetup = true }
+                        }
+                    }
+                }
                 let notSent = app.notSent
                 if notSent.count > 1 {
                     Section {
@@ -211,6 +220,38 @@ private struct NotSentCard: View {
                 .fontWeight(.semibold)
         }
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// Points to Settings until scans can be emailed or archived in one tap.
+private struct SendSetupCard: View {
+    let setUp: () -> Void
+    let close: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "paperplane")
+                .font(.title2)
+                .foregroundStyle(.tint)
+                .frame(width: 44)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Send in one tap").font(.headline)
+                Text("Add your email address or a Paperless server.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+            Button("Set Up", action: setUp)
+                .buttonStyle(.borderedProminent)
+                .buttonBorderShape(.capsule)
+                .fontWeight(.semibold)
+            Button("Close", systemImage: "xmark", action: close)
+                .labelStyle(.iconOnly)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .buttonStyle(.borderless)
+        }
     }
 }
 

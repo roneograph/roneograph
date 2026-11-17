@@ -3,8 +3,8 @@ import ScannerKit
 import ScannerModels
 import SwiftUI
 
-/// Archive once a Paperless server is connected, Email, Save to Files, Share and Delete, for the scan under review or the scans selected on Home.
-/// A button whose destination is set for the owners of the scans is filled with the accent color, so a single tap is enough.
+/// Archive and Email when the owners of the scans have a Paperless server or an address, Save to Files and Share unless turned off in Settings, and Delete, for the scan under review or the scans selected on Home.
+/// A button that sends in a single tap is filled with the accent color.
 struct SendBar<Summary: View>: View {
     let app: AppModel
     let scans: [ScanModel]
@@ -14,8 +14,6 @@ struct SendBar<Summary: View>: View {
     @ViewBuilder let summary: () -> Summary
     @State private var showingMail = false
     @State private var showingShare = false
-    @State private var showingEmailQuestion = false
-    @State private var answeredQuestion = false
     @State private var confirmingDelete = false
     @State private var choosingFolder = false
     @State private var savingFailed = false
@@ -27,9 +25,8 @@ struct SendBar<Summary: View>: View {
     @State private var mailFailed = false
     @State private var showingMailFailure = false
     @State private var folderInsideApp = false
-    @State private var settingUpPaperless = false
     @State private var archivingFailed = false
-    /// The owner the folder picker and the email question are for.
+    /// The owner the folder picker is for.
     @State private var ownerID: UUID?
     @State private var mails: MailQueue?
     @State private var attachments: [MailAttachment] = []
@@ -45,20 +42,26 @@ struct SendBar<Summary: View>: View {
     var body: some View {
         VStack(spacing: 8) {
             HStack(spacing: 10) {
-                if app.canArchive {
-                    Button("Archive", systemImage: "archivebox", action: archive)
-                        .sendButtonStyle(isSet: app.hasDestination(.paperless, for: scans))
-                        .disabled(!isReady)
+                ForEach(app.sendMethods(for: scans), id: \.self) { method in
+                    switch method {
+                    case .paperless:
+                        Button("Archive", systemImage: "archivebox", action: archive)
+                            .buttonStyle(.glassProminent)
+                            .disabled(!isReady)
+                    case .email:
+                        Button("Email", systemImage: "envelope", action: email)
+                            .buttonStyle(.glassProminent)
+                            .disabled(!isReady)
+                    case .files:
+                        Button("Save to Files", systemImage: "folder", action: saveToFiles)
+                            .sendButtonStyle(isSet: app.hasFolder(for: scans))
+                            .disabled(!isReady || isSaving)
+                    case .share:
+                        Button("Share", systemImage: "square.and.arrow.up", action: share)
+                            .buttonStyle(.glass)
+                            .disabled(!isReady)
+                    }
                 }
-                Button("Email", systemImage: "envelope", action: email)
-                    .sendButtonStyle(isSet: app.hasDestination(.email, for: scans))
-                    .disabled(!isReady)
-                Button("Save to Files", systemImage: "folder", action: saveToFiles)
-                    .sendButtonStyle(isSet: app.hasDestination(.files, for: scans))
-                    .disabled(!isReady || isSaving)
-                Button("Share", systemImage: "square.and.arrow.up", action: share)
-                    .buttonStyle(.glass)
-                    .disabled(!isReady)
                 Button(scans.count > 1 ? "Delete Scans" : "Delete Scan", systemImage: "trash", role: .destructive) { confirmingDelete = true }
                     .buttonStyle(.glass)
                     .foregroundStyle(.red.opacity(scans.isEmpty ? 0.4 : 1))
@@ -88,14 +91,6 @@ struct SendBar<Summary: View>: View {
             }
             .ignoresSafeArea()
         }
-        .sheet(isPresented: $showingEmailQuestion, onDismiss: {
-            mails?.closeQuestion(answered: answeredQuestion)
-            answeredQuestion = false
-            nextMail()
-        }) {
-            EmailQuestionView(settings: app.settings, ownerID: ownerID) { answeredQuestion = true }
-                .presentationDetents([.medium, .large])
-        }
         .sheet(isPresented: $showingShare, onDismiss: finishSharing) {
             ShareSheet(items: pdfs(of: scans)) { completed in
                 if completed { sentBy = .share }
@@ -112,11 +107,6 @@ struct SendBar<Summary: View>: View {
                 folderInsideApp = true
             } catch {
                 savingFailed = true
-            }
-        }
-        .sheet(isPresented: $settingUpPaperless) {
-            if let archiver = app.archiver, let ownerID {
-                PaperlessSetupView(ownerID: ownerID, settings: app.settings, archiver: archiver, saved: archive)
             }
         }
         .alert("The PDFs could not be archived", isPresented: $archivingFailed) {
@@ -201,13 +191,8 @@ struct SendBar<Summary: View>: View {
         }
     }
 
-    /// The first tap for an owner without a Paperless server connects one; the uploads go on in the background.
+    /// The uploads go on in the background.
     private func archive() {
-        if let owner = app.ownerWithoutPaperless(among: scans) {
-            ownerID = owner.id
-            settingUpPaperless = true
-            return
-        }
         Task {
             guard await preparePDFs(scans) else { return }
             do {
@@ -243,13 +228,9 @@ struct SendBar<Summary: View>: View {
     }
 
     private func nextMail() {
-        switch mails?.step {
-        case .askEmail(let id):
-            ownerID = id
-            showingEmailQuestion = true
-        case .compose:
+        if mails?.scans.isEmpty == false {
             Task { await composeMail() }
-        case .done, nil:
+        } else {
             mails = nil
         }
     }

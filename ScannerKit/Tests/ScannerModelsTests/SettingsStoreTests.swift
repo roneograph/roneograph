@@ -49,29 +49,6 @@ struct SettingsStoreTests {
         #expect(defaults.writes == 1)
     }
 
-    @Test func asksForAnEmailOnlyWhenNoneIsSet() throws {
-        let fixture = try Fixture()
-        #expect(fixture.settings.shouldAskForEmail(for: nil))
-        fixture.settings.value.defaultOwner.email = "me@example.com"
-        #expect(!fixture.settings.shouldAskForEmail(for: nil))
-    }
-
-    @Test func keepsTheAnsweredEmailAndStopsAsking() throws {
-        let fixture = try Fixture()
-        fixture.settings.answerEmailQuestion(" me@example.com ", for: nil)
-        #expect(fixture.settings.value.defaultOwner.email == "me@example.com")
-        fixture.settings.save()
-        #expect(!SettingsStore(defaults: fixture.defaults).shouldAskForEmail(for: nil))
-    }
-
-    @Test(arguments: ["", "me@example"])
-    func stopsAskingWhenDeclinedOrInvalid(answer: String) throws {
-        let fixture = try Fixture()
-        fixture.settings.answerEmailQuestion(answer, for: nil)
-        #expect(fixture.settings.value.defaultOwner.email == "")
-        #expect(!fixture.settings.shouldAskForEmail(for: nil))
-    }
-
     @Test func learnsCorrectionsByAnyKeyOfTheIssuerAndKeepsTheOthers() throws {
         let fixture = try Fixture()
         fixture.settings.learn(keys: ["lumen-energy.example", "lumen energie sas"]) { $0.issuer = "Lumen Energy" }
@@ -183,15 +160,6 @@ struct SettingsStoreTests {
         #expect(fixture.settings.value.owner(holding.id).name == "fernwood holding")
         #expect(fixture.settings.renameOwner(holding.id, to: "Fernwood"))
         #expect(fixture.settings.value.owner(holding.id).name == "Fernwood")
-    }
-
-    @Test func asksForTheEmailOfEachOwner() throws {
-        let fixture = try Fixture()
-        let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
-        fixture.settings.answerEmailQuestion("accounting@fernwood.example", for: holding.id)
-        #expect(fixture.settings.value.owner(holding.id).email == "accounting@fernwood.example")
-        #expect(!fixture.settings.shouldAskForEmail(for: holding.id))
-        #expect(fixture.settings.shouldAskForEmail(for: nil))
     }
 
     @Test func neverRemovesTheDefaultOwner() throws {

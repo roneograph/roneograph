@@ -16,11 +16,6 @@ extension ScanRetention {
 }
 
 extension ScannerSettings {
-    /// Asked on the first tap on Email for an owner; owners are named only when there are several.
-    public func emailQuestionTitle(for ownerID: UUID?) -> String {
-        hasSeveralOwners ? "Email \(owner(ownerID).name) scans to" : "Email scans to"
-    }
-
     /// What Forget Everything in Settings › Memory forgets.
     public var forgetEverythingMessage: String {
         let issuers = learnedIssuers.count.counted("issuer")

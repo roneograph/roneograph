@@ -35,21 +35,6 @@ public final class SettingsStore {
         value = defaults.data(forKey: Self.key).flatMap { try? JSONDecoder().decode(ScannerSettings.self, from: $0) } ?? ScannerSettings()
     }
 
-    /// The first tap on Email for an owner asks where its scans go, unless an address is already set.
-    public func shouldAskForEmail(for ownerID: UUID?) -> Bool {
-        let owner = value.owner(ownerID)
-        return !owner.hasValidEmail && !owner.askedForEmail
-    }
-
-    /// Keeps the address when it is valid; either way, the question is not asked again for this owner.
-    public func answerEmailQuestion(_ email: String, for ownerID: UUID?) {
-        var owner = value.owner(ownerID)
-        let email = email.trimmingCharacters(in: .whitespaces)
-        if ScannerSettings.isValidEmail(email) { owner.email = email }
-        owner.askedForEmail = true
-        value.updateOwner(owner)
-    }
-
     /// Remembers the folder picked in Files for the Save button of an owner; refuses the app's own folder.
     public func chooseArchiveFolder(_ url: URL, for ownerID: UUID?) throws {
         if let appFolder, url.resolvingSymlinksInPath().pathComponents.starts(with: appFolder.resolvingSymlinksInPath().pathComponents) {

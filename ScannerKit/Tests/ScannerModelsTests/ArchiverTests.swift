@@ -34,31 +34,30 @@ struct ArchiverTests {
         return scan
     }
 
-    @Test func showsTheArchiveButtonOnceAnOwnerHasAServer() throws {
-        #expect(!app.canArchive)
-        try connect()
-        #expect(app.canArchive)
-    }
-
-    @Test func highlightsTheMethodsEveryOwnerOfTheScansHasADestinationFor() async throws {
+    @Test func showsArchiveAndEmailOnlyWhenEveryOwnerOfTheScansHasThem() async throws {
         let holding = try #require(fixture.settings.addOwner("Holding"))
         let personal = await readyScan()
         let company = await readyScan()
         company.setOwner(holding.id)
-        #expect(!app.hasDestination(.paperless, for: [personal]))
-        #expect(!app.hasDestination(.email, for: [personal]))
-        #expect(!app.hasDestination(.paperless, for: []))
+        #expect(app.sendMethods(for: [personal]) == [.files, .share])
 
         try connect()
         fixture.settings.value.defaultOwner.email = "me@example.com"
-        #expect(app.hasDestination(.paperless, for: [personal]))
-        #expect(app.hasDestination(.email, for: [personal]))
-        #expect(!app.hasDestination(.files, for: [personal]))
-        #expect(!app.hasDestination(.share, for: [personal]))
-        #expect(!app.hasDestination(.paperless, for: [personal, company]))
+        #expect(app.sendMethods(for: [personal]) == [.paperless, .email, .files, .share])
+        #expect(app.sendMethods(for: [personal, company]) == [.files, .share])
+        #expect(app.sendMethods(for: []) == [.files, .share], "With nothing selected, every owner counts")
 
         try connect(holding.id)
-        #expect(app.hasDestination(.paperless, for: [personal, company]))
+        #expect(app.sendMethods(for: [personal, company]) == [.paperless, .files, .share])
+        #expect(app.sendMethods(for: []) == [.paperless, .files, .share])
+    }
+
+    @Test func hidesArchiveWhenTheTokenIsMissing() async throws {
+        let scan = await readyScan()
+        var owner = scan.owner
+        owner.paperless = PaperlessServer(url: URL(string: "https://paperless.example.com/")!)
+        fixture.settings.value.updateOwner(owner)
+        #expect(!app.sendMethods(for: [scan]).contains(.paperless))
     }
 
     @Test func uploadsThePDFWithItsTitleAndStoragePath() async throws {
@@ -221,13 +220,12 @@ struct ArchiverTests {
 
     @Test func refusesTheScansOfAnOwnerWithoutServer() async throws {
         let scan = await readyScan()
-        #expect(app.ownerWithoutPaperless(among: [scan])?.id == scan.owner.id)
         await #expect(throws: Archiver.ArchiveError.notConnected(scan.owner.id)) { try await app.archive([scan]) }
 
         var owner = scan.owner
         owner.paperless = PaperlessServer(url: URL(string: "https://paperless.example.com/")!)
         fixture.settings.value.updateOwner(owner)
-        #expect(app.ownerWithoutPaperless(among: [scan])?.id == scan.owner.id, "The token is missing")
+        await #expect(throws: Archiver.ArchiveError.notConnected(scan.owner.id), "The token is missing") { try await app.archive([scan]) }
         #expect(uploader.uploads.isEmpty)
     }
 

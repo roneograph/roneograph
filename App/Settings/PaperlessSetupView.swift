@@ -6,15 +6,12 @@ import SwiftUI
 struct PaperlessSetupView: View {
     @State private var setup: PaperlessSetup
     private let title: String
-    /// Called once the server is kept.
-    private let saved: () -> Void
     @State private var saveFailed = false
     @Environment(\.dismiss) private var dismiss
 
-    init(ownerID: UUID, settings: SettingsStore, archiver: Archiver, saved: @escaping () -> Void = {}) {
+    init(ownerID: UUID, settings: SettingsStore, archiver: Archiver) {
         _setup = State(initialValue: PaperlessSetup(ownerID: ownerID, settings: settings, archiver: archiver, fetch: PaperlessHTTP.fetch))
         title = settings.value.hasSeveralOwners ? "Paperless for \(settings.value.owner(ownerID).name)" : "Paperless"
-        self.saved = saved
     }
 
     var body: some View {
@@ -89,7 +86,6 @@ struct PaperlessSetupView: View {
         do {
             try setup.save()
             dismiss()
-            saved()
         } catch {
             saveFailed = true
         }
