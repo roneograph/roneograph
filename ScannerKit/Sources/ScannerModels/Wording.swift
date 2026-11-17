@@ -118,6 +118,17 @@ extension SendMethod {
         case .paperless: "Archived"
         }
     }
+
+    /// What happens once the PDFs of that many scans are made, while the button waits for them: "Email opens when the PDF is ready".
+    public func whenReady(pdfs count: Int) -> String {
+        let pdfs = count > 1 ? "the PDFs are" : "the PDF is"
+        return switch self {
+        case .paperless: "Archives when \(pdfs) ready"
+        case .email: "Email opens when \(pdfs) ready"
+        case .files: "Saves when \(pdfs) ready"
+        case .share: "Share opens when \(pdfs) ready"
+        }
+    }
 }
 
 extension Collection<RememberedValue> {
@@ -187,6 +198,11 @@ extension Collection<ScanModel> {
         return "\(count.counted("document")) · \(pages) · \(state)"
     }
 
+    /// "2 pages", counting the pages still processed.
+    var pageCount: String {
+        reduce(0) { $0 + $1.scan.pages.count + $1.processing }.counted("page")
+    }
+
     /// The size of the PDFs, once each is made from its scan as it is now.
     var currentPDFSize: Int? {
         guard !isEmpty, allSatisfy(\.hasCurrentPDF) else { return nil }
@@ -211,7 +227,19 @@ extension Collection<Scan> {
     }
 }
 
+/// The line under the send buttons; `lead`, in bold before `text`, says what a button waiting for the PDFs will do.
+public struct SendFooter: Equatable {
+    public var lead: String?
+    public var text: String
+}
+
 extension AppModel {
+    /// Under the send buttons: "**Email opens when the PDF is ready** · 2 pages" while a button waits for the PDFs, otherwise the owner of the scans with several owners, then the summary.
+    public func sendFooter(for models: [ScanModel], waiting: SendMethod?, summary: String) -> SendFooter {
+        if let waiting { return SendFooter(lead: waiting.whenReady(pdfs: models.count), text: models.pageCount) }
+        return SendFooter(text: [ownerLabel(of: models), summary].compactMap(\.self).joined(separator: " · "))
+    }
+
     /// An owner's row in Settings, read by VoiceOver: "Me, default, sends by Archive, Email".
     public func summary(of owner: Owner) -> String {
         let methods = SendMethod.inBarOrder.filter { isSet($0, for: owner) }.map(\.title)
