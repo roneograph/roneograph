@@ -7,15 +7,23 @@ struct Roneograph {
     static let timeout: TimeInterval = 10
 
     /// `settings` is the JSON of the settings to start from; the keys left out take their defaults.
-    init(settings: String? = nil) {
+    /// `photos` is a folder of JPEG photos scanned at launch into a scan, which opens for review.
+    init(settings: String? = nil, photos: URL? = nil) {
         app.launchEnvironment["RONEOGRAPH_UI_TESTING"] = "1"
         if let settings { app.launchEnvironment["RONEOGRAPH_SETTINGS"] = settings }
+        if let photos { app.launchEnvironment["RONEOGRAPH_SAMPLE_PHOTOS"] = photos.path(percentEncoded: false) }
         app.launch()
     }
 
     func openSettings() {
         tap(app.buttons["Settings"])
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: Self.timeout), "Settings did not open")
+    }
+
+    /// Opens the page of an owner from Settings.
+    func openOwner(_ name: String, file: StaticString = #filePath, line: UInt = #line) {
+        tap(button(name), file: file, line: line)
+        XCTAssertTrue(app.navigationBars[name].waitForExistence(timeout: Self.timeout), "The page of \(name) did not open", file: file, line: line)
     }
 
     /// The first button whose label starts with `label`, as a row's label is followed by its value.
@@ -28,12 +36,12 @@ struct Roneograph {
         element.tap()
     }
 
-    /// Taps a row of Settings, waits for what it presents, closes it with `close`, then checks Settings is still there.
-    func present(_ row: String, shows presented: XCUIElement, close: XCUIElement, file: StaticString = #filePath, line: UInt = #line) {
+    /// Taps a row of the screen titled `screen`, waits for what it presents, closes it with `close`, then checks the screen is still there.
+    func present(_ row: String, on screen: String = "Settings", shows presented: XCUIElement, close: XCUIElement, file: StaticString = #filePath, line: UInt = #line) {
         tap(button(row), file: file, line: line)
         XCTAssertTrue(presented.waitForExistence(timeout: Self.timeout), "\(row) did not present \(presented)", file: file, line: line)
         tap(close, file: file, line: line)
         XCTAssertTrue(presented.waitForNonExistence(timeout: Self.timeout), "\(presented) did not close", file: file, line: line)
-        XCTAssertTrue(app.navigationBars["Settings"].isHittable, "Settings was dismissed", file: file, line: line)
+        XCTAssertTrue(app.navigationBars[screen].isHittable, "\(screen) was dismissed", file: file, line: line)
     }
 }
