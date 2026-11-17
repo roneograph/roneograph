@@ -13,33 +13,18 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                if settings.value.hasSeveralOwners {
-                    OwnersSection(app: app, settings: settings)
-                    Section {
-                        Toggle("Ask for a name", isOn: $settings.value.askForName)
-                    } footer: {
-                        Text("The name is found in the text, and a name you correct is reused for the next documents from the same issuer, with their own date and number where yours had them.")
-                    }
-                } else {
-                    OwnerSections(settings: settings, archiver: app.archiver, owner: $settings.value.defaultOwner, askForName: $settings.value.askForName)
+                OwnersSection(app: app, settings: settings)
+
+                Section {
+                    Toggle("Ask for a name", isOn: $settings.value.askForName)
+                } footer: {
+                    Text("The name is found in the text, and a name you correct is reused for the next documents from the same issuer, with their own date and number where yours had them.")
                 }
 
                 Section {
-                    if !settings.value.hasSeveralOwners {
-                        Toggle("Custom format", isOn: $settings.value.defaultOwner.fileNameFormat.isCustom)
-                    }
                     NavigationLink("Categories") { CategoriesView(settings: settings) }
-                    if !settings.value.hasSeveralOwners {
-                        NavigationLink(value: Screen.owners) {
-                            LabeledContent("Owners", value: "\(settings.value.owners.count)")
-                        }
-                    }
                 } header: {
                     Text("Advanced")
-                } footer: {
-                    if !settings.value.hasSeveralOwners {
-                        Text("A custom format builds file names from the details of the document, such as {YYYY}-{MM} {ISSUER}, and can file scans into folders.")
-                    }
                 }
 
                 Section {
@@ -108,12 +93,6 @@ struct SettingsView: View {
                     }
                 }
             }
-            // Pushed by value, so adding a second owner, which removes the link, keeps the screen open.
-            .navigationDestination(for: Screen.self) { _ in
-                Form { OwnersSection(app: app, settings: settings) }
-                    .navigationTitle("Owners")
-                    .navigationBarTitleDisplayMode(.inline)
-            }
             .task { storedBytes = await app.store.byteCount() }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
@@ -123,10 +102,6 @@ struct SettingsView: View {
                 }
             }
         }
-    }
-
-    private enum Screen: Hashable {
-        case owners
     }
 
     private var stored: String {

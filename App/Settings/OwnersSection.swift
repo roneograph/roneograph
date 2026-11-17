@@ -2,7 +2,7 @@ import ScannerKit
 import ScannerModels
 import SwiftUI
 
-/// The owners, to open one or add another, and which one documents go to when nothing tells.
+/// The owners, each with the ways its documents go out, to open one or add another; the same with one owner or several.
 struct OwnersSection: View {
     let app: AppModel
     @Bindable var settings: SettingsStore
@@ -15,46 +15,59 @@ struct OwnersSection: View {
                 NavigationLink {
                     OwnerView(app: app, settings: settings, ownerID: owner.id)
                 } label: {
-                    Label {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(owner.name)
-                            if let destinations = destinations(of: owner) {
-                                Text(destinations).font(.footnote).foregroundStyle(.secondary).lineLimit(1)
-                            }
-                        }
-                    } icon: {
-                        Image(systemName: owner.symbol.systemImage).foregroundStyle(.tint)
-                    }
+                    OwnerRow(app: app, owner: owner, isDefault: owner.id == settings.value.defaultOwnerID)
                 }
             }
             Button("Add Owner…", systemImage: "plus") { adding = true }
-            if settings.value.hasSeveralOwners {
-                Picker("Default owner", selection: $settings.value.defaultOwnerID) {
-                    ForEach(settings.value.owners) { Text($0.name).tag($0.id) }
+                .alert("New Owner", isPresented: $adding) {
+                    TextField("Name", text: $newName)
+                    Button("Add") {
+                        settings.addOwner(newName)
+                        newName = ""
+                    }
+                    Button("Cancel", role: .cancel) { newName = "" }
+                } message: {
+                    Text("A company you scan documents for, such as your employer.")
                 }
-            }
         } header: {
             Text("Owners")
         } footer: {
-            Text(settings.value.hasSeveralOwners
-                ? "Each document goes to its owner's email address and folder, named with its format. The owner is read from the page or remembered per issuer; otherwise it is the default owner."
-                : "Add an owner for a company you scan for: its documents get their own email address, folder and file names.")
-        }
-        .alert("New Owner", isPresented: $adding) {
-            TextField("Name", text: $newName)
-            Button("Add") {
-                settings.addOwner(newName)
-                newName = ""
-            }
-            Button("Cancel", role: .cancel) { newName = "" }
-        } message: {
-            Text("A company you scan documents for, such as your employer.")
+            Text("Add an owner for a company you scan for: its documents get their own ways to send and file names. The owner of a document is read from the page or remembered per issuer; otherwise it is the default owner.")
         }
     }
+}
 
-    private func destinations(of owner: Owner) -> String? {
-        let parts = [owner.hasValidEmail ? owner.email : nil, owner.archiveFolder?.name].compactMap { $0 }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+/// An owner, and in the accent color the ways that send its documents in a single tap.
+private struct OwnerRow: View {
+    let app: AppModel
+    let owner: Owner
+    let isDefault: Bool
+    @ScaledMetric(relativeTo: .body) private var size = 32
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: owner.symbol.badgeImage)
+                .font(.system(size: size * 0.5, weight: .medium))
+                .foregroundStyle(.tint)
+                .frame(width: size, height: size)
+                .background(Color.accentColor.opacity(0.15), in: .circle)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(owner.name)
+                if isDefault {
+                    Text("Default").font(.footnote).foregroundStyle(.secondary)
+                }
+            }
+            Spacer(minLength: 8)
+            HStack(spacing: 8) {
+                ForEach(SendMethod.inBarOrder, id: \.self) { method in
+                    Image(systemName: method.systemImage)
+                        .foregroundStyle(app.isSet(method, for: owner) ? Color.accentColor : Color(.systemGray3))
+                }
+            }
+            .font(.footnote)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(app.summary(of: owner))
     }
 }
 
@@ -136,5 +149,37 @@ struct OwnerView: View {
     private func delete(movingScansTo newOwner: UUID?) {
         dismiss()
         app.deleteOwner(ownerID, movingScansTo: newOwner)
+    }
+}
+
+extension SettingsStore {
+    /// An owner as a binding, for the views that edit it.
+    func binding(for ownerID: UUID) -> Binding<Owner> {
+        Binding(get: { self.value.owner(ownerID) }, set: { self.value.updateOwner($0) })
+    }
+}
+
+extension Owner.Symbol {
+    var systemImage: String {
+        switch self {
+        case .person: "person.crop.circle"
+        case .house: "house"
+        case .building: "building.2"
+        case .briefcase: "briefcase"
+        }
+    }
+
+    /// The symbol drawn in a circle.
+    var badgeImage: String {
+        self == .person ? "person" : systemImage
+    }
+
+    var name: String {
+        switch self {
+        case .person: "Person"
+        case .house: "House"
+        case .building: "Building"
+        case .briefcase: "Briefcase"
+        }
     }
 }

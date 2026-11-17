@@ -14,7 +14,7 @@ struct PaperlessSetupView: View {
 
     init(ownerID: UUID, settings: SettingsStore, archiver: Archiver) {
         _setup = State(initialValue: PaperlessSetup(ownerID: ownerID, settings: settings, archiver: archiver, fetch: PaperlessHTTP.fetch))
-        title = settings.value.hasSeveralOwners ? "Paperless for \(settings.value.owner(ownerID).name)" : "Paperless"
+        title = "Paperless for \(settings.value.owner(ownerID).name)"
         self.ownerID = ownerID
         self.settings = settings
         self.archiver = archiver
