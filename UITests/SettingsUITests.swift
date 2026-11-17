@@ -15,7 +15,7 @@ final class SettingsUITests: XCTestCase {
         roneograph.openSettings()
         let app = roneograph.app
         XCTAssertTrue(app.staticTexts["OWNERS"].exists || app.staticTexts["Owners"].exists, "No Owners section")
-        XCTAssertTrue(app.buttons["Personal, default, sends by Share"].exists, "Save to Files needs a folder to send in one tap")
+        XCTAssertTrue(app.buttons["Me, default, sends by Share"].exists, "Save to Files needs a folder to send in one tap")
         XCTAssertTrue(roneograph.button("Add Owner…").exists)
     }
 
@@ -23,10 +23,10 @@ final class SettingsUITests: XCTestCase {
         let roneograph = Roneograph()
         roneograph.openSettings()
         let app = roneograph.app
-        let personal = roneograph.button("Personal")
+        let me = roneograph.button("Me, default")
         let askForName = app.switches["Ask for a name"]
         XCTAssertTrue(askForName.waitForExistence(timeout: Roneograph.timeout))
-        let personalFrame = personal.frame
+        let meFrame = me.frame
 
         roneograph.tap(roneograph.button("Add Owner…"))
         let name = app.alerts["New Owner"].textFields.firstMatch
@@ -35,17 +35,17 @@ final class SettingsUITests: XCTestCase {
         roneograph.tap(app.alerts["New Owner"].buttons["Add"])
 
         XCTAssertTrue(app.buttons["Fernwood Holding, sends by Share"].waitForExistence(timeout: Roneograph.timeout))
-        XCTAssertEqual(personal.frame, personalFrame, "The first owner moved")
+        XCTAssertEqual(me.frame, meFrame, "The first owner moved")
         XCTAssertTrue(askForName.exists)
-        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Personal, default")).count, 1)
+        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Me, default")).count, 1)
     }
 
     func testConnectKeepsTheOwnerPage() {
         let roneograph = Roneograph()
         roneograph.openSettings()
-        roneograph.openOwner("Personal")
-        let paperless = roneograph.app.navigationBars["Paperless for Personal"]
-        roneograph.present("Archive to Paperless", on: "Personal", shows: paperless, close: paperless.buttons["Cancel"])
+        roneograph.openOwner("Me")
+        let paperless = roneograph.app.navigationBars["Paperless for Me"]
+        roneograph.present("Archive to Paperless", on: "Me", shows: paperless, close: paperless.buttons["Cancel"])
     }
 
     func testServerRowKeepsTheOwnerPageAndDisconnects() {
@@ -67,7 +67,7 @@ final class SettingsUITests: XCTestCase {
     func testPaperlessSetupShowsWhatArchiveSends() {
         let roneograph = Roneograph()
         roneograph.openSettings()
-        roneograph.openOwner("Personal")
+        roneograph.openOwner("Me")
         roneograph.tap(roneograph.button("Archive to Paperless"))
         roneograph.tap(roneograph.button("What Archive Sends"))
         XCTAssertTrue(roneograph.app.staticTexts["{{ correspondent }}"].waitForExistence(timeout: Roneograph.timeout), "What Archive Sends did not open")
@@ -76,15 +76,15 @@ final class SettingsUITests: XCTestCase {
     func testFolderPickerKeepsTheOwnerPage() {
         let roneograph = Roneograph()
         roneograph.openSettings()
-        roneograph.openOwner("Personal")
+        roneograph.openOwner("Me")
         let cancel = roneograph.app.buttons["Cancel"]
-        roneograph.present("Folder", on: "Personal", shows: cancel, close: cancel)
+        roneograph.present("Folder", on: "Me", shows: cancel, close: cancel)
     }
 
     func testPaperlessSetupShowsUnreachableServer() {
         let roneograph = Roneograph()
         roneograph.openSettings()
-        roneograph.openOwner("Personal")
+        roneograph.openOwner("Me")
         roneograph.tap(roneograph.button("Archive to Paperless"))
         let app = roneograph.app
         let address = app.textFields.matching(NSPredicate(format: "placeholderValue == %@", "https://paperless.example.com")).firstMatch

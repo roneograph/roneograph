@@ -53,8 +53,8 @@ private struct OwnerRow: View {
                 .background(Color.accentColor.opacity(0.15), in: .circle)
             VStack(alignment: .leading, spacing: 2) {
                 Text(owner.name)
-                if isDefault {
-                    Text("Default").font(.footnote).foregroundStyle(.secondary)
+                if let caption {
+                    Text(caption).font(.footnote).foregroundStyle(.secondary)
                 }
             }
             Spacer(minLength: 8)
@@ -68,6 +68,11 @@ private struct OwnerRow: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(app.summary(of: owner))
+    }
+
+    private var caption: String? {
+        let parts = [isDefault ? "Default" : nil, owner.hasPlaceholderName ? "Add your name" : nil].compactMap(\.self)
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 }
 
@@ -86,7 +91,7 @@ struct OwnerView: View {
     var body: some View {
         Form {
             Section {
-                TextField("Name", text: $name)
+                TextField("Name", text: $name, prompt: owner.wrappedValue.hasPlaceholderName ? Text("Your name, as on your mail") : nil)
                     .onSubmit(rename)
                 Picker("Symbol", selection: owner.symbol) {
                     ForEach(Owner.Symbol.allCases, id: \.self) { symbol in
@@ -121,7 +126,7 @@ struct OwnerView: View {
         }
         .navigationTitle(owner.wrappedValue.name)
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { name = owner.wrappedValue.name }
+        .onAppear(perform: showName)
         .onDisappear(perform: rename)
         .confirmationDialog("Delete \(owner.wrappedValue.name)?", isPresented: $deleting, titleVisibility: .visible) {
             let scans = app.scans(of: ownerID)
@@ -143,7 +148,12 @@ struct OwnerView: View {
 
     /// An empty name or another owner's puts the name back.
     private func rename() {
-        if !settings.renameOwner(ownerID, to: name) { name = owner.wrappedValue.name }
+        if !settings.renameOwner(ownerID, to: name) { showName() }
+    }
+
+    /// The placeholder name shows as an empty field, asking for the user's name.
+    private func showName() {
+        name = owner.wrappedValue.hasPlaceholderName ? "" : owner.wrappedValue.name
     }
 
     private func delete(movingScansTo newOwner: UUID?) {

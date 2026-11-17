@@ -444,13 +444,13 @@ struct AppModelTests {
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)
         var owner = fixture.settings.value.defaultOwner
         #expect(SendMethod.inBarOrder.filter { app.isSet($0, for: owner) } == [.share])
-        #expect(app.summary(of: owner) == "Personal, default, sends by Share")
+        #expect(app.summary(of: owner) == "Me, default, sends by Share")
         owner.showsShare = false
         owner.email = "me@example"
-        #expect(app.summary(of: owner) == "Personal, default, nothing set to send")
+        #expect(app.summary(of: owner) == "Me, default, nothing set to send")
         owner.email = "me@example.com"
         owner.archiveFolder = try ArchiveFolder(url: fixture.root)
-        #expect(app.summary(of: owner) == "Personal, default, sends by Email, Save to Files")
+        #expect(app.summary(of: owner) == "Me, default, sends by Email, Save to Files")
         owner.showsSaveToFiles = false
         #expect(!app.isSet(.files, for: owner), "A folder without the button sends nothing")
         owner.paperless = PaperlessServer(url: URL(string: "https://paperless.example.com/")!)
@@ -462,7 +462,7 @@ struct AppModelTests {
         let connected = AppModel(processor: fixture.processor, settings: fixture.settings, archiver: Archiver(uploader: FakeUploader(), tokens: tokens, directory: fixture.root.appending(path: "Uploads"), fetch: FakeServer().fetch))
         #expect(!connected.isSet(.paperless, for: owner), "No token")
         try tokens.setToken("secret", for: owner.id)
-        #expect(connected.summary(of: owner) == "Personal, default, sends by Archive, Email")
+        #expect(connected.summary(of: owner) == "Me, default, sends by Archive, Email")
     }
 
     @Test func suggestsSettingUpSendingUntilAnOwnerHasAnAddressOrServer() throws {
@@ -492,7 +492,7 @@ struct AppModelTests {
 
         let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
         #expect(app.ownerLabel(of: []) == nil)
-        #expect(app.ownerLabel(of: [mine]) == "Personal")
+        #expect(app.ownerLabel(of: [mine]) == "Me")
         other.setOwner(holding.id)
         #expect(app.ownerLabel(of: [other, third]) == "2 owners")
         #expect(app.ownerLabel(of: [mine, other, third]) == "2 owners")

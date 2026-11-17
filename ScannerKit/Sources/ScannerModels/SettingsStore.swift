@@ -80,6 +80,32 @@ public final class SettingsStore {
         return true
     }
 
+    /// Adds another name of an owner, or replaces the one at `index`, trimmed; an empty name removes it, and a name it already has is not added twice.
+    public func setName(_ name: String, at index: Int? = nil, of ownerID: UUID) {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        update(\.names, of: ownerID, with: name, at: index)
+    }
+
+    /// Adds an address of an owner, or replaces the one at `index`, each line trimmed and blank lines left out; an empty address removes it.
+    public func setAddress(_ address: String, at index: Int? = nil, of ownerID: UUID) {
+        let address = address.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }.joined(separator: "\n")
+        update(\.addresses, of: ownerID, with: address, at: index)
+    }
+
+    private func update(_ list: WritableKeyPath<Owner, [String]>, of ownerID: UUID, with text: String, at index: Int?) {
+        guard value.hasOwner(ownerID) else { return }
+        var owner = value.owner(ownerID)
+        var items = owner[keyPath: list]
+        let others = items.indices.filter { $0 != index }.map { items[$0] }
+        if let index, items.indices.contains(index) {
+            if text.isEmpty || others.contains(text) { items.remove(at: index) } else { items[index] = text }
+        } else if !text.isEmpty, !items.contains(text) {
+            items.append(text)
+        }
+        owner[keyPath: list] = items
+        value.updateOwner(owner)
+    }
+
     private func owner(named name: String) -> Owner? {
         value.owners.first { $0.name.caseInsensitiveCompare(name) == .orderedSame }
     }

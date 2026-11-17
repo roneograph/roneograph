@@ -19,6 +19,13 @@ public struct Owner: Identifiable, Equatable, Sendable, Codable {
     /// Whether the send bar has Save to Files and Share for this owner's documents; Archive and Email show once it has a server or an address.
     public var showsSaveToFiles = true
     public var showsShare = true
+    /// Other names its mail is addressed to, such as a maiden name; its own name always is one.
+    public var names: [String] = []
+    /// The addresses its mail is sent to, as typed, possibly on several lines.
+    public var addresses: [String] = []
+
+    /// The name of the default owner of a new install, until the user types theirs; it tells no page.
+    public static let placeholderName = "Me"
 
     public init(id: UUID = UUID(), name: String, symbol: Symbol = .building, fileNameFormat: FileNameFormat = FileNameFormat()) {
         self.id = id
@@ -37,7 +44,11 @@ public struct Owner: Identifiable, Equatable, Sendable, Codable {
         fileNameFormat = try container.decode(.fileNameFormat, or: fileNameFormat)
         showsSaveToFiles = try container.decode(.showsSaveToFiles, or: showsSaveToFiles)
         showsShare = try container.decode(.showsShare, or: showsShare)
+        names = try container.decode(.names, or: names)
+        addresses = try container.decode(.addresses, or: addresses)
     }
 
     public var hasValidEmail: Bool { ScannerSettings.isValidEmail(email) }
+
+    public var hasPlaceholderName: Bool { name == Self.placeholderName }
 }

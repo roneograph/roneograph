@@ -23,9 +23,9 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
     public var dismissedSendSetup = false
 
     public init() {
-        let personal = Owner(name: "Personal", symbol: .house)
-        owners = [personal]
-        defaultOwnerID = personal.id
+        let me = Owner(name: Owner.placeholderName, symbol: .person)
+        owners = [me]
+        defaultOwnerID = me.id
     }
 
     /// Settings saved by an older build keep their values; the keys added since take their defaults.

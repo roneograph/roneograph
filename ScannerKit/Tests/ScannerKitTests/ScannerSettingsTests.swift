@@ -21,6 +21,8 @@ struct ScannerSettingsTests {
         #expect(settings.askForName)
         #expect(settings.defaultOwner.showsSaveToFiles)
         #expect(settings.defaultOwner.showsShare)
+        #expect(settings.defaultOwner.names.isEmpty)
+        #expect(settings.defaultOwner.addresses.isEmpty)
         #expect(settings.keepScans == .week)
     }
 
@@ -61,6 +63,8 @@ struct ScannerSettingsTests {
         owner.paperless = PaperlessServer(url: URL(string: "https://paperless.example.com/")!, storagePath: PaperlessStoragePath(id: 7, name: "Fernwood"))
         owner.showsSaveToFiles = false
         owner.showsShare = false
+        owner.names = ["Fernwood"]
+        owner.addresses = ["8 rue des Glycines\n69007 Lyon"]
         var settings = ScannerSettings()
         settings.addOwner(owner)
         settings.defaultOwnerID = owner.id

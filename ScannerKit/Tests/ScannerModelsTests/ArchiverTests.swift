@@ -260,7 +260,7 @@ struct ArchiverTests {
 
         try await app.archive([first, second])
         #expect(uploader.uploads.count == 2)
-        #expect(uploader.uploads.allSatisfy { String(decoding: $0.body, as: UTF8.self).contains("name=\"custom_fields\"\r\n\r\n{\"5\":\"Personal\"}\r\n") })
+        #expect(uploader.uploads.allSatisfy { String(decoding: $0.body, as: UTF8.self).contains("name=\"custom_fields\"\r\n\r\n{\"5\":\"Me\"}\r\n") })
         #expect(server.requests(to: "/api/custom_fields/").map(\.httpMethod) == ["GET"], "The fields are read once")
     }
 
@@ -274,7 +274,7 @@ struct ArchiverTests {
         let created = try #require(server.requests(to: "/api/custom_fields/").last)
         #expect(created.httpMethod == "POST")
         #expect(String(decoding: created.httpBody ?? Data(), as: UTF8.self) == #"{"data_type":"string","name":"Owner"}"#)
-        #expect(String(decoding: try #require(uploader.uploads.first).body, as: UTF8.self).contains("name=\"custom_fields\"\r\n\r\n{\"6\":\"Personal\"}\r\n"))
+        #expect(String(decoding: try #require(uploader.uploads.first).body, as: UTF8.self).contains("name=\"custom_fields\"\r\n\r\n{\"6\":\"Me\"}\r\n"))
     }
 
     @Test func sendsWithoutTheOwnerToAServerTooOldToTakeIt() async throws {
@@ -320,7 +320,7 @@ struct ArchiverTests {
 
         server.answer("GET", "/api/custom_fields/", #"{"results": [{"id": 5, "name": "Owner", "data_type": "string"}]}"#, version: "2.19.0")
         await app.archiver?.prepareWaitingUploads()
-        #expect(String(decoding: try #require(uploader.uploads.first).body, as: UTF8.self).contains("{\"5\":\"Personal\"}"))
+        #expect(String(decoding: try #require(uploader.uploads.first).body, as: UTF8.self).contains("{\"5\":\"Me\"}"))
     }
 
     @Test func readsTheOwnerFieldAgainAfterAFailedUpload() async throws {
@@ -332,7 +332,7 @@ struct ArchiverTests {
         app.archiver?.complete(UploadResult(scanID: scan.id, status: 400, body: Data(#"{"custom_fields": ["Custom field with id 5 does not exist"]}"#.utf8)))
 
         try await app.archive([scan])
-        #expect(String(decoding: try #require(uploader.uploads.last).body, as: UTF8.self).contains("{\"9\":\"Personal\"}"))
+        #expect(String(decoding: try #require(uploader.uploads.last).body, as: UTF8.self).contains("{\"9\":\"Me\"}"))
     }
 
     @Test func aScanIsSentOnceTheServerTookIt() async throws {

@@ -142,10 +142,10 @@ struct SettingsStoreTests {
         #expect(!fixture.settings.hasLearned)
     }
 
-    @Test func startsWithOnePersonalOwnerThatIsTheDefault() throws {
+    @Test func startsWithOneOwnerNamedMeThatIsTheDefault() throws {
         let fixture = try Fixture()
         let settings = fixture.settings.value
-        #expect(settings.owners.map(\.name) == ["Personal"])
+        #expect(settings.owners.map(\.name) == ["Me"])
         #expect(settings.defaultOwner.id == settings.owners[0].id)
         #expect(!settings.hasSeveralOwners)
     }
@@ -159,19 +159,45 @@ struct SettingsStoreTests {
         #expect(fixture.settings.addOwner("fernwood holding")?.id == holding.id)
         #expect(fixture.settings.addOwner("  ") == nil)
         fixture.settings.save()
-        #expect(SettingsStore(defaults: fixture.defaults).value.owners.map(\.name) == ["Personal", "Fernwood Holding"])
+        #expect(SettingsStore(defaults: fixture.defaults).value.owners.map(\.name) == ["Me", "Fernwood Holding"])
     }
 
     @Test func renamesOwnersOnlyToANameNoOtherOwnerHas() throws {
         let fixture = try Fixture()
         let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
         #expect(!fixture.settings.renameOwner(holding.id, to: "  "))
-        #expect(!fixture.settings.renameOwner(holding.id, to: " personal "))
+        #expect(!fixture.settings.renameOwner(holding.id, to: " me "))
         #expect(fixture.settings.value.owner(holding.id).name == "Fernwood Holding")
         #expect(fixture.settings.renameOwner(holding.id, to: " fernwood holding "))
         #expect(fixture.settings.value.owner(holding.id).name == "fernwood holding")
         #expect(fixture.settings.renameOwner(holding.id, to: "Fernwood"))
         #expect(fixture.settings.value.owner(holding.id).name == "Fernwood")
+    }
+
+    @Test func setsTheOtherNamesOfAnOwnerAsTyped() throws {
+        let fixture = try Fixture()
+        let owner = fixture.settings.value.defaultOwnerID
+        fixture.settings.setName(" Camille Delmas ", of: owner)
+        fixture.settings.setName("Camille Delmas", of: owner)
+        fixture.settings.setName("  ", of: owner)
+        fixture.settings.setName("Camille Arnaud", of: owner)
+        #expect(fixture.settings.value.owner(owner).names == ["Camille Delmas", "Camille Arnaud"])
+        fixture.settings.setName("C. Arnaud", at: 1, of: owner)
+        #expect(fixture.settings.value.owner(owner).names == ["Camille Delmas", "C. Arnaud"])
+        fixture.settings.setName("", at: 0, of: owner)
+        #expect(fixture.settings.value.owner(owner).names == ["C. Arnaud"])
+    }
+
+    @Test func setsTheAddressesOfAnOwnerLineByLine() throws {
+        let fixture = try Fixture()
+        let owner = fixture.settings.value.defaultOwnerID
+        fixture.settings.setAddress(" 8 rue des Glycines \n\n 69007 Lyon\n", of: owner)
+        fixture.settings.setAddress("3 impasse des Tilleuls 38000 Grenoble", of: owner)
+        #expect(fixture.settings.value.owner(owner).addresses == ["8 rue des Glycines\n69007 Lyon", "3 impasse des Tilleuls 38000 Grenoble"])
+        fixture.settings.setAddress(" \n ", at: 1, of: owner)
+        #expect(fixture.settings.value.owner(owner).addresses == ["8 rue des Glycines\n69007 Lyon"])
+        fixture.settings.save()
+        #expect(SettingsStore(defaults: fixture.defaults).value.owner(owner).addresses == ["8 rue des Glycines\n69007 Lyon"])
     }
 
     @Test func neverRemovesTheDefaultOwner() throws {

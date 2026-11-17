@@ -201,7 +201,7 @@ extension Collection<Scan> {
 }
 
 extension AppModel {
-    /// An owner's row in Settings, read by VoiceOver: "Personal, default, sends by Archive, Email".
+    /// An owner's row in Settings, read by VoiceOver: "Me, default, sends by Archive, Email".
     public func summary(of owner: Owner) -> String {
         let methods = SendMethod.inBarOrder.filter { isSet($0, for: owner) }.map(\.title)
         let parts: [String?] = [
