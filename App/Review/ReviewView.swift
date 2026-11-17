@@ -94,10 +94,13 @@ private struct PageGrid: View {
                 }
                 .contextMenu {
                     Button("Rotate", systemImage: "rotate.right") { scan.rotatePage(page.id) }
-                    Button("Delete", systemImage: "trash", role: .destructive) { withAnimation { scan.deletePage(page.id) } }
+                    Button("Delete", systemImage: "trash", role: .destructive) { deleting = page.id }
                 }
                 .overlay(alignment: .bottomTrailing) {
                     if scan.scan.pages.count > 1 { deleteButton(page, number: index + 1) }
+                }
+                .confirmationDialog("Delete page \(index + 1)?", isPresented: Binding(get: { deleting == page.id }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible) {
+                    Button("Delete Page", role: .destructive) { withAnimation { scan.deletePage(page.id) } }
                 }
             }
             ForEach(0..<scan.processing, id: \.self) { _ in
@@ -128,9 +131,6 @@ private struct PageGrid: View {
             .contentShape(Rectangle())
             .padding(.vertical, -10)
             .buttonStyle(.plain)
-            .confirmationDialog("Delete page \(number)?", isPresented: Binding(get: { deleting == page.id }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible) {
-                Button("Delete Page", role: .destructive) { withAnimation { scan.deletePage(page.id) } }
-            }
     }
 }
 

@@ -7,6 +7,7 @@ struct PageViewer: View {
     let scan: ScanModel
     @State var selection: UUID
     @State private var cropping: ScanPage?
+    @State private var confirmingDelete = false
     @Environment(\.dismiss) private var dismiss
 
     private var page: ScanPage? { scan.scan.pages.first { $0.id == selection } }
@@ -60,7 +61,10 @@ struct PageViewer: View {
                     Button("Rotate", systemImage: "rotate.right") { scan.rotatePage(page.id) }
                     Button("Crop", systemImage: "crop") { cropping = page }
                     Spacer()
-                    Button("Delete Page", systemImage: "trash", role: .destructive) { delete(page) }
+                    Button("Delete Page", systemImage: "trash", role: .destructive) { confirmingDelete = true }
+                        .confirmationDialog("Delete page \(number)?", isPresented: $confirmingDelete, titleVisibility: .visible) {
+                            Button("Delete Page", role: .destructive) { delete(page) }
+                        }
                 }
                 .labelStyle(.iconOnly)
                 .buttonStyle(.glass)
