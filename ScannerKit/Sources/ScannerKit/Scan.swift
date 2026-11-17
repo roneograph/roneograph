@@ -72,7 +72,31 @@ public struct ReadDocument: Equatable, Sendable, Codable {
 }
 
 public enum SendMethod: String, Equatable, Sendable, Codable {
-    case email, files, share
+    case email, files, share, paperless
+}
+
+/// A scan on its way to the owner's Paperless-ngx server; it counts as sent only once the server took it.
+public struct Archiving: Equatable, Sendable, Codable {
+    public enum State: Equatable, Sendable, Codable {
+        case uploading
+        /// Tried again later, for the reason given.
+        case waiting(String)
+        /// Not tried again until the user asks.
+        case failed(String)
+    }
+
+    public var state: State
+    /// The failed tries since the user last sent it.
+    public var retries: Int
+
+    public init(state: State = .uploading, retries: Int = 0) {
+        self.state = state
+        self.retries = retries
+    }
+
+    public var isInProgress: Bool {
+        if case .failed = state { false } else { true }
+    }
 }
 
 public struct Sent: Equatable, Sendable, Codable {
@@ -127,6 +151,8 @@ public struct Scan: Identifiable, Equatable, Sendable, Codable {
     /// False while pages are being captured.
     public var isFinished = false
     public var sent: Sent?
+    /// Set while the scan goes to Paperless, or when it could not.
+    public var archiving: Archiving?
 
     public init(id: UUID = UUID(), created: Date = .now, name: String, title: String? = nil) {
         self.id = id

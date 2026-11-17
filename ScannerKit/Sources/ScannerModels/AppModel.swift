@@ -12,6 +12,8 @@ public final class AppModel {
     public private(set) var scans: [Scan] = []
     public private(set) var toast: String?
     public let settings: SettingsStore
+    /// Nil when Paperless cannot be used, as in most tests.
+    public let archiver: Archiver?
     private let processor: ScanProcessor
     private let now: @Sendable () -> Date
     @ObservationIgnored private var models: [UUID: ScanModel] = [:]
@@ -23,21 +25,24 @@ public final class AppModel {
         return folder
     }
 
-    public init(processor: ScanProcessor, settings: SettingsStore, now: @escaping @Sendable () -> Date = Date.init) {
+    public init(processor: ScanProcessor, settings: SettingsStore, archiver: Archiver? = nil, now: @escaping @Sendable () -> Date = Date.init) {
         self.processor = processor
         self.settings = settings
+        self.archiver = archiver
         self.now = now
+        archiver?.model = { [weak self] in self?.model(for: $0) }
         refresh()
         for scan in scans where !scan.pending.isEmpty { _ = model(for: scan.id) }
     }
 
     public var store: ScanStore { processor.store }
 
-    /// Page work and PDFs wait while the app is not active, as the GPU cannot be used in the background; when it is active again, they go on and the list is refreshed.
+    /// Page work and PDFs wait while the app is not active, as the GPU cannot be used in the background; when it is active again, they go on, the list is refreshed and the results of uploads are applied.
     /// Settings changed meanwhile are saved before the app can be stopped.
     public func setActive(_ isActive: Bool) {
         processor.gate.isPaused = !isActive
         if isActive { refresh() } else { settings.save() }
+        archiver?.isActive = isActive
     }
 
     /// Deletes the scans sent longer ago than the retention, except the one open in Review or in the camera, and unreadable scan folders, then reloads the list.
@@ -97,9 +102,9 @@ public final class AppModel {
         if path.last != model.id { path = [model.id] }
     }
 
-    /// The finished scans not sent yet, which Home offers to select at once.
+    /// The finished scans not sent yet nor on their way to Paperless, which Home offers to select at once.
     public var notSent: [Scan] {
-        scans.filter { $0.isFinished && $0.sent == nil }
+        scans.filter { $0.isFinished && $0.sent == nil && $0.archiving?.isInProgress != true }
     }
 
     public func didSend(_ models: [ScanModel], by method: SendMethod) {
@@ -131,6 +136,24 @@ public final class AppModel {
     /// The first owner of these scans without a folder to save them to.
     public func ownerWithoutFolder(among models: [ScanModel]) -> Owner? {
         Self.owners(of: models).first { $0.archiveFolder == nil }
+    }
+
+    /// Whether an owner has a Paperless server, which shows the Archive button.
+    public var canArchive: Bool {
+        archiver != nil && settings.value.owners.contains { $0.paperless != nil }
+    }
+
+    /// The first owner of these scans without a Paperless server to archive them to.
+    public func ownerWithoutPaperless(among models: [ScanModel]) -> Owner? {
+        Self.owners(of: models).first { archiver?.isConnected($0) != true }
+    }
+
+    /// Starts sending each scan to the Paperless server of its owner; Home tells when they are archived.
+    public func archive(_ models: [ScanModel]) throws {
+        guard let archiver, !models.isEmpty else { return }
+        try archiver.archive(models)
+        path = []
+        showToast(models.count == 1 ? "Archiving to Paperless" : "Archiving \(models.count) scans to Paperless")
     }
 
     /// A PDF could not be saved; `saved` lists the scans saved before it.
@@ -194,6 +217,7 @@ public final class AppModel {
         } else {
             delete(Set(owned.map(\.id)))
         }
+        try? archiver?.setToken(nil, for: id)
         settings.removeOwner(id, movingTo: newOwner)
     }
 
@@ -204,6 +228,9 @@ public final class AppModel {
     /// Deletes the scans, then updates the list once.
     public func delete(_ ids: Set<UUID>) {
         guard !ids.isEmpty else { return }
+        for scan in scans where ids.contains(scan.id) && scan.archiving?.isInProgress == true {
+            archiver?.cancel(scan.id)
+        }
         for id in ids {
             if let model = models.removeValue(forKey: id) {
                 model.delete()

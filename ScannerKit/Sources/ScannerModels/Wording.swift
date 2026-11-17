@@ -96,6 +96,7 @@ extension SendMethod {
         case .email: "Emailed"
         case .files: "Saved"
         case .share: "Shared"
+        case .paperless: "Archived"
         }
     }
 }
@@ -110,10 +111,16 @@ extension Collection<RememberedValue> {
 }
 
 extension Scan {
-    /// Under the scan's name on Home: "In progress · 2 pages", "Emailed yesterday · 1 page", "Not sent · now · 3 pages".
+    /// Under the scan's name on Home: "In progress · 2 pages", "Emailed yesterday · 1 page", "Archiving… · 1 page", "Not sent · now · 3 pages".
     public var status: String {
         let pages = (pages.count + pending.count).counted("page")
         if !isFinished { return "In progress · \(pages)" }
+        switch archiving?.state {
+        case .uploading: return "Archiving… · \(pages)"
+        case .waiting: return "Waiting for Paperless · \(pages)"
+        case .failed(let reason): return "Not archived: \(reason)"
+        case nil: break
+        }
         if let sent { return "\(sent.method.pastTense) \(Self.relative(sent.date)) · \(pages)" }
         return "Not sent · \(Self.relative(created)) · \(pages)"
     }

@@ -15,6 +15,8 @@ public struct Owner: Identifiable, Equatable, Sendable, Codable {
     public var askedForEmail = false
     /// Where the Save button puts PDFs; nil until a folder is picked.
     public var archiveFolder: ArchiveFolder?
+    /// Where the Archive button sends PDFs; nil until a server is connected.
+    public var paperless: PaperlessServer?
     public var fileNameFormat = FileNameFormat()
 
     public init(id: UUID = UUID(), name: String, symbol: Symbol = .building, fileNameFormat: FileNameFormat = FileNameFormat()) {

@@ -403,6 +403,11 @@ public final class ScanModel: Identifiable {
         save()
     }
 
+    func setArchiving(_ archiving: Archiving?) {
+        scan.archiving = archiving
+        save()
+    }
+
     /// Gives the scan to another owner, renamed with its format; the owner is reused for the next documents from the same issuer.
     /// The lines of a scan already sent move to the new owner.
     public func setOwner(_ id: UUID) {
