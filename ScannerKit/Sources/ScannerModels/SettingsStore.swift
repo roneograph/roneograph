@@ -14,6 +14,8 @@ public final class SettingsStore {
     /// The app's own folder in Files, where scan PDFs are deleted with their scans.
     private let appFolder: URL?
     private static let key = "settings"
+    /// Settings this build could not read, kept so they can be recovered instead of being replaced by the defaults.
+    static let unreadableKey = "settings.unreadable"
     static let learnedIssuersLimit = 200
     static let headerLinesLimit = 500
     /// A header line seen this often, with documents from different issuers, is the user's own name or address.
@@ -32,7 +34,16 @@ public final class SettingsStore {
         self.defaults = defaults
         self.appFolder = appFolder
         self.saveDelay = saveDelay
-        value = defaults.data(forKey: Self.key).flatMap { try? JSONDecoder().decode(ScannerSettings.self, from: $0) } ?? ScannerSettings()
+        guard let data = defaults.data(forKey: Self.key) else {
+            value = ScannerSettings()
+            return
+        }
+        do {
+            value = try JSONDecoder().decode(ScannerSettings.self, from: data)
+        } catch {
+            defaults.set(data, forKey: Self.unreadableKey)
+            value = ScannerSettings()
+        }
     }
 
     /// Remembers the folder picked in Files for the Save button of an owner; refuses the app's own folder.

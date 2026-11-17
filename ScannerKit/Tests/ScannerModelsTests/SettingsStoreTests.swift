@@ -37,6 +37,17 @@ struct SettingsStoreTests {
         #expect(SettingsStore(defaults: defaults).value.defaultOwner.email == "me@example.com")
     }
 
+    @Test func keepsSettingsItCannotReadInsteadOfLosingThem() throws {
+        let fixture = try Fixture()
+        let unreadable = Data(#"{"keepScans":"year"}"#.utf8)
+        fixture.defaults.set(unreadable, forKey: "settings")
+        let settings = SettingsStore(defaults: fixture.defaults)
+        #expect(settings.value.keepScans == .week)
+        settings.value.askForName = true
+        settings.save()
+        #expect(fixture.defaults.data(forKey: SettingsStore.unreadableKey) == unreadable)
+    }
+
     @Test func savingWithoutChangesWritesNothing() throws {
         let fixture = try Fixture()
         let defaults = try #require(CountingDefaults(suiteName: fixture.suite))

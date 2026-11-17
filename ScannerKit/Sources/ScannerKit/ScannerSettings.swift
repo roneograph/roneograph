@@ -31,6 +31,26 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
         defaultOwnerID = personal.id
     }
 
+    /// Settings saved by an older build keep their values; the keys added since take their defaults.
+    public init(from decoder: any Decoder) throws {
+        self.init()
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let owners = try container.decode(.owners, or: owners)
+        if !owners.isEmpty { self.owners = owners }
+        let defaultOwnerID = try container.decode(.defaultOwnerID, or: self.owners[0].id)
+        self.defaultOwnerID = hasOwner(defaultOwnerID) ? defaultOwnerID : self.owners[0].id
+        dismissedPageTip = try container.decode(.dismissedPageTip, or: dismissedPageTip)
+        autoCapture = try container.decode(.autoCapture, or: autoCapture)
+        askForName = try container.decode(.askForName, or: askForName)
+        categories = try container.decode(.categories, or: categories)
+        learnedIssuers = try container.decode(.learnedIssuers, or: learnedIssuers)
+        headerLines = try container.decode(.headerLines, or: headerLines)
+        keepScans = try container.decode(.keepScans, or: keepScans)
+        showsSaveToFiles = try container.decode(.showsSaveToFiles, or: showsSaveToFiles)
+        showsShare = try container.decode(.showsShare, or: showsShare)
+        dismissedSendSetup = try container.decode(.dismissedSendSetup, or: dismissedSendSetup)
+    }
+
     public var hasSeveralOwners: Bool { owners.count > 1 }
 
     /// The owner with this ID; the default owner when there is none or it was deleted.

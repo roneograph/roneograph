@@ -24,5 +24,15 @@ public struct Owner: Identifiable, Equatable, Sendable, Codable {
         self.fileNameFormat = fileNameFormat
     }
 
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        try self.init(id: container.decode(UUID.self, forKey: .id), name: container.decode(String.self, forKey: .name))
+        symbol = try container.decode(.symbol, or: symbol)
+        email = try container.decode(.email, or: email)
+        archiveFolder = try container.decode(.archiveFolder, or: archiveFolder)
+        paperless = try container.decode(.paperless, or: paperless)
+        fileNameFormat = try container.decode(.fileNameFormat, or: fileNameFormat)
+    }
+
     public var hasValidEmail: Bool { ScannerSettings.isValidEmail(email) }
 }

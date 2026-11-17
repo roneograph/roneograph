@@ -65,6 +65,18 @@ public struct FileNameFormat: Equatable, Sendable, Codable {
         self.template = template
     }
 
+    public init(from decoder: any Decoder) throws {
+        self.init()
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        datePosition = try container.decode(.datePosition, or: datePosition)
+        dateStyle = try container.decode(.dateStyle, or: dateStyle)
+        dateSource = try container.decode(.dateSource, or: dateSource)
+        separator = try container.decode(.separator, or: separator)
+        lowercase = try container.decode(.lowercase, or: lowercase)
+        isCustom = try container.decode(.isCustom, or: isCustom)
+        template = try container.decode(.template, or: template)
+    }
+
     /// The file name, with folders separated by "/" when a custom format has them.
     /// `suggestedParts` is nil for a name the user typed: a custom format then keeps it as typed instead of leaving out what it already shows.
     public func fileName(name: String, details: DocumentDetails = .init(), scanDate: Date, suggestedParts: SuggestedParts? = nil) -> String {
