@@ -20,22 +20,30 @@ struct DocumentCard: View {
     @State private var forgetting = false
     @State private var addingOwner = false
     @State private var newOwner = ""
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var details: DocumentDetails { scan.scan.details }
     private var remembered: Set<RememberedValue> { scan.scan.remembered }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            nameButton
-            FlowLayout(spacing: 6, lineSpacing: 6) {
-                if settings.value.hasSeveralOwners { ownerChip }
-                categoryChip
-                textChip(.issuer, title: "Issuer", systemImage: "person.text.rectangle", value: details.issuer)
-                dateChip
-                textChip(.number, title: "Number", systemImage: "number", value: details.number.map { "No. \($0)" })
+        Group {
+            if scan.isReading {
+                ReadingPlaceholder()
+            } else {
+                VStack(alignment: .leading, spacing: 10) {
+                    nameButton
+                    FlowLayout(spacing: 6, lineSpacing: 6) {
+                        if settings.value.hasSeveralOwners { ownerChip }
+                        categoryChip
+                        textChip(.issuer, title: "Issuer", systemImage: "person.text.rectangle", value: details.issuer)
+                        dateChip
+                        textChip(.number, title: "Number", systemImage: "number", value: details.number.map { "No. \($0)" })
+                    }
+                    if !remembered.isEmpty { legend }
+                }
             }
-            if !remembered.isEmpty { legend }
         }
+        .animation(reduceMotion ? nil : .default, value: scan.isReading)
         .alert("New Category", isPresented: $addingCategory) {
             TextField("Name", text: $newCategory)
             Button("Add") {
@@ -192,6 +200,47 @@ struct DocumentCard: View {
         var details = details
         change(&details)
         scan.setDetails(details)
+    }
+}
+
+/// Takes the place of the name and the details while the first page is read, with the height of the name so the pages do not move.
+private struct ReadingPlaceholder: View {
+    @State private var isDimmed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(" ").font(.title3.bold())
+                Text(" ").font(.footnote)
+            }
+            .hidden()
+            .overlay(alignment: .leading) {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text("Reading the page…")
+                }
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            }
+            HStack(spacing: 6) {
+                ForEach([96, 132, 84], id: \.self) { width in
+                    Text(" ")
+                        .font(.subheadline)
+                        .padding(.vertical, 7)
+                        .frame(width: CGFloat(width))
+                        .background(Color(.secondarySystemBackground), in: Capsule())
+                }
+            }
+            .opacity(isDimmed ? 0.4 : 1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Reading the page")
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 0.9).repeatForever()) { isDimmed = true }
+        }
     }
 }
 
