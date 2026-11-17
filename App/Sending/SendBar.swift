@@ -5,10 +5,10 @@ import SwiftUI
 
 /// Archive and Email when the owners of the scans have a Paperless server or an address, Save to Files and Share unless turned off for one of them, and Delete, for the scan under review or the scans selected on Home.
 /// A button that sends in a single tap is filled with the accent color; with nothing to send with, a button sets up sending instead.
+/// A button tapped before the PDFs are made shows a spinner, and sends once they are.
 struct SendBar: View {
     let app: AppModel
     let scans: [ScanModel]
-    let isReady: Bool
     /// The scans that went out or were deleted.
     var finished: (Set<UUID>) -> Void = { _ in }
     let summary: String
@@ -19,7 +19,7 @@ struct SendBar: View {
     @State private var choosingFolder = false
     @State private var savingFailed = false
     @State private var storageFull = false
-    @State private var isSaving = false
+    @State private var sending = SendBarModel()
     @State private var mailUnavailable = false
     @State private var attachingFailed = false
     /// Set when Mail could not send, told once the mail sheet is gone.
@@ -54,24 +54,7 @@ struct SendBar: View {
                     .font(.body.weight(.semibold))
                 }
                 ForEach(methods, id: \.self) { method in
-                    switch method {
-                    case .paperless:
-                        Button("Archive", systemImage: "archivebox", action: archive)
-                            .buttonStyle(.glassProminent)
-                            .disabled(!isReady)
-                    case .email:
-                        Button("Email", systemImage: "envelope", action: email)
-                            .buttonStyle(.glassProminent)
-                            .disabled(!isReady)
-                    case .files:
-                        Button("Save to Files", systemImage: "folder", action: saveToFiles)
-                            .sendButtonStyle(isSet: app.hasFolder(for: scans))
-                            .disabled(!isReady || isSaving)
-                    case .share:
-                        Button("Share", systemImage: "square.and.arrow.up", action: share)
-                            .buttonStyle(.glass)
-                            .disabled(!isReady)
-                    }
+                    sendButton(method)
                 }
                 Button(scans.count > 1 ? "Delete Scans" : "Delete Scan", systemImage: "trash", role: .destructive) { confirmingDelete = true }
                     .buttonStyle(.glass)
@@ -83,7 +66,12 @@ struct SendBar: View {
             .controlSize(.large)
             .font(.title3)
             VStack(spacing: 2) {
-                Text([app.ownerLabel(of: scans), summary].compactMap(\.self).joined(separator: " · "))
+                let footer = app.sendFooter(for: scans, waiting: sending.waiting, summary: summary)
+                if let lead = footer.lead {
+                    Text("\(Text(lead).bold()) · \(footer.text)")
+                } else {
+                    Text(footer.text)
+                }
                 if let warning {
                     Label(warning, systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(Color(.warning))
@@ -95,6 +83,8 @@ struct SendBar: View {
         }
         .padding(.horizontal)
         .padding(.top, 8)
+        .onChange(of: scans.map(\.id)) { sending.cancel() }
+        .onDisappear { sending.cancel() }
         .confirmationDialog(scans.count > 1 ? "Delete \(scans.count) scans?" : "Delete this scan?", isPresented: $confirmingDelete, titleVisibility: .visible) {
             Button(scans.count > 1 ? "Delete \(scans.count) Scans" : "Delete Scan", role: .destructive, action: delete)
         }
@@ -185,17 +175,53 @@ struct SendBar: View {
         nextMail()
     }
 
-    /// The first save for an owner asks for its folder; later ones go straight to it.
+    private func sendButton(_ method: SendMethod) -> some View {
+        let isWaiting = sending.waiting == method
+        return Button {
+            switch method {
+            case .paperless: sending.tap(.paperless, scans: scans, send: archive)
+            case .email: email()
+            case .files: saveToFiles()
+            case .share: share()
+            }
+        } label: {
+            Label {
+                Text(method.title)
+            } icon: {
+                Image(systemName: method.systemImage)
+                    .opacity(isWaiting ? 0 : 1)
+                    .overlay {
+                        if isWaiting {
+                            ProgressView()
+                                .controlSize(.regular)
+                                .tint(isProminent(method) ? .white : nil)
+                                .accessibilityHidden(true)
+                        }
+                    }
+            }
+        }
+        .sendButtonStyle(isSet: isProminent(method))
+        .disabled(scans.isEmpty || sending.isSending)
+        .accessibilityValue(isWaiting ? (scans.count > 1 ? "Waiting for the PDFs" : "Waiting for the PDF") : "")
+    }
+
+    private func isProminent(_ method: SendMethod) -> Bool {
+        switch method {
+        case .paperless, .email: true
+        case .files: app.hasFolder(for: scans)
+        case .share: false
+        }
+    }
+
+    /// The first save for an owner asks for its folder at once; later ones go straight to it.
     private func saveToFiles() {
         if let owner = app.ownerWithoutFolder(among: scans) {
+            sending.cancel()
             ownerID = owner.id
             choosingFolder = true
             return
         }
-        isSaving = true
-        Task {
-            defer { isSaving = false }
-            guard await preparePDFs(scans) else { return }
+        sending.tap(.files, scans: scans) {
             do {
                 try await app.saveToArchive(scans)
                 finished(Set(scans.map(\.id)))
@@ -210,22 +236,17 @@ struct SendBar: View {
     }
 
     /// The uploads go on in the background.
-    private func archive() {
-        Task {
-            guard await preparePDFs(scans) else { return }
-            do {
-                try await app.archive(scans)
-                finished(Set(scans.map(\.id)))
-            } catch {
-                archivingFailed = true
-            }
+    private func archive() async {
+        do {
+            try await app.archive(scans)
+            finished(Set(scans.map(\.id)))
+        } catch {
+            archivingFailed = true
         }
     }
 
     private func share() {
-        Task {
-            if await preparePDFs(scans) { showingShare = true }
-        }
+        sending.tap(.share, scans: scans) { showingShare = true }
     }
 
     /// Rebuilds a PDF deleted or renamed in Files since it was made; false when one cannot be made.
@@ -238,10 +259,13 @@ struct SendBar: View {
     /// Scans of different owners go in one mail per owner, one after the other.
     private func email() {
         if !MFMailComposeViewController.canSendMail() {
+            sending.cancel()
             mailUnavailable = true
         } else {
-            mails = MailQueue(scans, app: app)
-            nextMail()
+            sending.tap(.email, scans: scans) {
+                mails = MailQueue(scans, app: app)
+                await composeMail()
+            }
         }
     }
 

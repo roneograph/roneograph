@@ -29,7 +29,7 @@ struct HomeView: View {
                         .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
                 }
                 if isSelecting {
-                    SendBar(app: app, scans: selected, isReady: isReady, finished: sent, summary: selected.selectionSummary, warning: selected.map(\.scan).alreadySent)
+                    SendBar(app: app, scans: selected, finished: sent, summary: selected.selectionSummary, warning: selected.map(\.scan).alreadySent)
                 } else {
                     Button { app.startScan() } label: {
                         Label("Scan", systemImage: "doc.viewfinder").frame(maxWidth: .infinity)
@@ -157,11 +157,6 @@ struct HomeView: View {
     /// In the order of the list, which is the order of the attachments.
     private var selected: [ScanModel] {
         app.scans.filter { selection.contains($0.id) }.compactMap { app.model(for: $0.id) }
-    }
-
-    private var isReady: Bool {
-        let selected = selected
-        return !selected.isEmpty && selected.allSatisfy(\.hasCurrentPDF)
     }
 
     private func startSelecting(_ ids: Set<UUID>) {

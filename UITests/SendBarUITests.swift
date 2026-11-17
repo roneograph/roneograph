@@ -36,6 +36,13 @@ final class SendBarUITests: XCTestCase {
         }
     }
 
+    func testSharesOnceThePDFIsMadeWhenTappedBefore() throws {
+        let roneograph = Roneograph(photos: try photos())
+        let app = roneograph.app
+        roneograph.tap(app.buttons["Share"])
+        XCTAssertTrue(app.otherElements["ActivityListView"].waitForExistence(timeout: Roneograph.timeout), "The share sheet did not open once the PDF was made")
+    }
+
     func testSetsUpSendingFromReview() throws {
         let roneograph = Roneograph(settings: Self.nothingToSendWith, photos: try photos())
         let app = roneograph.app
