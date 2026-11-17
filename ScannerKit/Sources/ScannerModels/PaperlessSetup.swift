@@ -45,6 +45,19 @@ public final class PaperlessSetup {
         if case .connected = state { true } else { false }
     }
 
+    /// Whether saving would change the owner's server, token or storage path.
+    public var hasChanges: Bool {
+        guard isConnected, let connected else { return false }
+        return settings.value.owner(ownerID).paperless != PaperlessServer(url: connected.server, storagePath: storagePath)
+            || archiver.token(for: ownerID) != connected.token
+    }
+
+    /// Lists the storage paths right away for an owner already connected, so they can be changed without connecting again.
+    public func connectToSavedServer() async {
+        guard state == .idle, archiver.isConnected(settings.value.owner(ownerID)) else { return }
+        await connect()
+    }
+
     public func connect() async {
         guard let server = Paperless.serverURL(from: address) else {
             state = .failed("Type the address of the server, such as https://paperless.example.com.")
@@ -56,15 +69,18 @@ public final class PaperlessSetup {
             return
         }
         state = .connecting
+        let typed = (address: address, token: self.token)
         let data: Data, status: Int?
         do {
             let response: URLResponse
             (data, response) = try await fetch(Paperless.storagePathsRequest(server: server, token: token))
             status = (response as? HTTPURLResponse)?.statusCode
         } catch {
+            guard typed == (address, self.token) else { return }
             state = .failed(Self.reason(Paperless.outcome(status: nil, body: Data(), error: (error as? URLError)?.code ?? .unknown)))
             return
         }
+        guard typed == (address, self.token) else { return }
         let outcome = Paperless.outcome(status: status, body: data, error: nil)
         guard outcome == .delivered, let paths = try? Paperless.storagePaths(from: data) else {
             state = .failed(Self.reason(outcome))

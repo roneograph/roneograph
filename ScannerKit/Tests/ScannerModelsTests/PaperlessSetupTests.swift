@@ -110,6 +110,74 @@ struct PaperlessSetupTests {
         #expect(setup.storagePath == nil)
     }
 
+    @Test func listsTheStoragePathsOfAnOwnerAlreadyConnectedWithoutConnectingAgain() async throws {
+        try connectDefaultOwner(storagePath: PaperlessStoragePath(id: 1, name: "Personal"))
+        let setup = setup()
+        #expect(!setup.hasChanges)
+
+        await setup.connectToSavedServer()
+        #expect(setup.state == .connected([PaperlessStoragePath(id: 1, name: "Personal"), PaperlessStoragePath(id: 2, name: "Holding")]))
+        #expect(requests.all.first?.value(forHTTPHeaderField: "Authorization") == "Token secret")
+        #expect(!setup.hasChanges)
+
+        setup.storagePath = PaperlessStoragePath(id: 2, name: "Holding")
+        #expect(setup.hasChanges)
+        try setup.save()
+        #expect(fixture.settings.value.defaultOwner.paperless?.storagePath == PaperlessStoragePath(id: 2, name: "Holding"))
+        #expect(!setup.hasChanges)
+    }
+
+    @Test func waitsForConnectWhenTheOwnerIsNotConnected() async throws {
+        try connectDefaultOwner()
+        try tokens.setToken(nil, for: fixture.settings.value.defaultOwnerID)
+        let holding = try #require(fixture.settings.addOwner("Holding"))
+        try tokens.setToken("secret", for: holding.id)
+
+        for ownerID in [fixture.settings.value.defaultOwnerID, holding.id] {
+            let setup = setup(ownerID)
+            await setup.connectToSavedServer()
+            #expect(setup.state == .idle)
+        }
+        #expect(requests.all.isEmpty)
+    }
+
+    @Test func needsToConnectAgainOnceTheAddressOrTokenChanges() async throws {
+        try connectDefaultOwner()
+        let setup = setup()
+        await setup.connectToSavedServer()
+
+        setup.address = "paperless.example.org"
+        #expect(setup.state == .idle)
+        #expect(!setup.hasChanges)
+        try setup.save()
+        #expect(fixture.settings.value.defaultOwner.paperless?.url == URL(string: "https://paperless.example.com/"))
+
+        await setup.connect()
+        try setup.save()
+        #expect(fixture.settings.value.defaultOwner.paperless?.url == URL(string: "https://paperless.example.org/"))
+    }
+
+    @Test func ignoresAnAnswerForATokenNoLongerTyped() async throws {
+        try connectDefaultOwner()
+        let typing = Typing()
+        let setup = PaperlessSetup(ownerID: fixture.settings.value.defaultOwnerID, settings: fixture.settings, archiver: archiver) { request in
+            await typing.type()
+            return (Data(#"{"results": []}"#.utf8), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+        }
+        typing.setup = setup
+
+        await setup.connectToSavedServer()
+        #expect(setup.token == "other")
+        #expect(setup.state == .idle)
+    }
+
+    private func connectDefaultOwner(storagePath: PaperlessStoragePath? = nil) throws {
+        var owner = fixture.settings.value.defaultOwner
+        owner.paperless = PaperlessServer(url: URL(string: "https://paperless.example.com/")!, storagePath: storagePath)
+        fixture.settings.value.updateOwner(owner)
+        try tokens.setToken("secret", for: owner.id)
+    }
+
     @Test func disconnectingForgetsTheServerAndToken() async throws {
         let setup = setup()
         setup.address = "paperless.example.com"
@@ -121,6 +189,15 @@ struct PaperlessSetupTests {
         PaperlessSetup.disconnect(ownerID, settings: fixture.settings, archiver: archiver)
         #expect(fixture.settings.value.defaultOwner.paperless == nil)
         #expect(tokens.token(for: ownerID) == nil)
+    }
+}
+
+@MainActor
+private final class Typing {
+    var setup: PaperlessSetup?
+
+    func type() {
+        setup?.token = "other"
     }
 }
 

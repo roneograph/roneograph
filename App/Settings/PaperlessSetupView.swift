@@ -79,7 +79,8 @@ struct PaperlessSetupView: View {
                 Text("The Keychain refused it. Try again.")
             }
         }
-        .interactiveDismissDisabled(setup.isConnected)
+        .interactiveDismissDisabled(setup.hasChanges)
+        .task { await setup.connectToSavedServer() }
     }
 
     private func save() {
