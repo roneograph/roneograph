@@ -158,13 +158,6 @@ public final class SettingsStore {
         value.learnedIssuers = []
     }
 
-    public var hasLearned: Bool { !value.learnedIssuers.isEmpty }
-
-    /// Forgets everything remembered from the corrections: what was corrected for each issuer.
-    public func forgetEverything() {
-        value.learnedIssuers = []
-    }
-
 
     /// Adds a category of the user's; returns it, or the existing category with the same name.
     @discardableResult

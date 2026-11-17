@@ -16,14 +16,6 @@ extension ScanRetention {
 }
 
 extension ScannerSettings {
-    /// What Forget Everything in Settings › Memory forgets.
-    public var forgetEverythingMessage: String {
-        let issuers = learnedIssuers.count.counted("issuer")
-        return hasSeveralOwners
-            ? "Corrections and owners remembered for \(issuers). Scans, owners and settings stay."
-            : "Corrections for \(issuers). Scans and settings stay."
-    }
-
     /// Under the names and addresses of an owner in Settings: how else its names are recognized, or what to type for them to be.
     public func addressedToFooter(of ownerID: UUID, region: String?, language: String?) -> String {
         let owner = owner(ownerID)

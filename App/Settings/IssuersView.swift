@@ -37,13 +37,13 @@ struct IssuersView: View {
                 Text("Swipe to forget an issuer. Its next documents are named and sorted from what is read on the page.")
             }
             Section {
-                Button("Forget All Issuers", role: .destructive) { forgettingAll = true }
+                Button("Forget All", role: .destructive) { forgettingAll = true }
                     .frame(maxWidth: .infinity)
             }
         }
         .searchable(text: $search)
         .confirmationDialog("Forget all issuers?", isPresented: $forgettingAll, titleVisibility: .visible) {
-            Button("Forget All Issuers", role: .destructive) { settings.forgetAllIssuers() }
+            Button("Forget All", role: .destructive) { settings.forgetAllIssuers() }
         } message: {
             Text("The corrections for \(settings.value.learnedIssuers.count.counted("issuer")) are forgotten.")
         }

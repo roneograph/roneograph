@@ -5,7 +5,6 @@ import SwiftUI
 struct SettingsView: View {
     let app: AppModel
     @Bindable var settings: SettingsStore
-    @State private var forgettingEverything = false
     @State private var deletingScans = false
     @State private var storedBytes = 0
     @Environment(\.dismiss) private var dismiss
@@ -37,17 +36,10 @@ struct SettingsView: View {
                             Label { Text("Issuers") } icon: { RememberedMark().accessibilityHidden(true) }
                         }
                     }
-                    Button("Forget Everything…", role: .destructive) { forgettingEverything = true }
-                        .disabled(!settings.hasLearned)
                 } header: {
                     Text("Memory")
                 } footer: {
                     Text("Corrections are reused for the next documents from the same issuer. Nothing leaves this iPhone.")
-                }
-                .confirmationDialog("Forget everything Roneograph remembers?", isPresented: $forgettingEverything, titleVisibility: .visible) {
-                    Button("Forget Everything", role: .destructive) { settings.forgetEverything() }
-                } message: {
-                    Text(settings.value.forgetEverythingMessage)
                 }
 
                 Section {

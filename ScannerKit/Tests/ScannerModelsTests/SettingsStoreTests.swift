@@ -112,12 +112,12 @@ struct SettingsStoreTests {
         #expect(fixture.settings.value.learnedIssuers.map(\.keys) == [["northwind"]])
     }
 
-    @Test func forgetsEverythingLearned() throws {
+    @Test func forgetsAllIssuers() throws {
         let fixture = try Fixture()
         fixture.settings.learn(keys: ["lumen"]) { $0.category = .invoice }
-        #expect(fixture.settings.hasLearned)
-        fixture.settings.forgetEverything()
-        #expect(!fixture.settings.hasLearned)
+        fixture.settings.learn(keys: ["northwind"]) { $0.category = .insurance }
+        fixture.settings.forgetAllIssuers()
+        #expect(fixture.settings.value.learnedIssuers.isEmpty)
     }
 
     @Test func startsWithOneOwnerNamedMeThatIsTheDefault() throws {
