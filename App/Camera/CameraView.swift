@@ -66,8 +66,10 @@ struct CameraView: View {
             withAnimation(.easeOut(duration: 0.08)) { flashOverlay = true }
             withAnimation(.easeIn(duration: 0.3).delay(0.08)) { flashOverlay = false }
         }
-        .onChange(of: camera.hint) { _, hint in
-            AccessibilityNotification.Announcement(hint.text).post()
+        .task(id: camera.hint) {
+            // A hint is read out once it settles, not on every flicker of the page outline.
+            guard (try? await Task.sleep(for: .seconds(0.8))) != nil else { return }
+            AccessibilityNotification.Announcement(camera.hint.text).post()
         }
         .sensoryFeedback(.impact, trigger: camera.captures)
         .sensoryFeedback(.selection, trigger: camera.locks)
@@ -94,6 +96,9 @@ struct CameraView: View {
             Button(camera.autoCapture ? "Auto" : "Manual") { camera.autoCapture.toggle() }
                 .buttonStyle(.glass)
                 .fontWeight(.semibold)
+                .accessibilityLabel("Auto capture")
+                .accessibilityValue(camera.autoCapture ? "On" : "Off")
+                .accessibilityInputLabels(["Auto", "Manual", "Auto capture"])
         }
         .controlSize(.large)
     }
