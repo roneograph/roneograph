@@ -11,14 +11,16 @@ struct RoneographApp: App {
     private let session: AVCaptureSession
 
     init() {
+        let data = AppData.current
         let context = CIContext(options: [.cacheIntermediates: false])
-        let support = URL.applicationSupportDirectory.appending(path: "Scans", directoryHint: .isDirectory)
-        let store = ScanStore(scansDirectory: support, documentsDirectory: .documentsDirectory)
+        let store = ScanStore(scansDirectory: data.support.appending(path: "Scans", directoryHint: .isDirectory), documentsDirectory: data.documents)
         let processor = ScanProcessor(store: store, context: context, background: SystemBackgroundActivity())
-        let uploader = BackgroundUploader()
-        let archiver = Archiver(uploader: uploader, tokens: KeychainTokens(), directory: URL.applicationSupportDirectory.appending(path: "Uploads", directoryHint: .isDirectory), fetch: PaperlessHTTP.fetch)
+        let uploader = BackgroundUploader(identifier: data.paperlessIdentifier)
+        let archiver = Archiver(uploader: uploader, tokens: KeychainTokens(service: data.paperlessIdentifier), directory: data.support.appending(path: "Uploads", directoryHint: .isDirectory), fetch: PaperlessHTTP.fetch)
         uploader.archiver = archiver
-        let app = AppModel(processor: processor, settings: SettingsStore(appFolder: .documentsDirectory), archiver: archiver)
+        let settings = SettingsStore(defaults: data.defaults, appFolder: data.documents)
+        if let value = data.settings { settings.value = value }
+        let app = AppModel(processor: processor, settings: settings, archiver: archiver)
         _app = State(initialValue: app)
         let service = CameraService(extractor: PageExtractor(context: context))
         session = service.session

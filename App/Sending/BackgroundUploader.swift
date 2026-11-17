@@ -13,9 +13,9 @@ final class BackgroundUploader: NSObject, Uploader {
     private var cancelled: Set<Int> = []
     private var responses: [Int: Data] = [:]
 
-    override init() {
+    init(identifier: String) {
         super.init()
-        let configuration = URLSessionConfiguration.background(withIdentifier: "org.roneograph.app.paperless")
+        let configuration = URLSessionConfiguration.background(withIdentifier: identifier)
         configuration.sessionSendsLaunchEvents = false
         configuration.isDiscretionary = false
         session = URLSession(configuration: configuration, delegate: self, delegateQueue: .main)

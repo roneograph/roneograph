@@ -4,7 +4,7 @@ import Security
 
 /// Paperless tokens in the Keychain, readable once the iPhone was unlocked after a restart, so uploads can start again while it is locked; never in backups.
 struct KeychainTokens: PaperlessTokens {
-    private let service = "org.roneograph.app.paperless"
+    let service: String
 
     func token(for ownerID: UUID) -> String? {
         var query = self.query(ownerID)
