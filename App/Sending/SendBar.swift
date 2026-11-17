@@ -57,7 +57,7 @@ struct SendBar<Summary: View>: View {
             .font(.title3)
             VStack(spacing: 2) {
                 if let destination = app.destination(of: scans) {
-                    Text(destination).lineLimit(1).truncationMode(.middle)
+                    Text(destination).lineLimitUnlessAccessibilitySize(1).truncationMode(.middle)
                 }
                 summary()
             }
@@ -81,7 +81,7 @@ struct SendBar<Summary: View>: View {
             nextMail()
         }) {
             EmailQuestionView(settings: app.settings, ownerID: ownerID) { answeredQuestion = true }
-                .presentationDetents([.medium])
+                .presentationDetents([.medium, .large])
         }
         .sheet(isPresented: $showingShare, onDismiss: finishSharing) {
             ShareSheet(items: pdfs(of: scans)) { completed in

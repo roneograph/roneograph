@@ -86,7 +86,9 @@ struct DocumentCard: View {
                 }
                 Spacer(minLength: 12)
                 HStack(spacing: 4) {
-                    Text(owner.name).lineLimit(1)
+                    Text(owner.name)
+                        .multilineTextAlignment(.trailing)
+                        .lineLimitUnlessAccessibilitySize(1)
                     Image(systemName: "chevron.up.chevron.down").font(.caption2.bold())
                 }
                 .foregroundStyle(.tint)
@@ -125,7 +127,7 @@ struct DocumentCard: View {
             .accessibilityAddTraits(.isButton)
             HStack(spacing: 14) {
                 Image(systemName: "doc").frame(width: 22)
-                Text(fileName).lineLimit(2)
+                Text(fileName).lineLimitUnlessAccessibilitySize(2)
             }
             .font(.footnote)
             .foregroundStyle(.secondary)
@@ -194,7 +196,10 @@ struct DocumentCard: View {
             row(title: title, systemImage: systemImage, remembered: field == .issuer ? .issuer : nil) {
                 HStack(spacing: 8) {
                     if let value {
-                        Text(value).foregroundStyle(.secondary).lineLimit(1)
+                        Text(value)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.trailing)
+                            .lineLimitUnlessAccessibilitySize(1)
                     } else {
                         add
                     }

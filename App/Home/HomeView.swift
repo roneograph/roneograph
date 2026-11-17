@@ -153,7 +153,7 @@ struct HomeView: View {
         if let warning = selected.map(\.scan).alreadySent {
             Label(warning, systemImage: "exclamationmark.triangle.fill")
                 .foregroundStyle(.orange)
-                .lineLimit(1)
+                .lineLimitUnlessAccessibilitySize(1)
         }
     }
 
@@ -235,14 +235,14 @@ private struct ScanRow: View {
         HStack(spacing: 12) {
             ScanThumbnail(scan: scan, store: store, width: 36)
             VStack(alignment: .leading, spacing: 2) {
-                Text(scan.title).font(.headline).lineLimit(1)
+                Text(scan.title).font(.headline).lineLimitUnlessAccessibilitySize(1)
                 status.font(.subheadline)
                 if let owner {
                     Label(owner.name, systemImage: owner.symbol.systemImage)
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .labelStyle(OwnerLabelStyle())
-                        .lineLimit(1)
+                        .lineLimitUnlessAccessibilitySize(1)
                 }
             }
             Spacer(minLength: 0)
@@ -270,9 +270,9 @@ private struct ScanRow: View {
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
                 Text(scan.status).foregroundStyle(.secondary)
             }
-            .lineLimit(1)
+            .lineLimitUnlessAccessibilitySize(1)
         } else {
-            Text(scan.status).foregroundStyle(.orange).lineLimit(1)
+            Text(scan.status).foregroundStyle(.orange).lineLimitUnlessAccessibilitySize(1)
         }
     }
 }

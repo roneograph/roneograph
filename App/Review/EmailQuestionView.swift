@@ -12,37 +12,41 @@ struct EmailQuestionView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        VStack(spacing: 16) {
-            VStack(spacing: 6) {
-                Text(settings.value.emailQuestionTitle(for: ownerID)).font(.title3.bold())
-                Text("The Email button fills in this address from now on. Change it anytime in Settings.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-            EmailField(title: "Email", email: $email)
-                .focused($focused)
-                .submitLabel(.continue)
-                .onSubmit { if isValid { answer(email) } }
-                .padding(12)
-                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
-            VStack(spacing: 8) {
-                Button { answer(email) } label: {
-                    Text("Use This Address").frame(maxWidth: .infinity)
+        ScrollView {
+            VStack(spacing: 16) {
+                VStack(spacing: 6) {
+                    Text(settings.value.emailQuestionTitle(for: ownerID))
+                        .font(.title3.bold())
+                        .multilineTextAlignment(.center)
+                    Text("The Email button fills in this address from now on. Change it anytime in Settings.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
                 }
-                .buttonStyle(.glassProminent)
-                .disabled(!isValid)
-                Button { answer("") } label: {
-                    Text("Not Now").frame(maxWidth: .infinity)
+                EmailField(title: "Email", email: $email)
+                    .focused($focused)
+                    .submitLabel(.continue)
+                    .onSubmit { if isValid { answer(email) } }
+                    .padding(12)
+                    .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
+                VStack(spacing: 8) {
+                    Button { answer(email) } label: {
+                        Text("Use This Address").frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.glassProminent)
+                    .disabled(!isValid)
+                    Button { answer("") } label: {
+                        Text("Not Now").frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.glass)
                 }
-                .buttonStyle(.glass)
+                .controlSize(.large)
+                .fontWeight(.semibold)
             }
-            .controlSize(.large)
-            .fontWeight(.semibold)
+            .padding()
+            .padding(.top, 8)
         }
-        .padding()
-        .padding(.top, 8)
-        .frame(maxHeight: .infinity, alignment: .top)
+        .scrollBounceBehavior(.basedOnSize)
         .background(Color(.systemGroupedBackground))
         .onAppear { focused = true }
     }
