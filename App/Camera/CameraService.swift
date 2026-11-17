@@ -1,4 +1,4 @@
-@preconcurrency import AVFoundation
+import AVFoundation
 import CoreImage
 import ScannerKit
 import ScannerModels
