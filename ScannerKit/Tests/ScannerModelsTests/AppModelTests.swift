@@ -121,13 +121,15 @@ struct AppModelTests {
         elsewhere.pages = [ScanPage(quad: nil, analysis: .sample)]
         try fixture.store.save(elsewhere)
 
-        let scan = await fixture.capturedScan(in: app)
+        let scan = app.startScan()
+        scan.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
+        await scan.waitUntilIdle()
         try #require(app.model(for: old.id)).rename("Water bill")
         #expect(app.scans.map(\.id) == [scan.id, old.id])
         #expect(app.scans.first == scan.scan)
         #expect(app.scans.last?.name == "Water bill")
 
-        scan.deletePage(scan.scan.pages[0].id)
+        scan.deleteCapturedPage(scan.scan.pages[0].id)
         await scan.waitUntilIdle()
         #expect(app.scans.map(\.id) == [old.id])
 
