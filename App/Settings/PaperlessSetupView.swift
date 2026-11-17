@@ -6,14 +6,18 @@ import SwiftUI
 struct PaperlessSetupView: View {
     @State private var setup: PaperlessSetup
     private let title: String
-    private let owner: Owner
+    private let ownerID: UUID
+    private let settings: SettingsStore
+    private let archiver: Archiver
     @State private var saveFailed = false
     @Environment(\.dismiss) private var dismiss
 
     init(ownerID: UUID, settings: SettingsStore, archiver: Archiver) {
         _setup = State(initialValue: PaperlessSetup(ownerID: ownerID, settings: settings, archiver: archiver, fetch: PaperlessHTTP.fetch))
-        owner = settings.value.owner(ownerID)
         title = settings.value.hasSeveralOwners ? "Paperless for \(settings.value.owner(ownerID).name)" : "Paperless"
+        self.ownerID = ownerID
+        self.settings = settings
+        self.archiver = archiver
     }
 
     var body: some View {
@@ -29,7 +33,7 @@ struct PaperlessSetupView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                 } footer: {
-                    Text("The token is in Paperless-ngx, under My Profile › API Auth Token. It stays in the Keychain of this iPhone.")
+                    Text("The Archive button sends PDFs to this Paperless-ngx server, with their title, date, issuer as correspondent, category as document type and owner in the Owner custom field, each created when missing. The token is in Paperless-ngx, under My Profile › API Auth Token. It stays in the Keychain of this iPhone.")
                 }
 
                 Section {
@@ -65,7 +69,16 @@ struct PaperlessSetupView: View {
                 }
 
                 Section {
-                    NavigationLink("What Archive Sends") { PaperlessGuideView(owner: owner) }
+                    NavigationLink("What Archive Sends") { PaperlessGuideView(owner: settings.value.owner(ownerID)) }
+                }
+
+                if settings.value.owner(ownerID).paperless != nil {
+                    Section {
+                        Button("Disconnect", role: .destructive) {
+                            PaperlessSetup.disconnect(ownerID, settings: settings, archiver: archiver)
+                            dismiss()
+                        }
+                    }
                 }
             }
             .navigationTitle(title)

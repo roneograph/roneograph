@@ -58,7 +58,7 @@ struct OwnersSection: View {
     }
 }
 
-/// One owner: its name, where its PDFs go, how they are named and how its documents are recognized.
+/// One owner: its name, how its PDFs go out, how they are named and how its documents are recognized.
 struct OwnerView: View {
     let app: AppModel
     @Bindable var settings: SettingsStore
@@ -83,7 +83,8 @@ struct OwnerView: View {
                 .pickerStyle(.segmented)
             }
 
-            OwnerSections(settings: settings, archiver: app.archiver, owner: owner, includesCustomFormat: true)
+            SendingSection(app: app, ownerID: ownerID, title: "Sending")
+            FileNameSection(owner: owner)
 
             if settings.value.hasSeveralOwners {
                 Section {
