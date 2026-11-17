@@ -255,6 +255,9 @@ private struct ScanRow: View {
                 .font(.title3)
                 .frame(width: 40, height: 40)
                 .background(.tint.opacity(0.12), in: Circle())
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+                .padding(-2)
         }
         .buttonStyle(.borderless)
         .accessibilityLabel("Continue")
