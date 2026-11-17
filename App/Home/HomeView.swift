@@ -152,7 +152,7 @@ struct HomeView: View {
         Text(selected.selectionSummary)
         if let warning = selected.map(\.scan).alreadySent {
             Label(warning, systemImage: "exclamationmark.triangle.fill")
-                .foregroundStyle(.orange)
+                .foregroundStyle(Color(.warning))
                 .lineLimitUnlessAccessibilitySize(1)
         }
     }
@@ -275,7 +275,7 @@ private struct ScanRow: View {
             }
             .lineLimitUnlessAccessibilitySize(1)
         } else {
-            Text(scan.status).foregroundStyle(.orange).lineLimitUnlessAccessibilitySize(1)
+            Text(scan.status).foregroundStyle(Color(.warning)).lineLimitUnlessAccessibilitySize(1)
         }
     }
 }
