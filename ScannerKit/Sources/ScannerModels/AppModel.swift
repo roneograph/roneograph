@@ -162,6 +162,14 @@ public final class AppModel {
         return methods
     }
 
+    /// The send button shown with its name: the first in the order of the bar that sends in a single tap for every owner of the scans, never Share, which only opens the share sheet.
+    public func namedSendMethod(for models: [ScanModel]) -> SendMethod? {
+        let owners = sendingOwners(for: models)
+        return sendMethods(for: models).first { method in
+            method != .share && owners.allSatisfy { isSet(method, for: $0) }
+        }
+    }
+
     /// Whether the owner's documents go out this way in a single tap: a connected Paperless server, a valid address, Save to Files shown with a folder chosen, Share shown.
     public func isSet(_ method: SendMethod, for owner: Owner) -> Bool {
         switch method {

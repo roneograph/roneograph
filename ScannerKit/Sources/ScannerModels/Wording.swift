@@ -109,6 +109,16 @@ extension SendMethod {
         }
     }
 
+    /// The name next to the icon of the send button shown with its name, shorter than its title.
+    public var buttonName: String {
+        switch self {
+        case .paperless: "Archive"
+        case .email: "Email"
+        case .files: "Save"
+        case .share: "Share"
+        }
+    }
+
     /// How a scan went out, on Home and in the confirmation.
     public var pastTense: String {
         switch self {
@@ -234,10 +244,24 @@ public struct SendFooter: Equatable {
 }
 
 extension AppModel {
-    /// Under the send buttons: "**Email opens when the PDF is ready** · 2 pages" while a button waits for the PDFs, otherwise the owner of the scans with several owners, then the summary.
+    /// Under the send buttons: "**Email opens when the PDF is ready** · 2 pages" while a button waits for the PDFs, otherwise where the button shown with its name sends, or the owner of the scans with several owners, then the summary.
     public func sendFooter(for models: [ScanModel], waiting: SendMethod?, summary: String) -> SendFooter {
         if let waiting { return SendFooter(lead: waiting.whenReady(pdfs: models.count), text: models.pageCount) }
-        return SendFooter(text: [ownerLabel(of: models), summary].compactMap(\.self).joined(separator: " · "))
+        return SendFooter(text: [destination(of: models) ?? ownerLabel(of: models), summary].compactMap(\.self).joined(separator: " · "))
+    }
+
+    /// Where the send button shown with its name sends the scans when they all have one owner: "To claire@example.com", the host of its Paperless server, or the name of its folder.
+    public func destination(of models: [ScanModel]) -> String? {
+        let owners = Self.owners(of: models)
+        guard owners.count == 1, let method = namedSendMethod(for: models) else { return nil }
+        let owner = owners[0]
+        let place: String? = switch method {
+        case .paperless: owner.paperless.map { $0.url.host() ?? $0.url.absoluteString }
+        case .email: owner.email
+        case .files: owner.archiveFolder?.name
+        case .share: nil
+        }
+        return place.map { "To \($0)" }
     }
 
     /// An owner's row in Settings, read by VoiceOver: "Me, default, sends by Archive, Email".
