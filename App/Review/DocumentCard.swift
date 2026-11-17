@@ -290,6 +290,8 @@ struct DetailTextView: View {
     let scan: ScanModel
     let field: DocumentField
     @State private var value = ""
+    /// The value when the sheet opened or when the page was read, to keep a value read while the user has not typed.
+    @State private var shownValue = ""
     @State private var selection: TextSelection?
     @FocusState private var focused: Bool
     @Environment(\.dismiss) private var dismiss
@@ -318,14 +320,22 @@ struct DetailTextView: View {
                     Button("Done", systemImage: "checkmark", action: save)
                 }
             }
+            .onChange(of: scan.scan.details[keyPath: detail]) { _, read in
+                if value == shownValue {
+                    value = read ?? ""
+                    selection = TextSelection(range: value.startIndex..<value.endIndex)
+                }
+                shownValue = read ?? ""
+            }
             .onAppear {
                 value = scan.scan.details[keyPath: detail] ?? ""
+                shownValue = value
                 selection = TextSelection(range: value.startIndex..<value.endIndex)
                 focused = true
             }
         }
         .presentationDetents([.medium])
-        .interactiveDismissDisabled(value != scan.scan.details[keyPath: detail] ?? "")
+        .interactiveDismissDisabled(value != shownValue)
     }
 
     private var title: String { field == .issuer ? "Issuer" : "Number" }
@@ -338,7 +348,7 @@ struct DetailTextView: View {
     }
 
     private func save() {
-        scan.setDetail(detail, to: value)
+        scan.applyDetail(detail, to: value, shownText: shownValue)
         dismiss()
     }
 }

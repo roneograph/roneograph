@@ -353,6 +353,11 @@ public final class ScanModel: Identifiable {
         if name != shownName || scan.isNamedByUser { rename(name) }
     }
 
+    /// Sets the issuer or the number only when the user changed the text they were shown, so a value read meanwhile stays.
+    public func applyDetail(_ detail: WritableKeyPath<DocumentDetails, String?>, to text: String, shownText: String) {
+        if text != shownText { setDetail(detail, to: text) }
+    }
+
     /// The parts of the file name a name gives, and where each comes from.
     public func fileNameSegments(for title: String) -> [FileNameSegment] {
         let isSuggested = (!scan.isNamedByUser && title == scan.title) || scan.suggestions.contains(title)

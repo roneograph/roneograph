@@ -1044,6 +1044,24 @@ struct ScanModelTests {
         #expect(!reopened.isReading)
     }
 
+    @Test func anUntouchedIssuerOpenedBeforeThePageWasReadKeepsTheIssuerRead() async throws {
+        let fixture = try Fixture()
+        let model = fixture.scanModel()
+        let shownIssuer = model.scan.details.issuer ?? ""
+        model.readDocument = { [lines = textLines(["LUMEN ENERGY SAS", "Invoice"])] _, _, owners in DocumentDetector().detect(lines: lines, owners: owners) }
+        model.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
+        await model.waitUntilIdle()
+        try #require(model.scan.details.issuer == "Lumen Energy")
+
+        model.applyDetail(\.issuer, to: shownIssuer, shownText: shownIssuer)
+        #expect(model.scan.details.issuer == "Lumen Energy")
+        #expect(!model.scan.areDetailsEditedByUser)
+
+        model.applyDetail(\.issuer, to: "", shownText: "Lumen Energy")
+        #expect(model.scan.details.issuer == nil)
+        #expect(model.scan.areDetailsEditedByUser)
+    }
+
     @Test func closingTheSheetWithoutChangesKeepsWhatWasReadMeanwhile() async throws {
         let fixture = try Fixture()
         let model = fixture.scanModel()
