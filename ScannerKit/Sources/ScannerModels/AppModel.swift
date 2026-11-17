@@ -143,6 +143,20 @@ public final class AppModel {
         archiver != nil && settings.value.owners.contains { $0.paperless != nil }
     }
 
+    /// Whether every owner of these scans has where this method sends them, which highlights its button: a Paperless server, an email address or a folder.
+    public func hasDestination(_ method: SendMethod, for models: [ScanModel]) -> Bool {
+        let owners = Self.owners(of: models)
+        guard !owners.isEmpty else { return false }
+        return owners.allSatisfy { owner in
+            switch method {
+            case .paperless: archiver?.isConnected(owner) == true
+            case .email: owner.hasValidEmail
+            case .files: owner.archiveFolder != nil
+            case .share: false
+            }
+        }
+    }
+
     /// The first owner of these scans without a Paperless server to archive them to.
     public func ownerWithoutPaperless(among models: [ScanModel]) -> Owner? {
         Self.owners(of: models).first { archiver?.isConnected($0) != true }

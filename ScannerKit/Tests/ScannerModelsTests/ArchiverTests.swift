@@ -39,6 +39,27 @@ struct ArchiverTests {
         #expect(app.canArchive)
     }
 
+    @Test func highlightsTheMethodsEveryOwnerOfTheScansHasADestinationFor() async throws {
+        let holding = try #require(fixture.settings.addOwner("Holding"))
+        let personal = await readyScan()
+        let company = await readyScan()
+        company.setOwner(holding.id)
+        #expect(!app.hasDestination(.paperless, for: [personal]))
+        #expect(!app.hasDestination(.email, for: [personal]))
+        #expect(!app.hasDestination(.paperless, for: []))
+
+        try connect()
+        fixture.settings.value.defaultOwner.email = "me@example.com"
+        #expect(app.hasDestination(.paperless, for: [personal]))
+        #expect(app.hasDestination(.email, for: [personal]))
+        #expect(!app.hasDestination(.files, for: [personal]))
+        #expect(!app.hasDestination(.share, for: [personal]))
+        #expect(!app.hasDestination(.paperless, for: [personal, company]))
+
+        try connect(holding.id)
+        #expect(app.hasDestination(.paperless, for: [personal, company]))
+    }
+
     @Test func uploadsThePDFWithItsTitleAndStoragePath() async throws {
         try connect(storagePath: PaperlessStoragePath(id: 7, name: "Personal"))
         let scan = await readyScan()

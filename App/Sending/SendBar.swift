@@ -3,7 +3,8 @@ import ScannerKit
 import ScannerModels
 import SwiftUI
 
-/// Email, Save to Files, Archive once a Paperless server is connected, Share and Delete, for the scan under review or the scans selected on Home.
+/// Archive once a Paperless server is connected, Email, Save to Files, Share and Delete, for the scan under review or the scans selected on Home.
+/// A button whose destination is set for the owners of the scans is filled with the accent color, so a single tap is enough.
 struct SendBar<Summary: View>: View {
     let app: AppModel
     let scans: [ScanModel]
@@ -44,17 +45,17 @@ struct SendBar<Summary: View>: View {
     var body: some View {
         VStack(spacing: 8) {
             HStack(spacing: 10) {
-                Button("Email", systemImage: "envelope", action: email)
-                    .buttonStyle(.glassProminent)
-                    .disabled(!isReady)
-                Button("Save to Files", systemImage: "folder", action: saveToFiles)
-                    .buttonStyle(.glass)
-                    .disabled(!isReady || isSaving)
                 if app.canArchive {
                     Button("Archive", systemImage: "archivebox", action: archive)
-                        .buttonStyle(.glass)
+                        .sendButtonStyle(isSet: app.hasDestination(.paperless, for: scans))
                         .disabled(!isReady)
                 }
+                Button("Email", systemImage: "envelope", action: email)
+                    .sendButtonStyle(isSet: app.hasDestination(.email, for: scans))
+                    .disabled(!isReady)
+                Button("Save to Files", systemImage: "folder", action: saveToFiles)
+                    .sendButtonStyle(isSet: app.hasDestination(.files, for: scans))
+                    .disabled(!isReady || isSaving)
                 Button("Share", systemImage: "square.and.arrow.up", action: share)
                     .buttonStyle(.glass)
                     .disabled(!isReady)
@@ -270,6 +271,17 @@ struct SendBar<Summary: View>: View {
             app.delete(ids)
         }
         finished(ids)
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func sendButtonStyle(isSet: Bool) -> some View {
+        if isSet {
+            buttonStyle(.glassProminent)
+        } else {
+            buttonStyle(.glass)
+        }
     }
 }
 
