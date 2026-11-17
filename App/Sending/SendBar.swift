@@ -170,6 +170,8 @@ struct SendBar<Summary: View>: View {
 /// Icon only, full width: the send buttons share the row equally.
 private struct SendButtonLabelStyle: LabelStyle {
     func makeBody(configuration: Configuration) -> some View {
-        configuration.icon.frame(maxWidth: .infinity)
+        Label { configuration.title } icon: { configuration.icon }
+            .labelStyle(.iconOnly)
+            .frame(maxWidth: .infinity)
     }
 }
