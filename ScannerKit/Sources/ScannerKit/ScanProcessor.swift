@@ -12,13 +12,14 @@ public struct ScanProcessor: Sendable {
     private let detectionSize: CGFloat = 1600
     private let previewSize: CGFloat = 1200
     /// Shared by every scan: callers run adding, recropping, previewing and reading a page in it, and the PDF runs each of its pages in it.
-    public let gate = ProcessingGate()
+    public let gate: ProcessingGate
     /// The paper of pages whose size is not clear from their proportions.
     public let paper: Paper
 
-    public init(store: ScanStore, context: CIContext, paper: Paper = Paper(region: Locale.current.region)) {
+    public init(store: ScanStore, context: CIContext, paper: Paper = Paper(region: Locale.current.region), background: (any BackgroundActivity)? = nil) {
         self.store = store
         self.paper = paper
+        gate = ProcessingGate(background: background)
         extractor = PageExtractor(context: context)
         cleaner = PageCleaner(context: context)
         writer = PDFWriter(context: context)

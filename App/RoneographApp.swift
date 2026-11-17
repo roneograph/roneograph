@@ -14,7 +14,8 @@ struct RoneographApp: App {
         let context = CIContext(options: [.cacheIntermediates: false])
         let support = URL.applicationSupportDirectory.appending(path: "Scans", directoryHint: .isDirectory)
         let store = ScanStore(scansDirectory: support, documentsDirectory: .documentsDirectory)
-        let app = AppModel(processor: ScanProcessor(store: store, context: context), settings: SettingsStore(appFolder: .documentsDirectory))
+        let processor = ScanProcessor(store: store, context: context, background: SystemBackgroundActivity())
+        let app = AppModel(processor: processor, settings: SettingsStore(appFolder: .documentsDirectory))
         _app = State(initialValue: app)
         let service = CameraService(extractor: PageExtractor(context: context))
         session = service.session
@@ -84,7 +85,7 @@ struct RootView: View {
             SettingsView(app: app, settings: app.settings)
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { app.refresh() }
+            app.setActive(phase == .active)
         }
     }
 }

@@ -456,6 +456,25 @@ struct ScanModelTests {
         #expect(built.hasCurrentPDF)
     }
 
+    @Test func keepsTheAppRunningWhilePagesAndThePDFAreWritten() async throws {
+        let fixture = try Fixture()
+        let background = RecordingBackground()
+        let processor = ScanProcessor(store: fixture.store, context: CIContext(), paper: .a4, background: background)
+        let model = ScanModel(scan: Scan(name: "Scan"), processor: processor, settings: fixture.settings)
+        model.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
+        var savedWhileRunning: [Bool] = []
+        model.didSave = { savedWhileRunning.append(background.running == 1) }
+        await model.waitUntilIdle()
+        #expect(!savedWhileRunning.isEmpty)
+        #expect(!savedWhileRunning.contains(false))
+
+        let begun = background.begun
+        await model.buildPDF(delay: .zero)
+        #expect(model.hasCurrentPDF)
+        #expect(background.begun == begun + 2)
+        #expect(background.running == 0)
+    }
+
     @Test func editedDetailsRenameTheFileWithACustomFormat() async throws {
         let fixture = try Fixture()
         fixture.settings.value.defaultOwner.fileNameFormat = FileNameFormat(isCustom: true, template: "{CATEGORY}/{YYYY} {ISSUER} {NUMBER}")

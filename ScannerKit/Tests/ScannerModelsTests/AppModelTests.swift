@@ -91,6 +91,26 @@ struct AppModelTests {
         await release()
     }
 
+    @Test(.timeLimit(.minutes(1)))
+    func pagesAndPDFsWaitWhileTheAppIsNotActive() async throws {
+        let fixture = try Fixture()
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+        let built = await fixture.capturedScan(in: app)
+        app.setActive(false)
+        let scan = app.startScan()
+        scan.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
+        let build = Task { await built.buildPDF(delay: .zero) }
+        try await fixture.waitUntilGateHasWaiting(2)
+        #expect(scan.scan.pages.isEmpty)
+        #expect(!fixture.pdfExists(built.scan.fileName))
+
+        app.setActive(true)
+        await scan.waitUntilIdle()
+        await build.value
+        #expect(scan.scan.pages.count == 1)
+        #expect(built.hasCurrentPDF)
+    }
+
     @Test func doneOpensReview() async throws {
         let fixture = try Fixture()
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)

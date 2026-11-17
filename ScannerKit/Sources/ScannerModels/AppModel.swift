@@ -27,6 +27,12 @@ public final class AppModel {
 
     public var store: ScanStore { processor.store }
 
+    /// Page work and PDFs wait while the app is not active, as the GPU cannot be used in the background; when it is active again, they go on and the list is refreshed.
+    public func setActive(_ isActive: Bool) {
+        processor.gate.isPaused = !isActive
+        if isActive { refresh() }
+    }
+
     /// Deletes expired scans, except the one open in Review or in the camera, and unreadable scan folders, then reloads the list.
     public func refresh() {
         reload()

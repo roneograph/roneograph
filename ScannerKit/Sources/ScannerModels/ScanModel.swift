@@ -419,11 +419,11 @@ public final class ScanModel: Identifiable {
 
     /// Keeps the PDF only while the scan is still as it was made from, even when the build was cancelled after its last page.
     private func makePDF() async {
-        let makePDFData = makePDFData, scan = scan, inputs = pdfInputs, url = store.pdfURL(of: scan)
+        let makePDFData = makePDFData, scan = scan, inputs = pdfInputs, url = store.pdfURL(of: scan), gate = processor.gate
         do {
             let data = try await makePDFData(scan)
             guard !isDeleted, pdfInputs == inputs else { return }
-            try await Self.write(data, to: url)
+            try await gate.finish { try await Self.write(data, to: url) }
             guard !isDeleted, pdfInputs == inputs else { return }
             pdf = .ready(url: url, size: data.count)
             pdfMadeFrom = inputs
