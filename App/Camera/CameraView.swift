@@ -82,6 +82,7 @@ struct CameraView: View {
             }
             .presentationDetents([.large])
         }
+        .failureAlert(of: scan, isFrontmost: !showingLastPage)
     }
 
     private var topBar: some View {
@@ -227,6 +228,7 @@ private struct LastPageView: View {
             }
             .navigationTitle("Page \(scan.scan.pages.count)")
             .navigationBarTitleDisplayMode(.inline)
+            .failureAlert(of: scan)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Keep") { dismiss() }

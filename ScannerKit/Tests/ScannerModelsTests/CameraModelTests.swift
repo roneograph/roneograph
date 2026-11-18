@@ -83,6 +83,32 @@ final class CameraModelTests {
         #expect(camera.hint == .added(1))
     }
 
+    @Test func aPhotoThatCannotBeSavedIsNotAddedAndPausesCaptureUntilTheFailureIsDismissed() async throws {
+        let folder = fixture.store.directory(of: scan.id)
+        try FileManager.default.createDirectory(at: fixture.store.scansDirectory, withIntermediateDirectories: true)
+        try Data().write(to: folder)
+        holdStill(camera, from: 0)
+        await camera.waitUntilIdle()
+        #expect(device.photos == 1)
+        #expect(scan.failure != nil)
+        #expect(camera.pageCount == 0)
+        #expect(camera.hint == .captureFailed)
+        #expect(!camera.canCapture)
+
+        holdStill(camera, from: 1)
+        camera.shutter()
+        await camera.waitUntilIdle()
+        #expect(device.photos == 1)
+
+        try FileManager.default.removeItem(at: folder)
+        scan.dismissFailure()
+        #expect(camera.canCapture)
+        holdStill(camera, from: 3)
+        await camera.waitUntilIdle()
+        #expect(device.photos == 2)
+        #expect(camera.hint == .added(1))
+    }
+
     @Test func countsThePagesStillBeingTakenOrProcessed() async {
         camera.shutter()
         camera.shutter()

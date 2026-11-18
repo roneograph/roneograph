@@ -129,18 +129,20 @@ public final class ScanModel: Identifiable {
 
     // MARK: Capture
 
-    /// Saves the photo and the scan right away, then makes the page.
-    public func addPhoto(_ data: Data, liveQuad: Quad?) {
+    /// Saves the photo and the scan right away, then makes the page; false when the photo could not be saved, and the page is lost.
+    @discardableResult
+    public func addPhoto(_ data: Data, liveQuad: Quad?) -> Bool {
         let pending = PendingPage(liveQuad: liveQuad)
         do {
             try store.savePhoto(data, scanID: scan.id, pageID: pending.id)
         } catch {
             fail("A page could not be processed", because: error)
-            return
+            return false
         }
         scan.pending.append(pending)
         save()
         process(pending)
+        return true
     }
 
     /// A page that fails while the app is not active, where the GPU cannot be used, is made again once the app is active.

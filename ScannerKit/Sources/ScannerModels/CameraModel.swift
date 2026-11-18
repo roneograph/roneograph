@@ -128,7 +128,10 @@ public final class CameraModel {
     }
 
     /// The shutter can take a photo: the camera runs and nothing covers it.
-    public var canCapture: Bool { isRunning && !isInterrupted && !isPaused }
+    public var canCapture: Bool { isRunning && !isInterrupted && !isCovered }
+
+    /// The last page sheet or the failure alert is shown.
+    private var isCovered: Bool { isPaused || scan?.failure != nil }
 
     public var autoCapture: Bool {
         get { settings.value.autoCapture }
@@ -214,7 +217,7 @@ public final class CameraModel {
         lowLight = frame.lowLight
         if !wasLocked, frame.quad != nil { locks += 1 }
 
-        guard !isPaused else { return }
+        guard !isCovered else { return }
         trigger.isAutomatic = autoCapture
         state = trigger.update(quad: frame.quad, signature: frame.signature, at: frame.time)
         if case .capture = state {
@@ -242,13 +245,10 @@ public final class CameraModel {
         let id = UUID()
         photoTasks[id] = Task {
             defer { photoTasks[id] = nil }
-            do {
-                scan.addPhoto(try await device.capturePhoto(flash: flash), liveQuad: quad)
-            } catch {
-                captureFailed = true
-                trigger.reset()
-                state = .searching
-            }
+            if let photo = try? await device.capturePhoto(flash: flash), scan.addPhoto(photo, liveQuad: quad) { return }
+            captureFailed = true
+            trigger.reset()
+            state = .searching
         }
     }
 }

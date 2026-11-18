@@ -57,7 +57,7 @@ struct ReviewView: View {
         .fullScreenCover(item: $viewedPage) { page in
             PageViewer(scan: scan, selection: page.id)
         }
-        .failureAlert(of: scan, isFrontmost: viewedPage == nil && editing == nil)
+        .failureAlert(of: scan, isFrontmost: viewedPage == nil && editing == nil && app.camera == nil)
         .onChange(of: scan.isEmpty && scan.failure == nil) { _, pagesFailed in
             if pagesFailed { app.delete(scan.id) }
         }
