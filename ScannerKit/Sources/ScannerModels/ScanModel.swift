@@ -80,6 +80,8 @@ public final class ScanModel: Identifiable {
     public func finalName(_ name: String) -> String { FileNamer.finalName(name, fallback: scan.suggestions.first ?? fallbackTitle) }
     /// Pages captured but not processed yet.
     public var processing: Int { scan.pending.count }
+    /// The pages, counting the ones still processed.
+    var pageCount: Int { scan.pages.count + processing }
     public var isEmpty: Bool { scan.pages.isEmpty && scan.pending.isEmpty }
     public var isBusy: Bool { processing > 0 || updating > 0 }
     /// Whether the first page is being read.

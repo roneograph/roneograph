@@ -331,11 +331,15 @@ struct SendBarModelTests {
         second.rename("Gas bill")
         second.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
         await second.waitUntilIdle()
-        #expect(app.notSentOffer == NotSentOffer(scans: [first.scan, second.scan], archives: true, title: "2 scans not sent", subtitle: "3 pages · to Paperless", button: "Archive All"))
+        let archiveAll = try #require(app.notSentOffer)
+        #expect(archiveAll == NotSentOffer(scans: [first.scan, second.scan], archives: true))
+        #expect([archiveAll.title, archiveAll.subtitle, archiveAll.button] == ["2 scans not sent", "3 pages · to Paperless", "Archive All"])
 
         let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
         second.setOwner(holding.id)
-        #expect(app.notSentOffer == NotSentOffer(scans: [first.scan, second.scan], archives: false, title: "2 scans not sent", subtitle: "Water bill, Gas bill", button: "Share All"))
+        let shareAll = try #require(app.notSentOffer)
+        #expect(shareAll == NotSentOffer(scans: [first.scan, second.scan], archives: false))
+        #expect([shareAll.title, shareAll.subtitle, shareAll.button] == ["2 scans not sent", "Water bill, Gas bill", "Share All"])
 
         app.didSend([first], by: .share)
         #expect(app.notSentOffer == nil)

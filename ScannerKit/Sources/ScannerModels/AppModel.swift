@@ -153,6 +153,35 @@ public final class AppModel {
         archiver?.isConnected(owner) == true
     }
 
+    /// The host of the owner's Paperless server once it is connected.
+    public func archivesTo(_ owner: Owner) -> String? {
+        isConnected(owner) ? owner.paperlessHost : nil
+    }
+
+    /// Archive, named, then Share when the owner of the scan has a Paperless server, even once archived, as the document may have been deleted from Paperless; Share alone otherwise.
+    public func sendButtons(for model: ScanModel) -> SendButtons {
+        guard archives(model) else {
+            return SendButtons(named: .share, title: SendMethod.share.title, isProminent: false)
+        }
+        return SendButtons(named: .paperless, title: model.scan.archiveTitle, isProminent: true, round: .share)
+    }
+
+    /// The swipe actions of a scan on Home, in order: Archive when its owner has a Paperless server, even once sent, or Try Again once its upload failed, then Share.
+    /// None while it is on its way to Paperless.
+    public func swipeActions(for scan: Scan) -> [RowAction] {
+        guard scan.archiving?.isInProgress != true else { return [] }
+        let connected = isConnected(settings.value.owner(scan.owner?.id))
+        if scan.archiving != nil { return connected ? [.tryAgain, .share] : [.share] }
+        return connected ? [.archive, .share] : [.share]
+    }
+
+    /// Offered once more than one scan was not sent: to Paperless when every owner of the scans has a server, to the share sheet otherwise.
+    public var notSentOffer: NotSentOffer? {
+        let scans = notSent
+        guard scans.count > 1 else { return nil }
+        return NotSentOffer(scans: scans, archives: scans.allSatisfy { isConnected(settings.value.owner($0.owner?.id)) })
+    }
+
     /// Starts sending each scan to the Paperless server of its owner; Home tells when they are archived.
     public func archive(_ models: [ScanModel]) async throws {
         guard let archiver, !models.isEmpty else { return }
@@ -232,4 +261,31 @@ public final class AppModel {
             toast = nil
         }
     }
+}
+
+/// The buttons of the send bar before Delete: the one shown with its name, then the other way as a round button.
+public struct SendButtons: Equatable {
+    public var named: SendMethod
+    /// "Archive", "Try Again", "Try Now", "Share".
+    public var title: String
+    /// Filled with the accent color, as it sends in a single tap; Share only opens the share sheet.
+    public var isProminent: Bool
+    public var round: SendMethod?
+}
+
+/// A swipe action of a scan on Home.
+public enum RowAction: Equatable, Sendable {
+    /// Archive again after a failed upload.
+    case archive, tryAgain, share
+
+    public var method: SendMethod {
+        self == .share ? .share : .paperless
+    }
+}
+
+/// The card on Home that sends every scan not sent in one tap.
+public struct NotSentOffer: Equatable {
+    public var scans: [Scan]
+    /// To Paperless, as every owner of the scans has a server; to the share sheet otherwise.
+    public var archives: Bool
 }

@@ -161,11 +161,6 @@ extension ScanModel {
         default: "\(pages) · preparing the PDF…"
         }
     }
-
-    /// The pages, counting the ones still processed.
-    var pageCount: Int {
-        scan.pages.count + processing
-    }
 }
 
 /// The line under the send buttons; `lead`, in bold before `text`, says what a button waiting for the PDF will do, and Connect Paperless follows `text` when `connectsPaperless`.
@@ -173,16 +168,6 @@ public struct SendFooter: Equatable {
     public var lead: String?
     public var text: String
     public var connectsPaperless = false
-}
-
-/// The buttons of the send bar before Delete: the one shown with its name, then the other way as a round button.
-public struct SendButtons: Equatable {
-    public var named: SendMethod
-    /// "Archive", "Try Again", "Try Now", "Share".
-    public var title: String
-    /// Filled with the accent color, as it sends in a single tap; Share only opens the share sheet.
-    public var isProminent: Bool
-    public var round: SendMethod?
 }
 
 /// The line above the send buttons once a scan went out, or while it goes to Paperless.
@@ -196,20 +181,6 @@ public struct SendStatus: Equatable {
 }
 
 extension AppModel {
-    /// Archive, named, then Share when the owner of the scan has a Paperless server, even once archived, as the document may have been deleted from Paperless; Share alone otherwise.
-    /// Archive reads "Try Again" once the upload failed and "Try Now" while it waits.
-    public func sendButtons(for model: ScanModel) -> SendButtons {
-        guard archives(model) else {
-            return SendButtons(named: .share, title: SendMethod.share.title, isProminent: false)
-        }
-        let title = switch model.scan.archiving?.isInProgress {
-        case true?: "Try Now"
-        case false?: "Try Again"
-        case nil: SendMethod.paperless.title
-        }
-        return SendButtons(named: .paperless, title: title, isProminent: true, round: .share)
-    }
-
     /// Above the send buttons: "Archived to paperless.example.com · 10:42", "Shared · yesterday 18:02", "Waiting for paperless.example.com", "Not archived: <reason>"; nil until the scan goes out.
     public func sendStatus(of model: ScanModel, calendar: Calendar = .current, locale: Locale = .current) -> SendStatus? {
         let scan = model.scan
@@ -261,18 +232,9 @@ extension AppModel {
         ]
         return parts.compactMap(\.self).joined(separator: ", ")
     }
-
-    /// The host of the owner's Paperless server once it is connected.
-    public func archivesTo(_ owner: Owner) -> String? {
-        isConnected(owner) ? owner.paperlessHost : nil
-    }
 }
 
-/// A swipe action of a scan on Home.
-public enum RowAction: Equatable, Sendable {
-    /// Archive again after a failed upload.
-    case archive, tryAgain, share
-
+extension RowAction {
     public var title: String {
         switch self {
         case .archive: "Archive"
@@ -280,47 +242,33 @@ public enum RowAction: Equatable, Sendable {
         case .share: "Share"
         }
     }
-
-    public var method: SendMethod {
-        self == .share ? .share : .paperless
-    }
 }
 
-/// The card on Home that sends every scan not sent in one tap: to Paperless when every owner of the scans has a server, to the share sheet otherwise.
-public struct NotSentOffer: Equatable {
-    public var scans: [Scan]
-    public var archives: Bool
+extension NotSentOffer {
     /// "6 scans not sent"
-    public var title: String
-    /// "6 pages · to Paperless", or the names of the scans.
-    public var subtitle: String
-    /// "Archive All", "Share All".
-    public var button: String
-}
-
-extension AppModel {
-    /// The swipe actions of a scan on Home, in order: Archive when its owner has a Paperless server, even once sent, or Try Again once its upload failed, then Share.
-    /// None while it is on its way to Paperless.
-    public func swipeActions(for scan: Scan) -> [RowAction] {
-        guard scan.archiving?.isInProgress != true else { return [] }
-        let connected = isConnected(settings.value.owner(scan.owner?.id))
-        if scan.archiving != nil { return connected ? [.tryAgain, .share] : [.share] }
-        return connected ? [.archive, .share] : [.share]
+    public var title: String {
+        "\(scans.count) scans not sent"
     }
 
-    /// Offered once more than one scan was not sent.
-    public var notSentOffer: NotSentOffer? {
-        let scans = notSent
-        guard scans.count > 1 else { return nil }
-        let archives = scans.allSatisfy { isConnected(settings.value.owner($0.owner?.id)) }
-        let pages = scans.reduce(0) { $0 + $1.pages.count }.counted("page")
-        return NotSentOffer(
-            scans: scans,
-            archives: archives,
-            title: "\(scans.count) scans not sent",
-            subtitle: archives ? "\(pages) · to Paperless" : scans.map(\.title).joined(separator: ", "),
-            button: archives ? "Archive All" : "Share All"
-        )
+    /// "6 pages · to Paperless", or the names of the scans.
+    public var subtitle: String {
+        archives ? "\(scans.reduce(0) { $0 + $1.pages.count }.counted("page")) · to Paperless" : scans.map(\.title).joined(separator: ", ")
+    }
+
+    /// "Archive All", "Share All".
+    public var button: String {
+        archives ? "Archive All" : "Share All"
+    }
+}
+
+extension Scan {
+    /// The title of Archive: "Try Again" once the upload failed, "Try Now" while it waits.
+    public var archiveTitle: String {
+        switch archiving?.isInProgress {
+        case true?: "Try Now"
+        case false?: "Try Again"
+        case nil: SendMethod.paperless.title
+        }
     }
 }
 
