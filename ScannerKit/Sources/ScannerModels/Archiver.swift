@@ -145,10 +145,12 @@ public final class Archiver {
         let uploading = await uploader.uploadingScanIDs()
         var unprepared: [ScanModel] = []
         for scan in scans() where scan.archiving?.isInProgress == true && attempts[scan.id] == nil {
-            guard let model = model(scan.id) else { continue }
             if uploading.contains(scan.id) {
                 attempts[scan.id] = .uploading
-            } else if uploadedBody(scan.id) != nil {
+                continue
+            }
+            guard let model = model(scan.id) else { continue }
+            if uploadedBody(scan.id) != nil {
                 restart(model, after: .zero)
             } else {
                 attempts[scan.id] = .preparing
