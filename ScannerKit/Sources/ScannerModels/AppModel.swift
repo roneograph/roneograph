@@ -291,9 +291,14 @@ public final class AppModel {
         store.deleteAllScanFolders(keeping: Set(models.keys))
     }
 
+    /// A model let go without a page, as when the camera closes, is handed out again once it saves its scan, as when the photo being taken comes in.
     private func makeModel(_ scan: Scan) -> ScanModel {
         let model = ScanModel(scan: scan, processor: processor, settings: settings, now: now)
-        model.didSave = { [weak self] in self?.list($0) }
+        model.didSave = { [weak self, weak model] scan in
+            guard let self else { return }
+            if models[scan.id] == nil { models[scan.id] = model }
+            list(scan)
+        }
         model.didDeleteStoredScan = { [weak self] id in self?.scans.removeAll { $0.id == id } }
         model.didStopArchiving = { [weak self] id in self?.archiver?.cancel(id) }
         model.otherScans = { [weak self] in self?.scans ?? [] }
