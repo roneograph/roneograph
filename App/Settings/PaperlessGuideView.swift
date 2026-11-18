@@ -15,11 +15,12 @@ struct PaperlessGuideView: View {
                 field("Correspondent", from: "The issuer", placeholder: "{{ correspondent }}")
                 field("Document type", from: "The category", placeholder: "{{ document_type }}")
                 field("Owner", from: ownerName, placeholder: "{{ custom_fields|get_cf_value('\(Paperless.ownerField)') }}")
+                field("Comment", from: "The scan's comment, when it has one", placeholder: "{{ custom_fields|get_cf_value('\(Paperless.commentField)') }}")
                 field("Original name", from: "The file name", placeholder: "{{ original_name }}")
             } header: {
                 Text("Fields")
             } footer: {
-                Text("Correspondents, document types and the \(Paperless.ownerField) field are created when missing; the owner needs Paperless-ngx 2.19 or later. In a storage path, a missing value reads as none.")
+                Text("Correspondents, document types and the \(Paperless.ownerField) and \(Paperless.commentField) fields are created when missing; the fields need Paperless-ngx 2.19 or later. In a storage path, a missing value reads as none.")
             }
             Section {
                 ForEach(storagePaths, id: \.template) { path in
