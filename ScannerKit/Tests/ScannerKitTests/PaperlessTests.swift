@@ -77,9 +77,9 @@ struct PaperlessTests {
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Token abc")
         let json = #"{"results": [{"id": 5, "name": "Owner", "data_type": "string"}, {"id": 6, "name": "owner", "data_type": "select"}, {"id": 7, "name": "Notes", "data_type": "longtext"}]}"#
         #expect(try Paperless.customFields(from: Data(json.utf8)) == [
-            "Owner": Paperless.CustomField(id: 5, takesText: true),
-            "owner": Paperless.CustomField(id: 6, takesText: false),
-            "Notes": Paperless.CustomField(id: 7, takesText: true),
+            "Owner": Paperless.TextField(id: 5, maximumLength: 128),
+            "owner": Optional<Paperless.TextField>.none,
+            "Notes": Paperless.TextField(id: 7, maximumLength: nil),
         ])
     }
 
@@ -90,6 +90,13 @@ struct PaperlessTests {
         #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Token abc")
         #expect(String(decoding: request.httpBody ?? Data(), as: UTF8.self) == #"{"data_type":"string","name":"Owner"}"#)
+    }
+
+    @Test func createsALongTextCustomField() throws {
+        let request = Paperless.createTextFieldRequest(server: URL(string: "https://example.com/")!, token: "abc", name: "Comment", isLong: true)
+        #expect(String(decoding: request.httpBody ?? Data(), as: UTF8.self) == #"{"data_type":"longtext","name":"Comment"}"#)
+        #expect(try Paperless.createdTextField(from: Data(#"{"id": 8, "name": "Comment", "data_type": "longtext"}"#.utf8)) == Paperless.TextField(id: 8, maximumLength: nil))
+        #expect(throws: DecodingError.self) { try Paperless.createdTextField(from: Data(#"{"id": 8, "name": "Comment", "data_type": "select"}"#.utf8)) }
     }
 
     @Test(arguments: [
@@ -107,13 +114,14 @@ struct PaperlessTests {
     }
 
     @Test func sendsCustomFieldValuesAsAJSONObjectByID() {
-        let body = String(decoding: Paperless.uploadBody(pdf: Data(), fileName: "a.pdf", title: "A", created: nil, storagePath: nil, customFields: [12: "Lumen & Co", 5: "Personal/Home \"A\""], boundary: "XYZ"), as: UTF8.self)
+        let body = String(decoding: Paperless.uploadBody(pdf: Data(), fileName: "a.pdf", title: "A", created: nil, storagePath: nil, customFields: [Paperless.TextField(id: 12, maximumLength: 128): "Lumen & Co", Paperless.TextField(id: 5, maximumLength: 128): "Personal/Home \"A\""], boundary: "XYZ"), as: UTF8.self)
         #expect(body.contains("--XYZ\r\nContent-Disposition: form-data; name=\"custom_fields\"\r\n\r\n{\"5\":\"Personal/Home \\\"A\\\"\",\"12\":\"Lumen & Co\"}\r\n--XYZ\r\nContent-Disposition: form-data; name=\"document\""))
     }
 
     @Test func cutsCustomFieldValuesToWhatPaperlessTakes() throws {
-        let body = String(decoding: Paperless.uploadBody(pdf: Data(), fileName: "a.pdf", title: "A", created: nil, storagePath: nil, customFields: [5: String(repeating: "e\u{301}", count: 100)], boundary: "XYZ"), as: UTF8.self)
-        #expect(body.unicodeScalars.contains("{\"5\":\"\(String(repeating: "e\u{301}", count: 64))\"}\r\n".unicodeScalars))
+        let text = String(repeating: "e\u{301}", count: 100)
+        let body = String(decoding: Paperless.uploadBody(pdf: Data(), fileName: "a.pdf", title: "A", created: nil, storagePath: nil, customFields: [Paperless.TextField(id: 5, maximumLength: 128): text, Paperless.TextField(id: 6, maximumLength: nil): text], boundary: "XYZ"), as: UTF8.self)
+        #expect(body.unicodeScalars.contains("{\"5\":\"\(String(repeating: "e\u{301}", count: 64))\",\"6\":\"\(text)\"}\r\n".unicodeScalars))
     }
 
     @Test func sendsTheDocumentType() {

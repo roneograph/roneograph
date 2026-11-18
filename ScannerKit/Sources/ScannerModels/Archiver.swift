@@ -63,9 +63,11 @@ public final class Archiver {
     private let directory: URL
     /// Sends the requests that prepare an upload, while the app is open.
     private let fetch: Fetch
-    /// The IDs of the objects of each catalog of each server and token by key, nil for one that cannot be sent; read once per launch and completed with the ones created.
+    /// The IDs of the document types and correspondents of each server and token by key, nil for one that cannot be sent; read once per launch and completed with the ones created.
     /// Owners with another Paperless user on the same server can see other objects.
     private var ids: [Known: [String: Int?]] = [:]
+    /// The text custom fields, kept like the IDs.
+    private var textFields: [Known: [String: Paperless.TextField?]] = [:]
     /// The model of a scan, set by the app model.
     var model: (UUID) -> ScanModel? = { _ in nil }
     /// The scans, set by the app model.
@@ -164,7 +166,8 @@ public final class Archiver {
         if case .preparing = attempts[scanID] { true } else { false }
     }
 
-    /// Finds or creates the correspondent of the scan's issuer, the document type of its category and the Owner custom field, then makes the PDF unless it is current, as after a relaunch, saves the request body and starts the upload.
+    /// Finds or creates the correspondent of the scan's issuer, the document type of its category, the Owner custom field and the Comment one when the scan has a comment,
+    /// then makes the PDF unless it is current, as after a relaunch, saves the request body and starts the upload.
     /// The scan waits for the app to be active again when the server cannot be reached; it goes without the ones the server refuses to make.
     private func prepare(_ model: ScanModel) async {
         defer { if isPreparing(model.id) { attempts[model.id] = nil } }
@@ -174,11 +177,13 @@ public final class Archiver {
         }
         let correspondent: Int?
         let documentType: Int?
-        let ownerField: Int?
+        let ownerField: Paperless.TextField?
+        let commentField: Paperless.TextField?
         do throws(Unreachable) {
             correspondent = try await findCorrespondent(of: model.scan.details.issuer, server: server.url, token: token).get()
             documentType = try await findDocumentType(of: model.scan.details.category, server: server.url, token: token).get()
-            ownerField = try await find(Paperless.ownerField, in: .customFields, server: server.url, token: token).get()
+            ownerField = try await find(Paperless.ownerField, in: .ownerField, cache: \.textFields, server: server.url, token: token).get()
+            commentField = model.scan.comment == nil ? nil : try await find(Paperless.commentField, in: .commentField, cache: \.textFields, server: server.url, token: token).get()
         } catch {
             guard model.scan.archiving?.isInProgress == true else { return }
             return model.setArchiving(Archiving(state: .waiting(error.reason), retries: model.scan.archiving?.retries ?? 0))
@@ -186,7 +191,9 @@ public final class Archiver {
         await model.preparePDF()
         guard model.scan.archiving?.isInProgress == true, self.model(model.id) === model else { return }
         let ownerName = owner.name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let customFields = if let ownerField, !ownerName.isEmpty { [ownerField: ownerName] } else { [Int: String]() }
+        var customFields: [Paperless.TextField: String] = [:]
+        if let ownerField, !ownerName.isEmpty { customFields[ownerField] = ownerName }
+        if let commentField, let comment = model.scan.comment { customFields[commentField] = comment }
         guard case .ready(let url, _) = model.pdf, let pdf = try? Data(contentsOf: url) else {
             return fail(model, model.pdf == .storageFull ? "The iPhone storage is full." : "The PDF could not be read. Archive the scan again.")
         }
@@ -209,35 +216,35 @@ public final class Archiver {
     /// The ID of the document type named like the category; nil for Other.
     private func findDocumentType(of category: DocumentCategory, server: URL, token: String) async -> Result<Int?, Unreachable> {
         guard category != .other else { return .success(nil) }
-        return await find(category.rawValue, in: .documentTypes, server: server, token: token)
+        return await find(category.rawValue, in: .documentTypes, cache: \.ids, server: server, token: token)
     }
 
     /// The ID of the correspondent named like the issuer; nil when the scan has none.
     private func findCorrespondent(of issuer: String?, server: URL, token: String) async -> Result<Int?, Unreachable> {
         guard let name = issuer?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty else { return .success(nil) }
-        return await find(name, in: .correspondents, server: server, token: token)
+        return await find(name, in: .correspondents, cache: \.ids, server: server, token: token)
     }
 
-    /// The ID of the object of a catalog under the key of its name, read once per launch and created when the server has none;
+    /// The object of a catalog under the key of its name, read once per launch and created when the server has none;
     /// nil when it cannot be sent, or when the server refuses to list or make it.
-    private func find(_ name: String, in catalog: Catalog, server: URL, token: String) async -> Result<Int?, Unreachable> {
+    private func find<Value>(_ name: String, in catalog: Catalog<Value>, cache: ReferenceWritableKeyPath<Archiver, [Known: [String: Value?]]>, server: URL, token: String) async -> Result<Value?, Unreachable> {
         let known = Known(server: server, token: token, catalog: catalog.id)
-        if ids[known] == nil {
+        if self[keyPath: cache][known] == nil {
             switch await send(catalog.list(server, token)) {
             case .answered(let data, let response):
                 guard let read = try? catalog.read(data, response) else { return .success(nil) }
-                ids[known] = read
+                self[keyPath: cache][known] = read
             case .unreachable(let reason): return .failure(Unreachable(reason: reason))
             case .refused: return .success(nil)
             }
         }
         let key = catalog.key(name)
-        if let id = ids[known]?[key] { return .success(id) }
+        if let value = self[keyPath: cache][known]?[key] { return .success(value) }
         switch await send(catalog.create(server, token, name)) {
         case .answered(let data, _):
-            guard let id = try? Paperless.createdID(from: data) else { return .success(nil) }
-            ids[known, default: [:]][key] = id
-            return .success(id)
+            guard let value = try? catalog.created(data) else { return .success(nil) }
+            self[keyPath: cache][known, default: [:]][key] = value
+            return .success(value)
         case .unreachable(let reason): return .failure(Unreachable(reason: reason))
         case .refused: return .success(nil)
         }
@@ -312,7 +319,10 @@ public final class Archiver {
             model.setArchiving(Archiving(state: .waiting(reason), retries: retries))
             restart(model, after: Self.delay(afterRetries: retries))
         case .retry(let reason), .failed(let reason):
-            if let server = model.owner.paperless?.url { ids = ids.filter { $0.key.server != server } }
+            if let server = model.owner.paperless?.url {
+                ids = ids.filter { $0.key.server != server }
+                textFields = textFields.filter { $0.key.server != server }
+            }
             fail(model, reason)
         }
     }
@@ -407,41 +417,60 @@ public final class Archiver {
 }
 
 /// A kind of object Paperless-ngx finds by name: how to list them, read their IDs by key, and create one.
-private struct Catalog: Sendable {
+private struct Catalog<Value>: Sendable {
     let id: String
     let list: @Sendable (_ server: URL, _ token: String) -> URLRequest
-    /// The IDs by key; nil for an object that exists but cannot be sent.
-    let read: @Sendable (Data, HTTPURLResponse) throws -> [String: Int?]
+    /// The objects by key; nil for one that exists but cannot be sent.
+    let read: @Sendable (Data, HTTPURLResponse) throws -> [String: Value?]
     let create: @Sendable (_ server: URL, _ token: String, _ name: String) -> URLRequest
+    let created: @Sendable (Data) throws -> Value
     let key: @Sendable (_ name: String) -> String
+}
 
+extension Catalog<Int> {
     /// Matched by lowercased name, so the ones named by hand on the server are reused whatever their case.
-    static let documentTypes = Catalog(
-        id: "document types",
-        list: Paperless.documentTypesRequest,
-        read: { data, _ in try Paperless.idsByLowercasedName(from: data) },
-        create: Paperless.createDocumentTypeRequest,
-        key: { $0.lowercased() }
-    )
+    static var documentTypes: Self {
+        Catalog(
+            id: "document types",
+            list: Paperless.documentTypesRequest,
+            read: { data, _ in try Paperless.idsByLowercasedName(from: data) },
+            create: { server, token, name in Paperless.createDocumentTypeRequest(server: server, token: token, name: name) },
+            created: Paperless.createdID,
+            key: { $0.lowercased() }
+        )
+    }
 
     /// Matched by lowercased name, like document types.
-    static let correspondents = Catalog(
-        id: "correspondents",
-        list: Paperless.correspondentsRequest,
-        read: { data, _ in try Paperless.idsByLowercasedName(from: data) },
-        create: Paperless.createCorrespondentRequest,
-        key: { $0.lowercased() }
-    )
+    static var correspondents: Self {
+        Catalog(
+            id: "correspondents",
+            list: Paperless.correspondentsRequest,
+            read: { data, _ in try Paperless.idsByLowercasedName(from: data) },
+            create: { server, token, name in Paperless.createCorrespondentRequest(server: server, token: token, name: name) },
+            created: Paperless.createdID,
+            key: { $0.lowercased() }
+        )
+    }
+}
 
-    /// Matched by exact name, as templates name them; a server too old to take custom field values with an upload cannot take the Owner field.
-    static let customFields = Catalog(
-        id: "custom fields",
-        list: Paperless.customFieldsRequest,
-        read: { data, response in
-            guard Paperless.takesCustomFieldValues(version: response.value(forHTTPHeaderField: "X-Version")) else { return [Paperless.ownerField: nil] }
-            return try Paperless.customFields(from: data).mapValues { $0.takesText ? $0.id : nil }
-        },
-        create: Paperless.createTextFieldRequest,
-        key: { $0 }
-    )
+extension Catalog<Paperless.TextField> {
+    static var ownerField: Self { customFields(isLong: false) }
+    static var commentField: Self { customFields(isLong: true) }
+
+    /// Matched by exact name, as templates name them; a server too old to take custom field values with an upload cannot take any.
+    private static func customFields(isLong: Bool) -> Self {
+        Catalog(
+            id: "custom fields",
+            list: Paperless.customFieldsRequest,
+            read: { data, response in
+                guard Paperless.takesCustomFieldValues(version: response.value(forHTTPHeaderField: "X-Version")) else {
+                    return [Paperless.ownerField: nil, Paperless.commentField: nil]
+                }
+                return try Paperless.customFields(from: data)
+            },
+            create: { server, token, name in Paperless.createTextFieldRequest(server: server, token: token, name: name, isLong: isLong) },
+            created: Paperless.createdTextField,
+            key: { $0 }
+        )
+    }
 }

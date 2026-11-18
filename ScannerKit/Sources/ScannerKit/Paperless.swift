@@ -29,8 +29,8 @@ public enum Paperless {
     static let accept = "application/json; version=9"
     /// The custom field holding the owner's name, which storage path templates read with `get_cf_value('Owner')`.
     public static let ownerField = "Owner"
-    /// The longest text a string custom field takes.
-    static let maximumFieldLength = 128
+    /// The custom field holding the comment of the scan, created as long text so it is not cut.
+    public static let commentField = "Comment"
 
     /// The server address as typed, with https:// added when no scheme is given; nil when it is not an HTTPS address.
     public static func serverURL(from typed: String) -> URL? {
@@ -82,24 +82,43 @@ public enum Paperless {
         listRequest("api/custom_fields/", server: server, token: token)
     }
 
-    /// The custom fields by their exact name, as templates name them that way and Paperless allows names that differ only by case.
-    public static func customFields(from data: Data) throws -> [String: CustomField] {
+    /// The custom fields by their exact name, as templates name them that way and Paperless allows names that differ only by case; nil for one that takes no text.
+    public static func customFields(from data: Data) throws -> [String: TextField?] {
         let fields = try JSONDecoder().decode(Page<Field>.self, from: data).results
-        return Dictionary(fields.map { ($0.name, CustomField(id: $0.id, takesText: ["string", "longtext"].contains($0.dataType))) }) { first, _ in first }
+        return Dictionary(fields.map { ($0.name, TextField($0)) }) { first, _ in first }
     }
 
-    public struct CustomField: Equatable, Sendable {
+    /// A custom field that takes text, and the longest text it takes; nil for long text, which takes any.
+    public struct TextField: Hashable, Sendable {
         public let id: Int
-        public let takesText: Bool
+        public let maximumLength: Int?
 
-        public init(id: Int, takesText: Bool) {
+        public init(id: Int, maximumLength: Int?) {
             self.id = id
-            self.takesText = takesText
+            self.maximumLength = maximumLength
+        }
+
+        fileprivate init?(_ field: Field) {
+            switch field.dataType {
+            case "string": self.init(id: field.id, maximumLength: 128)
+            case "longtext": self.init(id: field.id, maximumLength: nil)
+            default: return nil
+            }
+        }
+
+        fileprivate func value(_ text: String) -> String {
+            maximumLength.map { String(text.unicodeScalars.prefix($0)) } ?? text
         }
     }
 
-    public static func createTextFieldRequest(server: URL, token: String, name: String) -> URLRequest {
-        createRequest("api/custom_fields/", server: server, token: token, json: ["name": name, "data_type": "string"])
+    /// Creates a text field; a long one takes any length, but Paperless-ngx has it only since 2.19, the version that takes custom field values with an upload.
+    public static func createTextFieldRequest(server: URL, token: String, name: String, isLong: Bool = false) -> URLRequest {
+        createRequest("api/custom_fields/", server: server, token: token, json: ["name": name, "data_type": isLong ? "longtext" : "string"])
+    }
+
+    public static func createdTextField(from data: Data) throws -> TextField {
+        guard let field = TextField(try JSONDecoder().decode(Field.self, from: data)) else { throw DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "Not a text field")) }
+        return field
     }
 
     /// Paperless-ngx takes custom field values with an upload since 2.19; older versions refuse the whole upload. The version is the X-Version header of its answers.
@@ -123,7 +142,7 @@ public enum Paperless {
         let name: String
     }
 
-    private struct Field: Decodable {
+    fileprivate struct Field: Decodable {
         let id: Int
         let name: String
         let dataType: String
@@ -162,8 +181,8 @@ public enum Paperless {
     }
 
     /// The form Paperless-ngx takes: the PDF with its file name, the title, the date of the document when known, the correspondent, the document type,
-    /// the storage path and the values of text custom fields by their ID.
-    public static func uploadBody(pdf: Data, fileName: String, title: String, created: Date?, correspondent: Int? = nil, documentType: Int? = nil, storagePath: Int?, customFields: [Int: String] = [:], boundary: String, timeZone: TimeZone = .current) -> Data {
+    /// the storage path and the values of text custom fields by their ID, cut to the length each takes.
+    public static func uploadBody(pdf: Data, fileName: String, title: String, created: Date?, correspondent: Int? = nil, documentType: Int? = nil, storagePath: Int?, customFields: [TextField: String] = [:], boundary: String, timeZone: TimeZone = .current) -> Data {
         var form = MultipartForm(boundary: boundary)
         form.add(name: "title", value: title)
         if let created {
@@ -173,7 +192,7 @@ public enum Paperless {
         if let documentType { form.add(name: "document_type", value: String(documentType)) }
         if let storagePath { form.add(name: "storage_path", value: String(storagePath)) }
         if !customFields.isEmpty {
-            let values = Dictionary(uniqueKeysWithValues: customFields.map { (String($0.key), String($0.value.unicodeScalars.prefix(maximumFieldLength))) })
+            let values = Dictionary(customFields.map { (String($0.key.id), $0.key.value($0.value)) }) { first, _ in first }
             if let json = try? JSONSerialization.data(withJSONObject: values, options: [.sortedKeys, .withoutEscapingSlashes]) {
                 form.add(name: "custom_fields", value: String(decoding: json, as: UTF8.self))
             }

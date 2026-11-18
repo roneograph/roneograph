@@ -362,6 +362,54 @@ struct ArchiverTests {
         #expect(!String(decoding: try #require(uploader.uploads.first).body, as: UTF8.self).contains("custom_fields"))
     }
 
+    @Test func sendsTheCommentInALongTextCommentField() async throws {
+        try connect()
+        server.answer("GET", "/api/custom_fields/", #"{"results": [{"id": 5, "name": "Owner", "data_type": "string"}]}"#, version: "2.19.0")
+        server.answer("POST", "/api/custom_fields/", #"{"id": 6, "name": "Comment", "data_type": "longtext"}"#, status: 201)
+        let comment = "Lunch with Ada and Linus to plan the release of the next version, with the whole team, at the café next to the office, which took longer than planned"
+        let scan = await readyScan()
+        scan.setComment(comment)
+        await scan.preparePDF()
+
+        try await app.archive([scan])
+        let created = try #require(server.requests(to: "/api/custom_fields/").last)
+        #expect(String(decoding: created.httpBody ?? Data(), as: UTF8.self) == #"{"data_type":"longtext","name":"Comment"}"#)
+        #expect(String(decoding: try #require(uploader.uploads.first).body, as: UTF8.self).contains("name=\"custom_fields\"\r\n\r\n{\"5\":\"Me\",\"6\":\"\(comment)\"}\r\n"))
+    }
+
+    @Test func cutsTheCommentInACommentFieldOfShortText() async throws {
+        try connect()
+        server.answer("GET", "/api/custom_fields/", #"{"results": [{"id": 7, "name": "Comment", "data_type": "string"}]}"#, version: "2.19.0")
+        let scan = await readyScan()
+        scan.setComment(String(repeating: "a", count: 200))
+        await scan.preparePDF()
+
+        try await app.archive([scan])
+        #expect(String(decoding: try #require(uploader.uploads.first).body, as: UTF8.self).contains("\"7\":\"\(String(repeating: "a", count: 128))\"}"))
+    }
+
+    @Test func createsNoCommentFieldForAScanWithoutComment() async throws {
+        try connect()
+        server.answer("GET", "/api/custom_fields/", #"{"results": [{"id": 5, "name": "Owner", "data_type": "string"}]}"#, version: "2.19.0")
+        let scan = await readyScan()
+
+        try await app.archive([scan])
+        #expect(server.requests(to: "/api/custom_fields/").map(\.httpMethod) == ["GET"])
+        #expect(String(decoding: try #require(uploader.uploads.first).body, as: UTF8.self).contains("{\"5\":\"Me\"}"))
+    }
+
+    @Test func sendsWithoutTheCommentToAServerTooOldToTakeIt() async throws {
+        try connect()
+        server.answer("GET", "/api/custom_fields/", #"{"results": []}"#, version: "2.18.4")
+        let scan = await readyScan()
+        scan.setComment("Lunch with Ada")
+        await scan.preparePDF()
+
+        try await app.archive([scan])
+        #expect(!String(decoding: try #require(uploader.uploads.first).body, as: UTF8.self).contains("custom_fields"))
+        #expect(server.requests(to: "/api/custom_fields/").map(\.httpMethod) == ["GET"])
+    }
+
     @Test func waitsForTheAppToBeActiveAgainWhenTheServerCannotBeReachedForTheOwnerField() async throws {
         try connect()
         server.answer("GET", "/api/custom_fields/", "", status: 502)
