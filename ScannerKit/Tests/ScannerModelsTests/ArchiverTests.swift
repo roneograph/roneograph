@@ -216,6 +216,23 @@ struct ArchiverTests {
         #expect(scan.scan.archiving == Archiving())
     }
 
+    @Test func preparesAWaitingUploadAfterARelaunch() async throws {
+        try connect()
+        server.answer("GET", "/api/document_types/", "", status: 503)
+        let scan = await readyScan()
+        scan.setDetails(DocumentDetails(category: .invoice))
+        await scan.preparePDF()
+        guard case .ready(let url, _) = scan.pdf else { Issue.record("No PDF"); return }
+        try await app.archive([scan])
+
+        server.answer("GET", "/api/document_types/", #"{"results": [{"id": 3, "name": "Invoice"}]}"#)
+        let (later, archiver, uploader) = relaunch()
+        await archiver.prepareWaitingUploads()
+        #expect(uploader.uploads.count == 1)
+        #expect(later.model(for: scan.id)?.scan.archiving == Archiving())
+        #expect(try #require(uploader.uploads.first).body.range(of: try Data(contentsOf: url)) != nil)
+    }
+
     @Test func sendsTheCorrespondentNamedLikeTheIssuer() async throws {
         try connect()
         server.answer("GET", "/api/correspondents/", #"{"results": [{"id": 4, "name": "LUMEN ENERGY"}]}"#)
@@ -523,6 +540,14 @@ struct ArchiverTests {
 
         app.deleteOwner(holding.id, movingScansTo: nil)
         #expect(tokens.token(for: holding.id) == nil)
+    }
+
+    /// The app model, archiver and uploader of the next launch, on the same scans, settings, tokens and server.
+    private func relaunch() -> (AppModel, Archiver, FakeUploader) {
+        let uploader = FakeUploader()
+        let archiver = Archiver(uploader: uploader, tokens: tokens, directory: fixture.root.appending(path: "Uploads"), fetch: server.fetch)
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings, archiver: archiver)
+        return (app, archiver, uploader)
     }
 
     private func uploadFiles() -> [String] {

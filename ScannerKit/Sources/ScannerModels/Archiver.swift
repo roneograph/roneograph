@@ -119,7 +119,7 @@ public final class Archiver {
         }
     }
 
-    /// Finds or creates the correspondent of the scan's issuer, the document type of its category and the Owner custom field, then saves the request body and starts the upload.
+    /// Finds or creates the correspondent of the scan's issuer, the document type of its category and the Owner custom field, then makes the PDF unless it is current, as after a relaunch, saves the request body and starts the upload.
     /// The scan waits for the app to be active again when the server cannot be reached; it goes without the ones the server refuses to make.
     private func prepare(_ model: ScanModel) async {
         let owner = model.owner
@@ -137,11 +137,12 @@ public final class Archiver {
             guard model.scan.archiving?.isInProgress == true else { return }
             return model.setArchiving(Archiving(state: .waiting(error.reason), retries: model.scan.archiving?.retries ?? 0))
         }
+        await model.preparePDF()
         guard model.scan.archiving?.isInProgress == true, self.model(model.id) === model else { return }
         let ownerName = owner.name.trimmingCharacters(in: .whitespacesAndNewlines)
         let customFields = if let ownerField, !ownerName.isEmpty { [ownerField: ownerName] } else { [Int: String]() }
         guard case .ready(let url, _) = model.pdf, let pdf = try? Data(contentsOf: url) else {
-            return fail(model, "The PDF could not be read. Archive the scan again.")
+            return fail(model, model.pdf == .storageFull ? "The iPhone storage is full." : "The PDF could not be read. Archive the scan again.")
         }
         let boundary = "Roneograph-\(UUID().uuidString)"
         let body = Paperless.uploadBody(pdf: pdf, fileName: url.lastPathComponent, title: model.scan.title, created: model.scan.details.date, correspondent: correspondent, documentType: documentType, storagePath: server.storagePath?.id, customFields: customFields, boundary: boundary)
