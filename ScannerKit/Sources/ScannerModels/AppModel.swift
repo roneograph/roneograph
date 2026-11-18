@@ -18,13 +18,6 @@ public final class AppModel {
     private let now: @Sendable () -> Date
     @ObservationIgnored private var models: [UUID: ScanModel] = [:]
     @ObservationIgnored private var toastTask: Task<Void, Never>?
-    /// Replaced in tests, to fail saving to the folder.
-    @ObservationIgnored var saveToFolder: @Sendable (ArchiveFolder, URL, String, String) throws -> ArchiveFolder = { folder, file, name, separator in
-        var folder = folder
-        try folder.save(file, as: name, separator: separator)
-        return folder
-    }
-
     public init(processor: ScanProcessor, settings: SettingsStore, archiver: Archiver? = nil, now: @escaping @Sendable () -> Date = Date.init) {
         self.processor = processor
         self.settings = settings
@@ -129,18 +122,12 @@ public final class AppModel {
         scans.filter { $0.isFinished && $0.sent == nil && $0.archiving?.isInProgress != true }
     }
 
+    /// Confirms the scans that went out; Paperless confirms its own once the server took them.
     public func didSend(_ models: [ScanModel], by method: SendMethod) {
         guard !models.isEmpty else { return }
         for model in models { model.markSent(method) }
         path = []
-        let done = models.count == 1 ? method.pastTense : "\(models.count) scans \(method.pastTense.lowercased())"
-        let owners = Self.owners(of: models)
-        let owner = owners.count == 1 ? owners[0] : nil
-        switch method {
-        case .email where owner?.hasValidEmail == true: showToast("\(done) to \(owner!.email)")
-        case .files: showToast("\(done) to \(owner?.archiveFolder?.name ?? "Files")")
-        default: showToast(done)
-        }
+        showToast(models.count == 1 ? method.pastTense : "\(models.count) scans \(method.pastTense.lowercased())")
     }
 
     /// The owners of the scans, each once, in the order of the scans.
@@ -150,58 +137,29 @@ public final class AppModel {
         }
     }
 
-    /// The scans grouped by owner, in the order of the scans, to send each group where its owner's go.
-    public func byOwner(_ models: [ScanModel]) -> [(owner: Owner, scans: [ScanModel])] {
-        Self.owners(of: models).map { owner in (owner, models.filter { $0.owner.id == owner.id }) }
-    }
-
-    /// The first owner of these scans without a folder to save them to.
-    public func ownerWithoutFolder(among models: [ScanModel]) -> Owner? {
-        Self.owners(of: models).first { $0.archiveFolder == nil }
-    }
-
     /// The owners the send bar is for: those of the scans, every owner when no scan is selected yet.
     public func sendingOwners(for models: [ScanModel]) -> [Owner] {
         models.isEmpty ? settings.value.owners : Self.owners(of: models)
     }
 
-    /// The send buttons for these scans, in the order of the bar, each when every owner of the scans has it: Archive and Email once it has a server or an address, Save to Files and Share unless turned off.
+    /// The send buttons for these scans, in the order of the bar: Archive when every owner of the scans has a Paperless server, and Share.
     public func sendMethods(for models: [ScanModel]) -> [SendMethod] {
-        let owners = sendingOwners(for: models)
-        var methods: [SendMethod] = []
-        if let archiver, owners.allSatisfy(archiver.isConnected) { methods.append(.paperless) }
-        if owners.allSatisfy(\.hasValidEmail) { methods.append(.email) }
-        if owners.allSatisfy(\.showsSaveToFiles) { methods.append(.files) }
-        if owners.allSatisfy(\.showsShare) { methods.append(.share) }
-        return methods
+        sendingOwners(for: models).allSatisfy(isConnected) ? [.paperless, .share] : [.share]
     }
 
-    /// The send button shown with its name: the first in the order of the bar that sends in a single tap for every owner of the scans, never Share, which only opens the share sheet.
+    /// The send button shown with its name: Archive when it is there, as Share only opens the share sheet.
     public func namedSendMethod(for models: [ScanModel]) -> SendMethod? {
-        let owners = sendingOwners(for: models)
-        return sendMethods(for: models).first { method in
-            method != .share && owners.allSatisfy { isSet(method, for: $0) }
-        }
+        sendMethods(for: models).first { $0 != .share }
     }
 
-    /// Whether the owner's documents go out this way in a single tap: a connected Paperless server, a valid address, Save to Files shown with a folder chosen, Share shown.
-    public func isSet(_ method: SendMethod, for owner: Owner) -> Bool {
-        switch method {
-        case .paperless: archiver?.isConnected(owner) == true
-        case .email: owner.hasValidEmail
-        case .files: owner.showsSaveToFiles && owner.archiveFolder != nil
-        case .share: owner.showsShare
-        }
+    /// Whether the owner's documents go out to its Paperless server in a single tap.
+    public func isConnected(_ owner: Owner) -> Bool {
+        archiver?.isConnected(owner) == true
     }
 
-    /// Whether every owner of these scans has a folder, so Save to Files needs a single tap.
-    public func hasFolder(for models: [ScanModel]) -> Bool {
-        !models.isEmpty && ownerWithoutFolder(among: models) == nil
-    }
-
-    /// Home offers to set up sending until an owner has an address or a Paperless server, or the card is closed.
+    /// Home offers to connect Paperless until an owner has a server, or the card is closed.
     public var suggestsSendSetup: Bool {
-        !settings.value.dismissedSendSetup && !settings.value.owners.contains { $0.hasValidEmail || $0.paperless != nil }
+        !settings.value.dismissedSendSetup && !settings.value.owners.contains { $0.paperless != nil }
     }
 
     /// Starts sending each scan to the Paperless server of its owner; Home tells when they are archived.
@@ -211,39 +169,6 @@ public final class AppModel {
         path = []
         showToast(models.count == 1 ? "Archiving to Paperless" : "Archiving \(models.count) scans to Paperless")
         await archiver.archive(models)
-    }
-
-    /// A PDF could not be saved; `saved` lists the scans saved before it.
-    public struct ArchiveError: Error {
-        public let saved: [UUID]
-        public var isStorageFull = false
-    }
-
-    /// Copies each PDF to the folder of its owner, in order, up to the first that cannot be saved, and confirms the ones saved like any other sending.
-    /// The copies run off the main actor, as a folder in iCloud Drive or another provider can take long to reach.
-    public func saveToArchive(_ models: [ScanModel]) async throws {
-        var saved: [ScanModel] = []
-        defer { didSend(saved, by: .files) }
-        for model in models {
-            let owner = model.owner
-            guard let folder = owner.archiveFolder, case .ready(let url, _) = model.pdf else { throw ArchiveError(saved: saved.map(\.id)) }
-            let name = model.scan.name, separator = owner.fileNameFormat.separator.character
-            let refreshed: ArchiveFolder
-            do {
-                let saveToFolder = saveToFolder
-                refreshed = try await Task.detached(priority: .userInitiated) {
-                    try saveToFolder(folder, url, name, separator)
-                }.value
-            } catch {
-                throw ArchiveError(saved: saved.map(\.id), isStorageFull: error.isStorageFull)
-            }
-            var current = settings.value.owner(owner.id)
-            if refreshed != folder, current.archiveFolder == folder {
-                current.archiveFolder = refreshed
-                settings.value.updateOwner(current)
-            }
-            saved.append(model)
-        }
     }
 
     /// Under the send buttons, before the pages and size, with several owners: the owner of the scans, or how many there are.

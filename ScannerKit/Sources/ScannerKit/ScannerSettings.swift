@@ -15,7 +15,7 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
     /// The issuer, category, name and owner the user gave to documents from an issuer, most recent first.
     public var learnedIssuers: [LearnedIssuer] = []
     public var keepScans = ScanRetention.week
-    /// Set once the Home card pointing to Settings for Email and Paperless was closed.
+    /// Set once the Home card pointing to Settings for Paperless was closed.
     public var dismissedSendSetup = false
 
     public init() {
@@ -38,29 +38,6 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
         learnedIssuers = try container.decode(.learnedIssuers, or: learnedIssuers)
         keepScans = try container.decode(.keepScans, or: keepScans)
         dismissedSendSetup = try container.decode(.dismissedSendSetup, or: dismissedSendSetup)
-        try decodeSharedSendBar(from: decoder)
-    }
-
-    private enum SharedSendBarKeys: String, CodingKey {
-        case owners, showsSaveToFiles, showsShare
-    }
-
-    /// Save to Files and Share were turned on or off for all owners before each owner had its own: an owner saved without them takes those.
-    private mutating func decodeSharedSendBar(from decoder: any Decoder) throws {
-        let container = try decoder.container(keyedBy: SharedSendBarKeys.self)
-        let savesToFiles = try container.decodeIfPresent(Bool.self, forKey: .showsSaveToFiles)
-        let shares = try container.decodeIfPresent(Bool.self, forKey: .showsShare)
-        guard savesToFiles != nil || shares != nil,
-              let saved = try container.decodeIfPresent([OwnerSendBar].self, forKey: .owners), saved.count == owners.count else { return }
-        for index in owners.indices {
-            if saved[index].showsSaveToFiles == nil, let savesToFiles { owners[index].showsSaveToFiles = savesToFiles }
-            if saved[index].showsShare == nil, let shares { owners[index].showsShare = shares }
-        }
-    }
-
-    private struct OwnerSendBar: Decodable {
-        var showsSaveToFiles: Bool?
-        var showsShare: Bool?
     }
 
     public var hasSeveralOwners: Bool { owners.count > 1 }
@@ -107,10 +84,6 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
     public func categories(keeping current: DocumentCategory) -> [DocumentCategory] {
         let all = allCategories
         return all.contains(current) ? all : DocumentCategory.alphabetical(all + [current])
-    }
-
-    public static func isValidEmail(_ email: String) -> Bool {
-        email.wholeMatch(of: /[^@\s]+@[^@\s]+\.[^@\s.]{2,}/) != nil
     }
 }
 

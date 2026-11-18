@@ -81,10 +81,6 @@ struct NameView: View {
                             .font(.footnote)
                     }
                 }
-                Section {
-                } footer: {
-                    Text("The name is also the email subject.")
-                }
             }
             .navigationTitle("Name")
             .navigationBarTitleDisplayMode(.inline)

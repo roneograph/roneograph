@@ -14,7 +14,7 @@ struct ScanKeepingTests {
         let clock = TestClock()
         let app = AppModel(processor: fixture.processor, settings: fixture.settings, now: clock.now)
         let scan = await fixture.capturedScan(in: app)
-        app.didSend([scan], by: .email)
+        app.didSend([scan], by: .share)
         clock.advance(days: 8)
 
         app.continueScan(scan.id)

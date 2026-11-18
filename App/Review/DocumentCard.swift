@@ -67,7 +67,7 @@ struct DocumentCard: View {
             }
             Button("Cancel", role: .cancel) { newOwner = "" }
         } message: {
-            Text("A company you scan documents for, such as your employer. Set its email address and folder in Settings.")
+            Text("A company you scan documents for, such as your employer. Connect its Paperless server in Settings.")
         }
     }
 

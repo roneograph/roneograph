@@ -3,13 +3,6 @@ import XCTest
 
 @MainActor
 final class SendBarUITests: XCTestCase {
-    private static let nothingToSendWith = """
-        {"owners": [{"id": "6F1C2D3E-0000-4000-8000-000000000001", "name": "Personal", "showsSaveToFiles": false, "showsShare": false}]}
-        """
-    private static let emailSet = """
-        {"owners": [{"id": "6F1C2D3E-0000-4000-8000-000000000001", "name": "Claire Dupont", "email": "claire@example.com"}]}
-        """
-
     override func setUp() {
         continueAfterFailure = false
     }
@@ -47,55 +40,18 @@ final class SendBarUITests: XCTestCase {
         XCTAssertTrue(app.otherElements["ActivityListView"].waitForExistence(timeout: Roneograph.timeout), "The share sheet did not open once the PDF was made")
     }
 
-    /// Once the PDF is made, nothing on the screen changes anymore before the tap.
-    func testEmailsTheScanToItsOwnerOnTheFirstTap() throws {
-        let roneograph = Roneograph(settings: Self.emailSet, photos: try photos())
-        let app = roneograph.app
-        let made = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@ AND label ENDSWITH %@", "To claire@example.com", "KB")).firstMatch
-        XCTAssertTrue(made.waitForExistence(timeout: 30), "The PDF was not made")
-        roneograph.tap(app.buttons["Email"])
-        XCTAssertTrue(app.staticTexts["To: claire@example.com"].waitForExistence(timeout: Roneograph.timeout), "The mail has no recipient")
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@ AND label ENDSWITH %@", "Attachment: ", ".pdf")).firstMatch.exists, "The mail has no PDF")
-        XCTAssertFalse(app.staticTexts["Subject: 0 documents"].exists)
-        roneograph.tap(app.buttons["Send Mail"])
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Emailed")).firstMatch.waitForExistence(timeout: Roneograph.timeout), "The scan is not marked as emailed")
-    }
-
-    func testSetsUpSendingFromReview() throws {
-        let roneograph = Roneograph(settings: Self.nothingToSendWith, photos: try photos())
-        let app = roneograph.app
-        roneograph.tap(app.buttons["Set Up Sending…"])
-        let sheet = app.navigationBars["Sending for Personal"]
-        XCTAssertTrue(sheet.waitForExistence(timeout: Roneograph.timeout))
-        let share = app.switches.matching(NSPredicate(format: "label BEGINSWITH %@", "Share")).firstMatch
-        XCTAssertTrue(share.waitForExistence(timeout: Roneograph.timeout))
-        share.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
-        XCTAssertTrue(sheet.isHittable, "Setting a way closed the sheet")
-        roneograph.tap(sheet.buttons["Done"])
-        XCTAssertTrue(app.buttons["Share"].waitForExistence(timeout: Roneograph.timeout))
-        XCTAssertFalse(app.buttons["Set Up Sending…"].exists)
-    }
-
-    func testSetsUpEmailFromHomeInOneStep() throws {
+    func testConnectsPaperlessFromHome() throws {
         let roneograph = Roneograph(photos: try photos(), screen: "home")
         let app = roneograph.app
         roneograph.tap(app.buttons["Set Up"])
-        let sheet = app.navigationBars["Sending for Me"]
-        XCTAssertTrue(sheet.waitForExistence(timeout: Roneograph.timeout), "Sending for Me did not open")
-        let email = app.textFields.matching(NSPredicate(format: "placeholderValue == %@", "you@example.com")).firstMatch
-        XCTAssertTrue(email.waitForExistence(timeout: Roneograph.timeout))
-        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: Roneograph.timeout), "The keyboard is not up")
-        XCTAssertEqual(email.value(forKey: "hasKeyboardFocus") as? Bool, true, "The Email field has no focus")
-        app.typeText("claire@example.com")
-        XCTAssertEqual(email.value as? String, "claire@example.com")
-        XCTAssertTrue(sheet.isHittable, "A valid address closed the sheet")
-        roneograph.tap(sheet.buttons["Done"])
+        let sheet = app.navigationBars["Paperless for Me"]
+        XCTAssertTrue(sheet.waitForExistence(timeout: Roneograph.timeout), "Paperless for Me did not open")
+        roneograph.tap(sheet.buttons["Cancel"])
         XCTAssertTrue(sheet.waitForNonExistence(timeout: Roneograph.timeout))
-        XCTAssertFalse(app.buttons["Set Up"].exists, "The card is still on Home")
     }
 
-    func testEmailsTheCommentWithTheScan() throws {
-        let roneograph = Roneograph(settings: Self.emailSet, photos: try photos())
+    func testShowsTheCommentOfTheScan() throws {
+        let roneograph = Roneograph(photos: try photos())
         let app = roneograph.app
         roneograph.tap(app.buttons["Add Comment"])
         let sheet = app.navigationBars["Comment"]
@@ -106,7 +62,5 @@ final class SendBarUITests: XCTestCase {
         XCTAssertTrue(sheet.waitForNonExistence(timeout: Roneograph.timeout))
         XCTAssertTrue(app.buttons["Comment, Lunch with Ada and Linus"].waitForExistence(timeout: Roneograph.timeout), "The comment is not shown")
         XCTAssertFalse(app.buttons["Add Comment"].exists)
-        roneograph.tap(app.buttons["Email"])
-        XCTAssertTrue(app.staticTexts["Body: Lunch with Ada and Linus"].waitForExistence(timeout: 30), "The mail has no comment")
     }
 }

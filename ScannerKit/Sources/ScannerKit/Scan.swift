@@ -72,7 +72,7 @@ public struct ReadDocument: Equatable, Sendable, Codable {
 }
 
 public enum SendMethod: String, Equatable, Sendable, Codable {
-    case email, files, share, paperless
+    case paperless, share
 }
 
 /// A scan on its way to the owner's Paperless-ngx server; it counts as sent only once the server took it.
@@ -129,7 +129,7 @@ public struct Scan: Identifiable, Equatable, Sendable, Codable {
     public var created: Date
     /// Path of the PDF, without the extension, from `title`, the details and the file name format; a custom format may put it in folders.
     public var name: String
-    /// The name as people read it: shown in the app and used as the email subject.
+    /// The name as people read it: shown in the app and sent to Paperless as the title.
     public var title: String
     public var details = DocumentDetails()
     /// What the page does not say, such as who was at a lunch: written as the PDF's subject and sent with it; nil when there is none.
@@ -164,7 +164,7 @@ public struct Scan: Identifiable, Equatable, Sendable, Codable {
         self.title = title ?? name
     }
 
-    /// The file name of the PDF, without its folders: what Email, Share and the local copy use.
+    /// The file name of the PDF, without its folders: what Share, Paperless and the local copy use.
     public var fileName: String {
         name.split(separator: "/").last.map(String.init) ?? name
     }

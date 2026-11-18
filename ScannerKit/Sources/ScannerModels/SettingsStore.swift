@@ -17,25 +17,14 @@ public final class SettingsStore {
     private let defaults: UserDefaults
     private let saveDelay: Duration
     @ObservationIgnored private var pendingSave: Task<Void, Never>?
-    /// The app's own folder in Files, where scan PDFs are deleted with their scans.
-    private let appFolder: URL?
     private static let key = "settings"
     /// Settings this build could not read, kept so they can be recovered instead of being replaced by the defaults.
     static let unreadableKey = "settings.unreadable"
     static let learnedIssuersLimit = 200
 
-    public enum FolderError: LocalizedError {
-        case insideApp
-
-        public var errorDescription: String? {
-            "Roneograph deletes the PDFs in its own folder with their scans. Choose a folder outside it."
-        }
-    }
-
     /// Changes are saved once they stop for `saveDelay`, or when `save()` is called.
-    public init(defaults: UserDefaults = .standard, appFolder: URL? = nil, saveDelay: Duration = .milliseconds(500)) {
+    public init(defaults: UserDefaults = .standard, saveDelay: Duration = .milliseconds(500)) {
         self.defaults = defaults
-        self.appFolder = appFolder
         self.saveDelay = saveDelay
         guard let data = defaults.data(forKey: Self.key) else {
             value = ScannerSettings()
@@ -52,16 +41,6 @@ public final class SettingsStore {
     /// Whether settings this build could not read are kept aside, so what they refer to, such as Paperless tokens, must be kept too.
     public var hasUnreadableSettings: Bool {
         defaults.data(forKey: Self.unreadableKey) != nil
-    }
-
-    /// Remembers the folder picked in Files for the Save button of an owner; refuses the app's own folder.
-    public func chooseArchiveFolder(_ url: URL, for ownerID: UUID?) throws {
-        if let appFolder, url.resolvingSymlinksInPath().pathComponents.starts(with: appFolder.resolvingSymlinksInPath().pathComponents) {
-            throw FolderError.insideApp
-        }
-        var owner = value.owner(ownerID)
-        owner.archiveFolder = try ArchiveFolder(url: url)
-        value.updateOwner(owner)
     }
 
     // MARK: Owners

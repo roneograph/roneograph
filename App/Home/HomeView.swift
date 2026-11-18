@@ -143,9 +143,11 @@ struct HomeView: View {
         }
         .environment(\.editMode, .constant(isSelecting ? .active : .inactive))
         .contentMargins(.top, 0, for: .scrollContent)
-        // Not on the card, which goes as soon as the address is valid.
+        // Not on the card, which goes as soon as a server is set.
         .sheet(isPresented: $settingUpSending) {
-            SendingSetupView(app: app, ownerIDs: [app.settings.value.defaultOwnerID], focusesEmail: true)
+            if let archiver = app.archiver {
+                PaperlessSetupView(ownerID: app.settings.value.defaultOwnerID, settings: app.settings, archiver: archiver)
+            }
         }
     }
 
@@ -212,7 +214,7 @@ private struct NotSentCard: View {
     }
 }
 
-/// Offers to set up sending until scans can be emailed or archived in one tap.
+/// Offers to connect Paperless until scans can be archived in one tap.
 private struct SendSetupCard: View {
     let setUp: () -> Void
     let close: () -> Void
@@ -225,8 +227,8 @@ private struct SendSetupCard: View {
                 .frame(width: 44)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Send in one tap").font(.headline)
-                Text("Add your email address or a Paperless server.")
+                Text("Archive in one tap").font(.headline)
+                Text("Connect your Paperless server.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }

@@ -160,30 +160,12 @@ struct WordingTests {
         #expect(PageLook.allCases.map(\.title) == ["Gray", "Color"])
     }
 
-    @Test func namesTheMailAfterTheScanOrCountsTheDocuments() {
-        let bill = Scan(name: "bill", title: "Water bill")
-        #expect([bill].mailSubject == "Water bill")
-        #expect([bill, Scan(name: "letter", title: "Letter")].mailSubject == "2 documents")
-    }
-
-    @Test func putsTheCommentsInTheMail() {
-        var lunch = Scan(name: "lunch", title: "Receipt Café Nord")
-        var taxi = Scan(name: "taxi", title: "Taxi receipt")
-        let bill = Scan(name: "bill", title: "Water bill")
-        #expect([bill].mailBody == "")
-        lunch.comment = "Lunch with Ada and Linus\nto plan the release"
-        #expect([lunch].mailBody == "Lunch with Ada and Linus\nto plan the release")
-        taxi.comment = "Back from the office"
-        #expect([lunch, bill, taxi].mailBody == "Receipt Café Nord: Lunch with Ada and Linus\nto plan the release\n\nTaxi receipt: Back from the office")
-        #expect([bill, Scan(name: "letter", title: "Letter")].mailBody == "")
-    }
-
     @Test func warnsAboutScansAlreadySent() {
         var payslip = Scan(name: "payslip", title: "Payslip")
         let bill = Scan(name: "bill", title: "Water bill")
         #expect([bill].alreadySent == nil)
-        payslip.sent = Sent(date: Date(), method: .files)
-        #expect([bill, payslip].alreadySent == "“Payslip” was already saved")
+        payslip.sent = Sent(date: Date(), method: .share)
+        #expect([bill, payslip].alreadySent == "“Payslip” was already shared")
         #expect([payslip, payslip].alreadySent == "2 were already sent")
     }
 }

@@ -15,7 +15,7 @@ final class SettingsUITests: XCTestCase {
         roneograph.openSettings()
         let app = roneograph.app
         XCTAssertTrue(app.staticTexts["OWNERS"].exists || app.staticTexts["Owners"].exists, "No Owners section")
-        XCTAssertTrue(app.buttons["Me, default, sends by Share"].exists, "Save to Files needs a folder to send in one tap")
+        XCTAssertTrue(app.buttons["Me, default, Paperless not connected"].exists)
         XCTAssertTrue(roneograph.button("Add Owner…").exists)
     }
 
@@ -34,7 +34,7 @@ final class SettingsUITests: XCTestCase {
         name.typeText("Fernwood Holding")
         roneograph.tap(app.alerts["New Owner"].buttons["Add"])
 
-        XCTAssertTrue(app.buttons["Fernwood Holding, sends by Share"].waitForExistence(timeout: Roneograph.timeout))
+        XCTAssertTrue(app.buttons["Fernwood Holding, Paperless not connected"].waitForExistence(timeout: Roneograph.timeout))
         XCTAssertEqual(me.frame, meFrame, "The first owner moved")
         XCTAssertTrue(categories.exists)
         XCTAssertEqual(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Me, default")).count, 1)
@@ -87,14 +87,6 @@ final class SettingsUITests: XCTestCase {
         roneograph.tap(roneograph.button("Archive to Paperless"))
         roneograph.tap(roneograph.button("What Archive Sends"))
         XCTAssertTrue(roneograph.app.staticTexts["{{ correspondent }}"].waitForExistence(timeout: Roneograph.timeout), "What Archive Sends did not open")
-    }
-
-    func testFolderPickerKeepsTheOwnerPage() {
-        let roneograph = Roneograph()
-        roneograph.openSettings()
-        roneograph.openOwner("Me")
-        let cancel = roneograph.app.buttons["Cancel"]
-        roneograph.present("Folder", on: "Me", shows: cancel, close: cancel)
     }
 
     func testPaperlessSetupShowsUnreachableServer() {

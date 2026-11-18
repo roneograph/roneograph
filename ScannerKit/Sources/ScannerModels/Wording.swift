@@ -96,25 +96,10 @@ extension PageLook {
 }
 
 extension SendMethod {
-    /// The ways to send, in the order of the send bar.
-    public static let inBarOrder: [SendMethod] = [.paperless, .email, .files, .share]
-
-    /// The send button, as Settings names it.
+    /// The send button: "Archive", "Share".
     public var title: String {
         switch self {
         case .paperless: "Archive"
-        case .email: "Email"
-        case .files: "Save to Files"
-        case .share: "Share"
-        }
-    }
-
-    /// The name next to the icon of the send button shown with its name, shorter than its title.
-    public var buttonName: String {
-        switch self {
-        case .paperless: "Archive"
-        case .email: "Email"
-        case .files: "Save"
         case .share: "Share"
         }
     }
@@ -122,20 +107,16 @@ extension SendMethod {
     /// How a scan went out, on Home and in the confirmation.
     public var pastTense: String {
         switch self {
-        case .email: "Emailed"
-        case .files: "Saved"
-        case .share: "Shared"
         case .paperless: "Archived"
+        case .share: "Shared"
         }
     }
 
-    /// What happens once the PDFs of that many scans are made, while the button waits for them: "Email opens when the PDF is ready".
+    /// What happens once the PDFs of that many scans are made, while the button waits for them: "Share opens when the PDF is ready".
     public func whenReady(pdfs count: Int) -> String {
         let pdfs = count > 1 ? "the PDFs are" : "the PDF is"
         return switch self {
         case .paperless: "Archives when \(pdfs) ready"
-        case .email: "Email opens when \(pdfs) ready"
-        case .files: "Saves when \(pdfs) ready"
         case .share: "Share opens when \(pdfs) ready"
         }
     }
@@ -151,7 +132,7 @@ extension Collection<RememberedValue> {
 }
 
 extension Scan {
-    /// Under the scan's name on Home: "In progress · 2 pages", "Emailed yesterday · 1 page", "Archiving… · 1 page", "Not sent · now · 3 pages".
+    /// Under the scan's name on Home: "In progress · 2 pages", "Shared yesterday · 1 page", "Archiving… · 1 page", "Not sent · now · 3 pages".
     public var status: String {
         let pages = (pages.count + pending.count).counted("page")
         if !isFinished { return "In progress · \(pages)" }
@@ -223,18 +204,7 @@ extension Collection<ScanModel> {
 }
 
 extension Collection<Scan> {
-    /// The scan's name for one PDF, "3 documents" for several.
-    public var mailSubject: String {
-        count == 1 ? first!.title : count.counted("document")
-    }
-
-    /// The comment of one scan; for several, "Name: comment" for each that has one, a blank line apart.
-    public var mailBody: String {
-        if count == 1 { return first!.comment ?? "" }
-        return compactMap { scan in scan.comment.map { "\(scan.title): \($0)" } }.joined(separator: "\n\n")
-    }
-
-    /// Warns before sending again what already went out: "“Payslip” was already emailed", "2 were already sent".
+    /// Warns before sending again what already went out: "“Payslip” was already archived", "2 were already sent".
     public var alreadySent: String? {
         let sent = filter { $0.sent != nil }
         guard let first = sent.first, let method = first.sent?.method else { return nil }
@@ -250,34 +220,38 @@ public struct SendFooter: Equatable {
 }
 
 extension AppModel {
-    /// Under the send buttons: "**Email opens when the PDF is ready** · 2 pages" while a button waits for the PDFs, otherwise where the button shown with its name sends, or the owner of the scans with several owners, then the summary.
+    /// Under the send buttons: "**Share opens when the PDF is ready** · 2 pages" while a button waits for the PDFs, otherwise where the button shown with its name sends, or the owner of the scans with several owners, then the summary.
     public func sendFooter(for models: [ScanModel], waiting: SendMethod?, summary: String) -> SendFooter {
         if let waiting { return SendFooter(lead: waiting.whenReady(pdfs: models.count), text: models.pageCount) }
         return SendFooter(text: [destination(of: models) ?? ownerLabel(of: models), summary].compactMap(\.self).joined(separator: " · "))
     }
 
-    /// Where the send button shown with its name sends the scans when they all have one owner: "To claire@example.com", the host of its Paperless server, or the name of its folder.
+    /// Where Archive sends the scans when they all have one owner: "To paperless.example.com".
     public func destination(of models: [ScanModel]) -> String? {
         let owners = Self.owners(of: models)
-        guard owners.count == 1, let method = namedSendMethod(for: models) else { return nil }
-        let owner = owners[0]
-        let place: String? = switch method {
-        case .paperless: owner.paperless.map { $0.url.host() ?? $0.url.absoluteString }
-        case .email: owner.email
-        case .files: owner.archiveFolder?.name
-        case .share: nil
-        }
-        return place.map { "To \($0)" }
+        guard owners.count == 1, namedSendMethod(for: models) == .paperless, let host = owners[0].paperlessHost else { return nil }
+        return "To \(host)"
     }
 
-    /// An owner's row in Settings, read by VoiceOver: "Me, default, sends by Archive, Email".
+    /// An owner's row in Settings, read by VoiceOver: "Me, default, archives to paperless.example.com".
     public func summary(of owner: Owner) -> String {
-        let methods = SendMethod.inBarOrder.filter { isSet($0, for: owner) }.map(\.title)
         let parts: [String?] = [
             owner.name,
             owner.id == settings.value.defaultOwnerID ? "default" : nil,
-            methods.isEmpty ? "nothing set to send" : "sends by \(methods.joined(separator: ", "))",
+            archivesTo(owner).map { "archives to \($0)" } ?? "Paperless not connected",
         ]
         return parts.compactMap(\.self).joined(separator: ", ")
+    }
+
+    /// The host of the owner's Paperless server once it is connected.
+    public func archivesTo(_ owner: Owner) -> String? {
+        isConnected(owner) ? owner.paperlessHost : nil
+    }
+}
+
+extension Owner {
+    /// "paperless.example.com"
+    public var paperlessHost: String? {
+        paperless.map { $0.url.host() ?? $0.url.absoluteString }
     }
 }

@@ -197,7 +197,7 @@ struct AppModelTests {
         other.setOwner(holding.id)
         let reviewed = await fixture.capturedScan(in: app)
         reviewed.rename("Rent receipt")
-        app.didSend([reviewed], by: .email)
+        app.didSend([reviewed], by: .share)
         app.path = [reviewed.id]
 
         fixture.settings.value.defaultOwner.fileNameFormat.separator = .underscore
@@ -215,11 +215,11 @@ struct AppModelTests {
         let fixture = try Fixture()
         let settings = SettingsStore(defaults: fixture.defaults, saveDelay: .seconds(3600))
         let app = AppModel(processor: fixture.processor, settings: settings)
-        settings.value.defaultOwner.email = "me@example.com"
-        #expect(SettingsStore(defaults: fixture.defaults).value.defaultOwner.email != "me@example.com")
+        settings.value.autoCapture = false
+        #expect(SettingsStore(defaults: fixture.defaults).value.autoCapture)
 
         app.setActive(false)
-        #expect(SettingsStore(defaults: fixture.defaults).value.defaultOwner.email == "me@example.com")
+        #expect(!SettingsStore(defaults: fixture.defaults).value.autoCapture)
     }
 
     @Test func doneOpensReview() async throws {
@@ -299,10 +299,9 @@ struct AppModelTests {
         #expect(app.path.isEmpty)
     }
 
-    @Test(arguments: [(SendMethod.email, "me@example.com", "Emailed to me@example.com"), (.email, "", "Emailed"), (.share, "me@example.com", "Shared")])
-    func sendingReturnsHomeWithAConfirmation(method: SendMethod, email: String, toast: String) async throws {
+    @Test(arguments: [(SendMethod.share, "Shared"), (.paperless, "Archived")])
+    func sendingReturnsHomeWithAConfirmation(method: SendMethod, toast: String) async throws {
         let fixture = try Fixture()
-        fixture.settings.value.defaultOwner.email = email
         let now = Date(timeIntervalSince1970: 1_794_700_000)
         let app = AppModel(processor: fixture.processor, settings: fixture.settings, now: { now })
         let scan = await fixture.capturedScan(in: app)
@@ -313,86 +312,16 @@ struct AppModelTests {
         #expect(app.scans.first?.sent == Sent(date: now, method: method))
     }
 
-    @Test func savesToTheArchiveFolderAndConfirmsIt() async throws {
-        let fixture = try Fixture()
-        let folder = fixture.root.appending(path: "Paperwork", directoryHint: .isDirectory)
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        try fixture.settings.chooseArchiveFolder(folder, for: nil)
-        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
-        let scan = await fixture.capturedScan(in: app)
-        await scan.buildPDF(delay: .zero)
-
-        try await app.saveToArchive([scan])
-        #expect(FileManager.default.fileExists(atPath: folder.appending(path: "\(scan.scan.name).pdf").path(percentEncoded: false)))
-        #expect(app.toast == "Saved to Paperwork")
-        #expect(app.scans.first?.sent?.method == .files)
-    }
-
-    @Test func savesToTheArchiveFolderWithoutBlockingTheMainActor() async throws {
-        let fixture = try Fixture()
-        let folder = fixture.root.appending(path: "Paperwork", directoryHint: .isDirectory)
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        try fixture.settings.chooseArchiveFolder(folder, for: nil)
-        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
-        let scan = await fixture.capturedScan(in: app)
-        await scan.preparePDF()
-        let done = DispatchSemaphore(value: 0)
-        await withCheckedContinuation { busy in
-            Thread {
-                NSFileCoordinator().coordinate(writingItemAt: folder, options: [], error: nil) { _ in
-                    busy.resume()
-                    _ = done.wait(timeout: .now() + 2)
-                }
-            }.start()
-        }
-
-        let saving = Task { try await app.saveToArchive([scan]) }
-        let start = ContinuousClock.now
-        try await Task.sleep(for: .milliseconds(50))
-        let waited = ContinuousClock.now - start
-        done.signal()
-        try await saving.value
-        #expect(waited < .seconds(1))
-        #expect(FileManager.default.fileExists(atPath: folder.appending(path: "\(scan.scan.name).pdf").path(percentEncoded: false)))
-    }
-
-    @Test func savesIntoTheFoldersOfACustomFormat() async throws {
-        let fixture = try Fixture()
-        let folder = fixture.root.appending(path: "Paperwork", directoryHint: .isDirectory)
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        try fixture.settings.chooseArchiveFolder(folder, for: nil)
-        fixture.settings.value.defaultOwner.fileNameFormat = FileNameFormat(isCustom: true, template: "{CATEGORY}/{ISSUER}")
-        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
-        let scan = await fixture.capturedScan(in: app)
-        scan.setDetails(DocumentDetails(category: .payslip, issuer: "Acme"))
-        await scan.buildPDF(delay: .zero)
-
-        try await app.saveToArchive([scan])
-        #expect(FileManager.default.fileExists(atPath: folder.appending(path: "Payslip/Acme.pdf").path(percentEncoded: false)))
-        #expect(fixture.pdfExists("Acme"))
-    }
-
-    @Test func savingWithoutAnArchiveFolderFails() async throws {
-        let fixture = try Fixture()
-        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
-        let scan = await fixture.capturedScan(in: app)
-        await scan.buildPDF(delay: .zero)
-
-        await #expect(throws: AppModel.ArchiveError.self) { try await app.saveToArchive([scan]) }
-        #expect(scan.scan.sent == nil)
-    }
-
     @Test func sendingSeveralScansMarksThemAllWithOneConfirmation() async throws {
         let fixture = try Fixture()
-        fixture.settings.value.defaultOwner.email = "me@example.com"
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)
         let first = await fixture.capturedScan(in: app)
         let second = await fixture.capturedScan(in: app)
 
-        app.didSend([first, second], by: .email)
+        app.didSend([first, second], by: .share)
         #expect(app.path.isEmpty)
-        #expect(app.toast == "2 scans emailed to me@example.com")
-        #expect(app.scans.map(\.sent?.method) == [.email, .email])
+        #expect(app.toast == "2 scans shared")
+        #expect(app.scans.map(\.sent?.method) == [.share, .share])
     }
 
     @Test func listsTheFinishedScansNotSent() async throws {
@@ -409,140 +338,44 @@ struct AppModelTests {
         #expect(app.notSent.map(\.id) == [waiting.id])
     }
 
-    @Test func savesSeveralScansToTheArchiveFolder() async throws {
+    @Test func alwaysShowsShareForEveryOwner() async throws {
         let fixture = try Fixture()
-        let folder = fixture.root.appending(path: "Paperwork", directoryHint: .isDirectory)
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        try fixture.settings.chooseArchiveFolder(folder, for: nil)
-        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
-        let first = await fixture.capturedScan(in: app)
-        let second = await fixture.capturedScan(in: app)
-        second.rename("Water bill")
-        await first.preparePDF()
-        await second.preparePDF()
-
-        try await app.saveToArchive([first, second])
-        let saved = try FileManager.default.contentsOfDirectory(atPath: folder.path(percentEncoded: false)).sorted()
-        #expect(saved == ["\(first.scan.name).pdf", "\(second.scan.name).pdf"].sorted())
-        #expect(app.toast == "2 scans saved to Paperwork")
-    }
-
-    @Test func confirmsTheScansSavedBeforeOneFails() async throws {
-        let fixture = try Fixture()
-        let folder = fixture.root.appending(path: "Paperwork", directoryHint: .isDirectory)
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        try fixture.settings.chooseArchiveFolder(folder, for: nil)
-        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
-        let ready = await fixture.capturedScan(in: app)
-        let notReady = await fixture.capturedScan(in: app)
-        await ready.preparePDF()
-
-        let error = await #expect(throws: AppModel.ArchiveError.self) { try await app.saveToArchive([ready, notReady]) }
-        #expect(error?.saved == [ready.id])
-        #expect(ready.scan.sent?.method == .files)
-        #expect(notReady.scan.sent == nil)
-        #expect(app.toast == "Saved to Paperwork")
-    }
-
-    @Test func tellsWhenSavingToTheFolderFailedAsTheStorageIsFull() async throws {
-        let fixture = try Fixture()
-        let folder = fixture.root.appending(path: "Paperwork", directoryHint: .isDirectory)
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        try fixture.settings.chooseArchiveFolder(folder, for: nil)
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)
         let scan = await fixture.capturedScan(in: app)
-        await scan.preparePDF()
+        #expect(app.sendMethods(for: [scan]) == [.share])
+        #expect(app.namedSendMethod(for: [scan]) == nil)
 
-        app.saveToFolder = { _, _, _, _ in throw CocoaError(.fileWriteOutOfSpace) }
-        let full = await #expect(throws: AppModel.ArchiveError.self) { try await app.saveToArchive([scan]) }
-        #expect(full?.isStorageFull == true)
-
-        app.saveToFolder = { _, _, _, _ in throw ArchiveFolder.SaveError.unavailable }
-        let unreachable = await #expect(throws: AppModel.ArchiveError.self) { try await app.saveToArchive([scan]) }
-        #expect(unreachable?.isStorageFull == false)
-        #expect(scan.scan.sent == nil)
-    }
-
-    @Test func savesEachScanToTheFolderOfItsOwner() async throws {
-        let fixture = try Fixture()
-        let personal = fixture.root.appending(path: "Personal", directoryHint: .isDirectory)
-        let company = fixture.root.appending(path: "Fernwood", directoryHint: .isDirectory)
-        for folder in [personal, company] { try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true) }
         let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
-        try fixture.settings.chooseArchiveFolder(personal, for: nil)
-        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
-        let mine = await fixture.capturedScan(in: app)
         let theirs = await fixture.capturedScan(in: app)
         theirs.setOwner(holding.id)
-        theirs.rename("Office power")
-        await mine.preparePDF()
-        await theirs.preparePDF()
-
-        #expect(app.ownerWithoutFolder(among: [mine, theirs])?.id == holding.id)
-        #expect(!app.hasFolder(for: [mine, theirs]))
-        try fixture.settings.chooseArchiveFolder(company, for: holding.id)
-        #expect(app.ownerWithoutFolder(among: [mine, theirs]) == nil)
-        #expect(app.hasFolder(for: [mine, theirs]))
-        #expect(!app.hasFolder(for: []))
-
-        try await app.saveToArchive([mine, theirs])
-        #expect(try FileManager.default.contentsOfDirectory(atPath: personal.path(percentEncoded: false)) == ["\(mine.scan.name).pdf"])
-        #expect(try FileManager.default.contentsOfDirectory(atPath: company.path(percentEncoded: false)) == ["Office power.pdf"])
-        #expect(app.toast == "2 scans saved to Files")
-    }
-
-    @Test func showsSaveToFilesAndShareUnlessTurnedOffForAnOwnerOfTheScans() async throws {
-        let fixture = try Fixture()
-        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
-        let scan = await fixture.capturedScan(in: app)
-        #expect(app.sendMethods(for: [scan]) == [.files, .share])
-        fixture.settings.value.defaultOwner.email = "me@example.com"
-        fixture.settings.value.defaultOwner.showsSaveToFiles = false
-        #expect(app.sendMethods(for: [scan]) == [.email, .share])
-        fixture.settings.value.defaultOwner.showsShare = false
-        #expect(app.sendMethods(for: [scan]) == [.email])
-
-        var holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
-        let theirs = await fixture.capturedScan(in: app)
-        theirs.setOwner(holding.id)
-        #expect(app.sendMethods(for: [theirs]) == [.files, .share])
-        #expect(app.sendMethods(for: [scan, theirs]) == [])
-        #expect(app.sendMethods(for: []) == [], "Every owner when none is selected")
-        holding.email = "accounts@example.com"
-        holding.showsSaveToFiles = false
-        fixture.settings.value.updateOwner(holding)
-        #expect(app.sendMethods(for: [scan, theirs]) == [.email])
+        #expect(app.sendMethods(for: [scan, theirs]) == [.share])
+        #expect(app.sendMethods(for: []) == [.share], "Every owner when none is selected")
         #expect(app.sendingOwners(for: [theirs, scan, theirs]).map(\.id) == [holding.id, scan.owner.id])
         #expect(app.sendingOwners(for: []).count == 2)
     }
 
-    @Test func tellsWhichWaysSendAnOwnersDocumentsInOneTap() async throws {
+    @Test func tellsWhereAnOwnersDocumentsAreArchived() async throws {
         let fixture = try Fixture()
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)
         var owner = fixture.settings.value.defaultOwner
-        #expect(SendMethod.inBarOrder.filter { app.isSet($0, for: owner) } == [.share])
-        #expect(app.summary(of: owner) == "Me, default, sends by Share")
-        owner.showsShare = false
-        owner.email = "me@example"
-        #expect(app.summary(of: owner) == "Me, default, nothing set to send")
-        owner.email = "me@example.com"
-        owner.archiveFolder = try ArchiveFolder(url: fixture.root)
-        #expect(app.summary(of: owner) == "Me, default, sends by Email, Save to Files")
-        owner.showsSaveToFiles = false
-        #expect(!app.isSet(.files, for: owner), "A folder without the button sends nothing")
+        #expect(app.summary(of: owner) == "Me, default, Paperless not connected")
         owner.paperless = PaperlessServer(url: URL(string: "https://paperless.example.com/")!)
-        #expect(!app.isSet(.paperless, for: owner), "Not connected without an archiver")
+        #expect(!app.isConnected(owner), "Not connected without an archiver")
+        #expect(app.archivesTo(owner) == nil)
         let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
-        #expect(app.summary(of: holding) == "Fernwood Holding, sends by Share")
+        #expect(app.summary(of: holding) == "Fernwood Holding, Paperless not connected")
 
         let tokens = MemoryTokens()
         let connected = AppModel(processor: fixture.processor, settings: fixture.settings, archiver: Archiver(uploader: FakeUploader(), tokens: tokens, directory: fixture.root.appending(path: "Uploads"), fetch: FakeServer().fetch))
-        #expect(!connected.isSet(.paperless, for: owner), "No token")
+        #expect(!connected.isConnected(owner), "No token")
+        #expect(connected.summary(of: owner) == "Me, default, Paperless not connected")
         try tokens.setToken("secret", for: owner.id)
-        #expect(connected.summary(of: owner) == "Me, default, sends by Archive, Email")
+        #expect(connected.isConnected(owner))
+        #expect(connected.archivesTo(owner) == "paperless.example.com")
+        #expect(connected.summary(of: owner) == "Me, default, archives to paperless.example.com")
     }
 
-    @Test func suggestsSettingUpSendingUntilAnOwnerHasAnAddressOrServer() throws {
+    @Test func suggestsSettingUpSendingUntilAnOwnerHasAServer() throws {
         let fixture = try Fixture()
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)
         #expect(app.suggestsSendSetup)
@@ -552,15 +385,13 @@ struct AppModelTests {
         fixture.settings.value.updateOwner(owner)
         #expect(!app.suggestsSendSetup)
         fixture.settings.value.updateOwner(holding)
-        fixture.settings.value.defaultOwner.email = "me@example"
-        #expect(app.suggestsSendSetup, "An invalid address sends nothing")
+        #expect(app.suggestsSendSetup)
         fixture.settings.value.dismissedSendSetup = true
         #expect(!app.suggestsSendSetup)
     }
 
     @Test func namesTheOwnersOfTheScansOnlyWhenThereAreSeveral() async throws {
         let fixture = try Fixture()
-        fixture.settings.value.defaultOwner.email = "me@example.com"
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)
         let mine = await fixture.capturedScan(in: app)
         let other = await fixture.capturedScan(in: app)
@@ -573,10 +404,6 @@ struct AppModelTests {
         other.setOwner(holding.id)
         #expect(app.ownerLabel(of: [other, third]) == "2 owners")
         #expect(app.ownerLabel(of: [mine, other, third]) == "2 owners")
-        #expect(app.byOwner([other, mine]).map(\.owner.id) == [holding.id, fixture.settings.value.defaultOwnerID])
-
-        app.didSend([other], by: .email)
-        #expect(app.toast == "Emailed")
     }
 
     @Test func deletingAnOwnerMovesItsScansToAnother() async throws {
@@ -713,7 +540,7 @@ struct AppModelTests {
         for (name, age) in [("Old", 8.0), ("Week", 6.0), ("Today", 0.0)] {
             var scan = Scan(created: now.addingTimeInterval(-(age + 20) * 86400), name: name)
             scan.pages = [ScanPage(quad: nil, analysis: .sample)]
-            scan.sent = Sent(date: now.addingTimeInterval(-age * 86400), method: .email)
+            scan.sent = Sent(date: now.addingTimeInterval(-age * 86400), method: .share)
             try fixture.store.save(scan)
         }
         let app = AppModel(processor: fixture.processor, settings: fixture.settings, now: { now })
@@ -748,7 +575,7 @@ struct AppModelTests {
         reviewed.pages = [ScanPage(quad: nil, analysis: .sample)]
         scanned.pages = [ScanPage(quad: nil, analysis: .sample)]
         reviewed.sent = Sent(date: now.addingTimeInterval(-8 * 86400), method: .share)
-        scanned.sent = Sent(date: now.addingTimeInterval(-9 * 86400), method: .files)
+        scanned.sent = Sent(date: now.addingTimeInterval(-9 * 86400), method: .share)
         try fixture.store.save(reviewed)
         try fixture.store.save(scanned)
         fixture.settings.value.keepScans = .forever
@@ -828,7 +655,7 @@ struct AppModelTests {
         let now = Date()
         var scan = Scan(created: now.addingTimeInterval(-400 * 86400), name: "Old")
         scan.pages = [ScanPage(quad: nil, analysis: .sample)]
-        scan.sent = Sent(date: now.addingTimeInterval(-400 * 86400), method: .email)
+        scan.sent = Sent(date: now.addingTimeInterval(-400 * 86400), method: .share)
         try fixture.store.save(scan)
         fixture.settings.value.keepScans = .forever
         let app = AppModel(processor: fixture.processor, settings: fixture.settings, now: { now })

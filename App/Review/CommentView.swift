@@ -17,7 +17,7 @@ struct CommentView: View {
                         .focused($focused)
                         .textInputAutocapitalization(.sentences)
                 } footer: {
-                    Text("Written in the PDF and sent with it: as the text of the email, or in a Comment field on Paperless.")
+                    Text("Written in the PDF, and in a Comment field on Paperless.")
                 }
             }
             .navigationTitle("Comment")

@@ -13,29 +13,24 @@ struct ScannerSettingsTests {
     }
 
     @Test func readsSettingsSavedBeforeKeysWereAdded() throws {
-        let json = #"{"owners":[{"id":"3F2504E0-4F89-11D3-9A0C-0305E82C3301","name":"Fernwood Holding","email":"accounting@fernwood.example"}]}"#
+        let json = #"{"owners":[{"id":"3F2504E0-4F89-11D3-9A0C-0305E82C3301","name":"Fernwood Holding"}]}"#
         let settings = try JSONDecoder().decode(ScannerSettings.self, from: Data(json.utf8))
         #expect(settings.defaultOwner.name == "Fernwood Holding")
-        #expect(settings.defaultOwner.email == "accounting@fernwood.example")
         #expect(settings.defaultOwner.fileNameFormat == FileNameFormat())
-        #expect(settings.defaultOwner.showsSaveToFiles)
-        #expect(settings.defaultOwner.showsShare)
         #expect(settings.defaultOwner.names.isEmpty)
         #expect(settings.defaultOwner.addresses.isEmpty)
         #expect(settings.keepScans == .week)
     }
 
-    @Test func givesEachOwnerTheSendBarSavedForAllOwners() throws {
+    @Test func ignoresTheWaysToSendOfOlderBuilds() throws {
         let json = #"""
-            {"owners":[{"id":"3F2504E0-4F89-11D3-9A0C-0305E82C3301","name":"Personal"},{"id":"3F2504E0-4F89-11D3-9A0C-0305E82C3302","name":"Fernwood Holding","showsShare":true}],"showsSaveToFiles":false,"showsShare":false}
+            {"owners":[{"id":"3F2504E0-4F89-11D3-9A0C-0305E82C3301","name":"Fernwood Holding","email":"accounting@fernwood.example","archiveFolder":{"bookmark":"AAAA","name":"Paperwork"},"showsSaveToFiles":false,"showsShare":false,"paperless":{"url":"https://paperless.example.com/"}}],"showsSaveToFiles":false,"showsShare":false}
             """#
         let settings = try JSONDecoder().decode(ScannerSettings.self, from: Data(json.utf8))
-        #expect(settings.owners.map(\.showsSaveToFiles) == [false, false])
-        #expect(settings.owners.map(\.showsShare) == [false, true])
-        let saved = try JSONEncoder().encode(settings)
-        let keys = try #require(JSONSerialization.jsonObject(with: saved) as? [String: Any]).keys
-        #expect(!keys.contains("showsSaveToFiles") && !keys.contains("showsShare"))
-        #expect(try JSONDecoder().decode(ScannerSettings.self, from: saved) == settings)
+        #expect(settings.defaultOwner.name == "Fernwood Holding")
+        #expect(settings.defaultOwner.paperless?.url == URL(string: "https://paperless.example.com/"))
+        let saved = String(decoding: try JSONEncoder().encode(settings), as: UTF8.self)
+        for key in ["email", "archiveFolder", "showsSaveToFiles", "showsShare"] { #expect(!saved.contains(key)) }
     }
 
     @Test func ignoresTheHeaderLinesOfOlderBuilds() throws {
@@ -58,17 +53,9 @@ struct ScannerSettingsTests {
 
     /// Guards the hand-written decoders: a setting added without being decoded would be lost at each launch.
     @Test func readsBackEverySetting() throws {
-        let root = FileManager.default.temporaryDirectory.appending(path: "ScannerSettingsTests-\(UUID().uuidString)", directoryHint: .isDirectory)
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: root) }
-
         let format = FileNameFormat(datePosition: .start, dateStyle: .month, dateSource: .scan, separator: .dash, lowercase: true, isCustom: true, template: "{ISSUER}")
         var owner = Owner(name: "Fernwood Holding", symbol: .briefcase, fileNameFormat: format)
-        owner.email = "accounting@fernwood.example"
-        owner.archiveFolder = try ArchiveFolder(url: root)
         owner.paperless = PaperlessServer(url: URL(string: "https://paperless.example.com/")!, storagePath: PaperlessStoragePath(id: 7, name: "Fernwood"))
-        owner.showsSaveToFiles = false
-        owner.showsShare = false
         owner.names = ["Fernwood"]
         owner.addresses = ["8 rue des Glycines\n69007 Lyon"]
         var settings = ScannerSettings()
@@ -109,11 +96,6 @@ struct ScannerSettingsTests {
         let kept = settings.categories(keeping: DocumentCategory("Boat"))
         #expect(kept == DocumentCategory.alphabetical(settings.allCategories + [DocumentCategory("Boat")]))
         #expect(kept[1] == DocumentCategory("Boat"))
-    }
-
-    @Test(arguments: [("me@example.com", true), ("me@example", false), ("", false), ("a b@example.com", false), ("me@example.c", false)])
-    func validatesEmails(email: String, valid: Bool) {
-        #expect(ScannerSettings.isValidEmail(email) == valid)
     }
 
     @Test(arguments: [

@@ -17,7 +17,7 @@ struct RoneographApp: App {
         let uploader = BackgroundUploader(identifier: data.paperlessIdentifier)
         let archiver = Archiver(uploader: uploader, tokens: KeychainTokens(service: data.paperlessIdentifier), directory: data.support.appending(path: "Uploads", directoryHint: .isDirectory), fetch: PaperlessHTTP.fetch)
         uploader.archiver = archiver
-        let settings = SettingsStore(defaults: data.defaults, appFolder: data.documents)
+        let settings = SettingsStore(defaults: data.defaults)
         if let value = data.settings { settings.value = value }
         let app = AppModel(processor: processor, settings: settings, archiver: archiver)
         _app = State(initialValue: app)
@@ -55,7 +55,7 @@ struct RoneographApp: App {
         case "home":
             app.path = []
             for scan in app.scans.dropFirst() where scan.sent == nil {
-                app.model(for: scan.id)?.markSent(.email)
+                app.model(for: scan.id)?.markSent(.share)
             }
         case "review": if app.path.isEmpty { app.path = app.scans.first.map { [$0.id] } ?? [] }
         case "settings": app.showingSettings = true

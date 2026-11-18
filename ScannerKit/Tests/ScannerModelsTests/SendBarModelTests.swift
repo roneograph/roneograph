@@ -46,8 +46,8 @@ struct SendBarModelTests {
     @Test func waitsForThePDFThenSendsOnce() async throws {
         let scan = await fixture.capturedScan(in: app)
         let (_, release) = holdPDF(of: scan)
-        tap(.email, [scan])
-        #expect(bar.waiting == .email)
+        tap(.share, [scan])
+        #expect(bar.waiting == .share)
         try await Task.sleep(for: .milliseconds(50))
         #expect(sent.methods.isEmpty)
 
@@ -56,14 +56,14 @@ struct SendBarModelTests {
         #expect(bar.waiting == nil)
         #expect(scan.hasCurrentPDF)
         try await Task.sleep(for: .milliseconds(50))
-        #expect(sent.methods == [.email])
+        #expect(sent.methods == [.share])
     }
 
     @Test func tappingTheWaitingButtonAgainCancelsAndAnotherButtonTakesItsPlace() async throws {
         let scan = await fixture.capturedScan(in: app)
         let (_, release) = holdPDF(of: scan)
-        tap(.email, [scan])
-        tap(.email, [scan])
+        tap(.share, [scan])
+        tap(.share, [scan])
         #expect(bar.waiting == nil)
         tap(.share, [scan])
         #expect(bar.waiting == .share)
@@ -79,7 +79,7 @@ struct SendBarModelTests {
     @Test func aCancelledWaitSendsNothing() async throws {
         let scan = await fixture.capturedScan(in: app)
         let (_, release) = holdPDF(of: scan)
-        tap(.files, [scan])
+        tap(.paperless, [scan])
         bar.cancel()
         #expect(bar.waiting == nil)
         release()
@@ -110,7 +110,7 @@ struct SendBarModelTests {
         }
         try await waitUntil { bar.isSending }
         tap(.paperless, [scan])
-        tap(.email, [scan])
+        tap(.share, [scan])
         #expect(bar.waiting == nil)
 
         release.finish()
@@ -118,9 +118,9 @@ struct SendBarModelTests {
         try await Task.sleep(for: .milliseconds(50))
         #expect(running.methods == [.paperless])
         #expect(sent.methods.isEmpty)
-        tap(.email, [scan])
+        tap(.share, [scan])
         try await waitUntil { !sent.methods.isEmpty }
-        #expect(sent.methods == [.email], "Another send starts once the first is done")
+        #expect(sent.methods == [.share], "Another send starts once the first is done")
     }
 
     @Test func anEditWhileWaitingSendsTheEditedPDF() async throws {
@@ -139,8 +139,8 @@ struct SendBarModelTests {
     func aPDFThatCannotBeMadeEndsTheWait(storageFull: Bool) async throws {
         let scan = await fixture.capturedScan(in: app)
         scan.makePDFData = { _ in throw storageFull ? POSIXError(.ENOSPC) : CocoaError(.fileWriteUnknown) }
-        tap(.email, [scan])
-        #expect(bar.waiting == .email)
+        tap(.share, [scan])
+        #expect(bar.waiting == .share)
         try await waitUntil { bar.waiting == nil }
         try await Task.sleep(for: .milliseconds(50))
         #expect(sent.methods.isEmpty)
@@ -148,7 +148,7 @@ struct SendBarModelTests {
     }
 
     @Test func nothingToSendWithoutScans() {
-        tap(.email, [])
+        tap(.share, [])
         #expect(bar.waiting == nil)
         #expect(!bar.isSending)
     }
@@ -159,69 +159,51 @@ struct SendBarModelTests {
         other.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
         await other.waitUntilIdle()
         #expect(app.sendFooter(for: [scan], waiting: nil, summary: scan.summary) == SendFooter(text: "1 page · preparing the PDF…"))
-        #expect(app.sendFooter(for: [scan], waiting: .email, summary: scan.summary) == SendFooter(lead: "Email opens when the PDF is ready", text: "1 page"))
-        #expect(app.sendFooter(for: [scan], waiting: .share, summary: scan.summary).lead == "Share opens when the PDF is ready")
-        #expect(app.sendFooter(for: [scan], waiting: .files, summary: scan.summary).lead == "Saves when the PDF is ready")
+        #expect(app.sendFooter(for: [scan], waiting: .share, summary: scan.summary) == SendFooter(lead: "Share opens when the PDF is ready", text: "1 page"))
         #expect(app.sendFooter(for: [scan, other], waiting: .paperless, summary: [scan, other].selectionSummary) == SendFooter(lead: "Archives when the PDFs are ready", text: "3 pages"))
 
         _ = fixture.settings.addOwner("Fernwood Holding")
         #expect(app.sendFooter(for: [scan], waiting: nil, summary: scan.summary) == SendFooter(text: "Me · 1 page · preparing the PDF…"))
-        #expect(app.sendFooter(for: [scan], waiting: .email, summary: scan.summary) == SendFooter(lead: "Email opens when the PDF is ready", text: "1 page"))
+        #expect(app.sendFooter(for: [scan], waiting: .share, summary: scan.summary) == SendFooter(lead: "Share opens when the PDF is ready", text: "1 page"))
     }
 
-    @Test func namesTheFirstWayThatSendsInOneTapAndWhereItSends() async throws {
+    @Test func namesArchiveAndWhereItSendsOnceConnected() async throws {
         let tokens = MemoryTokens()
         let app = AppModel(processor: fixture.processor, settings: fixture.settings, archiver: Archiver(uploader: FakeUploader(), tokens: tokens, directory: fixture.root.appending(path: "Uploads"), fetch: FakeServer().fetch))
         let scan = await fixture.capturedScan(in: app)
         let footer = { app.sendFooter(for: [scan], waiting: nil, summary: scan.summary).text }
-        #expect(app.namedSendMethod(for: [scan]) == nil, "Save to Files without a folder and Share")
+        #expect(app.namedSendMethod(for: [scan]) == nil, "Share is never named")
         #expect(app.destination(of: [scan]) == nil)
         #expect(footer() == "1 page · preparing the PDF…")
 
-        let invoices = fixture.root.appending(path: "Invoices", directoryHint: .isDirectory)
-        try FileManager.default.createDirectory(at: invoices, withIntermediateDirectories: true)
-        try fixture.settings.chooseArchiveFolder(invoices, for: nil)
-        #expect(app.namedSendMethod(for: [scan]) == .files)
-        #expect(footer() == "To Invoices · 1 page · preparing the PDF…")
-
-        fixture.settings.value.defaultOwner.email = "claire@example.com"
-        #expect(app.namedSendMethod(for: [scan]) == .email)
-        #expect(footer() == "To claire@example.com · 1 page · preparing the PDF…")
-
         fixture.settings.value.defaultOwner.paperless = PaperlessServer(url: URL(string: "https://paperless.example.com/")!)
-        #expect(app.namedSendMethod(for: [scan]) == .email, "Not connected without its token")
+        #expect(app.namedSendMethod(for: [scan]) == nil, "Not connected without its token")
         try tokens.setToken("secret", for: scan.owner.id)
         #expect(app.namedSendMethod(for: [scan]) == .paperless)
         #expect(footer() == "To paperless.example.com · 1 page · preparing the PDF…")
-
-        fixture.settings.value.defaultOwner.paperless = nil
-        fixture.settings.value.defaultOwner.email = ""
-        fixture.settings.value.defaultOwner.showsSaveToFiles = false
-        #expect(app.sendMethods(for: [scan]) == [.share])
-        #expect(app.namedSendMethod(for: [scan]) == nil, "Share is never named")
     }
 
     @Test func namesTheDestinationOnlyWhenTheScansHaveOneOwner() async throws {
-        fixture.settings.value.defaultOwner.email = "claire@example.com"
+        let tokens = MemoryTokens()
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings, archiver: Archiver(uploader: FakeUploader(), tokens: tokens, directory: fixture.root.appending(path: "Uploads"), fetch: FakeServer().fetch))
+        fixture.settings.value.defaultOwner.paperless = PaperlessServer(url: URL(string: "https://paperless.example.com/")!)
+        try tokens.setToken("secret", for: fixture.settings.value.defaultOwnerID)
         var holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
         let mine = await fixture.capturedScan(in: app)
         let theirs = await fixture.capturedScan(in: app)
         theirs.setOwner(holding.id)
-        #expect(app.namedSendMethod(for: [mine, theirs]) == nil, "Fernwood Holding has no address")
-        #expect(app.sendFooter(for: [mine], waiting: nil, summary: "1 page").text == "To claire@example.com · 1 page")
+        #expect(app.namedSendMethod(for: [mine, theirs]) == nil, "Fernwood Holding is not connected")
+        #expect(app.sendFooter(for: [mine], waiting: nil, summary: "1 page").text == "To paperless.example.com · 1 page")
         #expect(app.sendFooter(for: [theirs], waiting: nil, summary: "1 page").text == "Fernwood Holding · 1 page")
 
-        holding.email = "accounts@example.com"
+        holding.paperless = PaperlessServer(url: URL(string: "https://archive.fernwood.example/")!)
         fixture.settings.value.updateOwner(holding)
-        #expect(app.namedSendMethod(for: [mine, theirs]) == .email)
+        try tokens.setToken("secret", for: holding.id)
+        #expect(app.namedSendMethod(for: [mine, theirs]) == .paperless)
         #expect(app.destination(of: [mine, theirs]) == nil)
         #expect(app.sendFooter(for: [mine, theirs], waiting: nil, summary: "2 documents · 2 pages").text == "2 owners · 2 documents · 2 pages")
-        #expect(app.sendFooter(for: [theirs], waiting: nil, summary: "1 page").text == "To accounts@example.com · 1 page")
-        #expect(app.namedSendMethod(for: []) == .email, "Every owner when none is selected")
+        #expect(app.sendFooter(for: [theirs], waiting: nil, summary: "1 page").text == "To archive.fernwood.example · 1 page")
+        #expect(app.namedSendMethod(for: []) == .paperless, "Every owner when none is selected")
         #expect(app.destination(of: []) == nil)
-    }
-
-    @Test func theNamedButtonHasAShortName() {
-        #expect(SendMethod.inBarOrder.map(\.buttonName) == ["Archive", "Email", "Save", "Share"])
     }
 }

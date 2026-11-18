@@ -6,35 +6,18 @@ import Testing
 @MainActor
 @Suite(.serialized)
 struct SettingsStoreTests {
-    @Test(arguments: ["", "Invoice"])
-    func refusesTheAppsOwnFolderForSaveToFiles(subfolder: String) throws {
-        let fixture = try Fixture()
-        let folder = fixture.store.documentsDirectory.appending(path: subfolder, directoryHint: .isDirectory)
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        #expect(throws: SettingsStore.FolderError.insideApp) { try fixture.settings.chooseArchiveFolder(folder, for: nil) }
-        #expect(fixture.settings.value.defaultOwner.archiveFolder == nil)
-    }
-
-    @Test func acceptsAFolderNextToTheAppsOwnFolder() throws {
-        let fixture = try Fixture()
-        let folder = fixture.root.appending(path: "Documents archive", directoryHint: .isDirectory)
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        try fixture.settings.chooseArchiveFolder(folder, for: nil)
-        #expect(fixture.settings.value.defaultOwner.archiveFolder?.name == "Documents archive")
-    }
-
     @Test(.timeLimit(.minutes(1)))
     func savesABurstOfChangesOnceTheyStop() async throws {
         let fixture = try Fixture()
         let defaults = try #require(CountingDefaults(suiteName: fixture.suite))
         let settings = SettingsStore(defaults: defaults, saveDelay: .milliseconds(20))
-        for typed in ["m", "me", "me@", "me@example.com"] { settings.value.defaultOwner.email = typed }
+        for typed in ["F", "Fe", "Fern", "Fernwood"] { settings.value.defaultOwner.name = typed }
         #expect(defaults.writes == 0)
 
         while defaults.writes == 0 { try await Task.sleep(for: .milliseconds(5)) }
         try await Task.sleep(for: .milliseconds(50))
         #expect(defaults.writes == 1)
-        #expect(SettingsStore(defaults: defaults).value.defaultOwner.email == "me@example.com")
+        #expect(SettingsStore(defaults: defaults).value.defaultOwner.name == "Fernwood")
     }
 
     @Test func keepsSettingsItCannotReadInsteadOfLosingThem() throws {

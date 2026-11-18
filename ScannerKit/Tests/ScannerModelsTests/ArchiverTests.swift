@@ -62,22 +62,22 @@ struct ArchiverTests {
         #expect(tokens.token(for: ownerID) == "secret")
     }
 
-    @Test func showsArchiveAndEmailOnlyWhenEveryOwnerOfTheScansHasThem() async throws {
+    @Test func showsArchiveOnlyWhenEveryOwnerOfTheScansIsConnected() async throws {
         let holding = try #require(fixture.settings.addOwner("Holding"))
         let personal = await readyScan()
         let company = await readyScan()
         company.setOwner(holding.id)
-        #expect(app.sendMethods(for: [personal]) == [.files, .share])
+        #expect(app.sendMethods(for: [personal]) == [.share])
 
         try connect()
-        fixture.settings.value.defaultOwner.email = "me@example.com"
-        #expect(app.sendMethods(for: [personal]) == [.paperless, .email, .files, .share])
-        #expect(app.sendMethods(for: [personal, company]) == [.files, .share])
-        #expect(app.sendMethods(for: []) == [.files, .share], "With nothing selected, every owner counts")
+        #expect(app.sendMethods(for: [personal]) == [.paperless, .share])
+        #expect(app.namedSendMethod(for: [personal]) == .paperless)
+        #expect(app.sendMethods(for: [personal, company]) == [.share])
+        #expect(app.sendMethods(for: []) == [.share], "With nothing selected, every owner counts")
 
         try connect(holding.id)
-        #expect(app.sendMethods(for: [personal, company]) == [.paperless, .files, .share])
-        #expect(app.sendMethods(for: []) == [.paperless, .files, .share])
+        #expect(app.sendMethods(for: [personal, company]) == [.paperless, .share])
+        #expect(app.sendMethods(for: []) == [.paperless, .share])
     }
 
     @Test func hidesArchiveWhenTheTokenIsMissing() async throws {
@@ -676,7 +676,7 @@ struct ArchiverTests {
         try connect()
         server.answer("GET", "/api/custom_fields/", "", status: 503)
         let scan = await readyScan()
-        scan.markSent(.email)
+        scan.markSent(.share)
         try await app.archive([scan])
         #expect(scan.scan.archiving?.state == .waiting("The server is not ready (error 503)."))
         fixture.settings.value.keepScans = .day

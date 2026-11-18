@@ -2,7 +2,7 @@ import ScannerKit
 import ScannerModels
 import SwiftUI
 
-/// The owners, each with the ways its documents go out, to open one or add another; the same with one owner or several.
+/// The owners, each with where its documents are archived, to open one or add another; the same with one owner or several.
 struct OwnersSection: View {
     let app: AppModel
     @Bindable var settings: SettingsStore
@@ -32,12 +32,12 @@ struct OwnersSection: View {
         } header: {
             Text("Owners")
         } footer: {
-            Text("Add an owner for a company you scan for: its documents get their own ways to send and file names. The owner of a document is read from the page or remembered per issuer; otherwise it is the default owner.")
+            Text("Add an owner for a company you scan for: its documents get their own Paperless server and file names. The owner of a document is read from the page or remembered per issuer; otherwise it is the default owner.")
         }
     }
 }
 
-/// An owner, and in the accent color the ways that send its documents in a single tap.
+/// An owner, and the Paperless server its documents are archived to.
 private struct OwnerRow: View {
     let app: AppModel
     let owner: Owner
@@ -53,29 +53,29 @@ private struct OwnerRow: View {
                 .background(Color.accentColor.opacity(0.15), in: .circle)
             VStack(alignment: .leading, spacing: 2) {
                 Text(owner.name)
-                HStack(spacing: 6) {
-                    ForEach(SendMethod.inBarOrder, id: \.self) { method in
-                        Image(systemName: method.systemImage)
-                            .foregroundStyle(app.isSet(method, for: owner) ? Color.accentColor : Color(.systemGray3))
-                    }
-                    if let caption {
-                        Text(caption).foregroundStyle(.secondary)
-                    }
-                }
-                .font(.footnote)
+                Text("\(destination)\(Text(caption).foregroundStyle(.secondary))")
+                    .font(.footnote)
+                    .lineLimit(1)
             }
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(app.summary(of: owner))
     }
 
-    private var caption: String? {
-        let parts = [isDefault ? "Default" : nil, owner.hasPlaceholderName ? "Add your name" : nil].compactMap(\.self)
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    private var destination: Text {
+        if let host = app.archivesTo(owner) {
+            Text("\(Image(systemName: SendMethod.paperless.systemImage)) \(host)").foregroundStyle(.tint)
+        } else {
+            Text("Paperless not connected").foregroundStyle(.secondary)
+        }
+    }
+
+    private var caption: String {
+        [isDefault ? "Default" : nil, owner.hasPlaceholderName ? "Add your name" : nil].compactMap(\.self).map { " · \($0)" }.joined()
     }
 }
 
-/// One owner: its name, the names and addresses its mail is sent to, how its PDFs go out and how they are named.
+/// One owner: its name, its Paperless server, the names and addresses its mail is sent to, and how its PDFs are named.
 struct OwnerView: View {
     let app: AppModel
     @Bindable var settings: SettingsStore
@@ -101,8 +101,8 @@ struct OwnerView: View {
                 .pickerStyle(.segmented)
             }
 
+            PaperlessSection(app: app, ownerID: ownerID)
             AddressedToSection(settings: settings, ownerID: ownerID)
-            SendingSection(app: app, ownerID: ownerID, title: "Sending")
             FileNameSection(owner: owner)
 
             Section {
@@ -131,7 +131,7 @@ struct OwnerView: View {
         } message: {
             let count = app.scans(of: ownerID).count
             Text(count == 0
-                ? "Its email address, folder and file name format are forgotten."
+                ? "Its Paperless server and file name format are forgotten."
                 : "\(count.counted("scan")) on this iPhone belong to it: move them to another owner, or delete them. PDFs already sent or saved stay where they are.")
         }
     }

@@ -33,7 +33,7 @@ struct ScanTests {
         var scan = Scan(name: "Invoice")
         scan.read = ReadDocument(details: DocumentDetails(category: .letter, issuer: "Lumen"), parts: SuggestedParts(type: "Invoice"))
         scan.remembered = [.name, .issuer]
-        scan.sent = Sent(date: Date(timeIntervalSince1970: 1_794_700_000), method: .files)
+        scan.sent = Sent(date: Date(timeIntervalSince1970: 1_794_700_000), method: .share)
         let decoded = try JSONDecoder().decode(Scan.self, from: JSONEncoder().encode(scan))
         #expect(decoded == scan)
     }
