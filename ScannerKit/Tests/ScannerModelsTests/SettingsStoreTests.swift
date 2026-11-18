@@ -49,10 +49,10 @@ struct SettingsStoreTests {
         #expect(fixture.settings.learnedIssuer(for: ["lumen energie sas"])?.issuer == "Lumen Energy")
         #expect(fixture.settings.learnedIssuer(for: ["other.example"]) == nil)
         #expect(fixture.settings.learnedIssuer(for: []) == nil)
-        fixture.settings.learn(keys: ["lumen-energy.example"]) { $0.category = DocumentCategory("House") }
+        fixture.settings.learn(keys: ["lumen-energy.example"]) { $0.documentType = DocumentType("House") }
         #expect(fixture.settings.value.learnedIssuers.count == 1)
         fixture.settings.save()
-        #expect(SettingsStore(defaults: fixture.defaults).learnedIssuer(for: ["lumen-energy.example"]) == LearnedIssuer(keys: ["lumen-energy.example"], issuer: "Lumen Energy", category: DocumentCategory("House")))
+        #expect(SettingsStore(defaults: fixture.defaults).learnedIssuer(for: ["lumen-energy.example"]) == LearnedIssuer(keys: ["lumen-energy.example"], issuer: "Lumen Energy", documentType: DocumentType("House")))
     }
 
     @Test func forgetsAnIssuerWhenNothingIsLeftToReuse() throws {
@@ -71,7 +71,7 @@ struct SettingsStoreTests {
     @Test func keepsALimitedNumberOfIssuersMostRecentFirst() throws {
         let fixture = try Fixture()
         for index in 0...SettingsStore.learnedIssuersLimit {
-            fixture.settings.learn(keys: ["issuer \(index)"]) { $0.category = .invoice }
+            fixture.settings.learn(keys: ["issuer \(index)"]) { $0.documentType = .invoice }
         }
         #expect(fixture.settings.value.learnedIssuers.count == SettingsStore.learnedIssuersLimit)
         #expect(fixture.settings.value.learnedIssuers.first?.keys == ["issuer \(SettingsStore.learnedIssuersLimit)"])
@@ -80,25 +80,25 @@ struct SettingsStoreTests {
 
     @Test func forgetsSomeCorrectionsOfAnIssuerAndKeepsTheOthers() throws {
         let fixture = try Fixture()
-        fixture.settings.learn(keys: ["lumen"], label: "Lumen") { $0.category = .invoice; $0.issuer = "Lumen Energy" }
+        fixture.settings.learn(keys: ["lumen"], label: "Lumen") { $0.documentType = .invoice; $0.issuer = "Lumen Energy" }
         fixture.settings.forget([.issuer], keys: ["lumen"])
-        #expect(fixture.settings.learnedIssuer(for: ["lumen"]) == LearnedIssuer(keys: ["lumen"], label: "Lumen", category: .invoice))
-        fixture.settings.forget([.category], keys: ["lumen"])
+        #expect(fixture.settings.learnedIssuer(for: ["lumen"]) == LearnedIssuer(keys: ["lumen"], label: "Lumen", documentType: .invoice))
+        fixture.settings.forget([.documentType], keys: ["lumen"])
         #expect(fixture.settings.learnedIssuer(for: ["lumen"]) == nil)
     }
 
     @Test func forgetsOneIssuer() throws {
         let fixture = try Fixture()
-        fixture.settings.learn(keys: ["lumen"]) { $0.category = .invoice }
-        fixture.settings.learn(keys: ["northwind"]) { $0.category = .insurance }
+        fixture.settings.learn(keys: ["lumen"]) { $0.documentType = .invoice }
+        fixture.settings.learn(keys: ["northwind"]) { $0.documentType = .insurance }
         fixture.settings.forget(try #require(fixture.settings.learnedIssuer(for: ["lumen"])))
         #expect(fixture.settings.value.learnedIssuers.map(\.keys) == [["northwind"]])
     }
 
     @Test func forgetsAllIssuers() throws {
         let fixture = try Fixture()
-        fixture.settings.learn(keys: ["lumen"]) { $0.category = .invoice }
-        fixture.settings.learn(keys: ["northwind"]) { $0.category = .insurance }
+        fixture.settings.learn(keys: ["lumen"]) { $0.documentType = .invoice }
+        fixture.settings.learn(keys: ["northwind"]) { $0.documentType = .insurance }
         fixture.settings.forgetAllIssuers()
         #expect(fixture.settings.value.learnedIssuers.isEmpty)
     }
@@ -178,10 +178,10 @@ struct SettingsStoreTests {
         let fixture = try Fixture()
         let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
         fixture.settings.learn(keys: ["print"]) { $0.owner = holding.id }
-        fixture.settings.learn(keys: ["lumen"]) { $0.owner = holding.id; $0.category = .invoice }
+        fixture.settings.learn(keys: ["lumen"]) { $0.owner = holding.id; $0.documentType = .invoice }
         fixture.settings.removeOwner(holding.id)
         #expect(fixture.settings.learnedIssuer(for: ["print"]) == nil)
-        #expect(fixture.settings.learnedIssuer(for: ["lumen"]) == LearnedIssuer(keys: ["lumen"], category: .invoice))
+        #expect(fixture.settings.learnedIssuer(for: ["lumen"]) == LearnedIssuer(keys: ["lumen"], documentType: .invoice))
     }
 
     @Test func removingAnOwnerGivesWhatRecognizedItToTheOwnerOfItsScans() throws {
@@ -201,25 +201,25 @@ struct SettingsStoreTests {
         let personal = fixture.settings.value.defaultOwnerID
         let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
         fixture.settings.learn(keys: ["print"]) { $0.owner = personal }
-        fixture.settings.learn(keys: ["lumen"]) { $0.owner = personal; $0.category = .invoice }
+        fixture.settings.learn(keys: ["lumen"]) { $0.owner = personal; $0.documentType = .invoice }
         fixture.settings.learn(keys: ["bank"]) { $0.owner = holding.id }
         fixture.settings.removeOwner(holding.id, movingTo: personal)
-        #expect(fixture.settings.value.learnedIssuers == [LearnedIssuer(keys: ["lumen"], category: .invoice)])
+        #expect(fixture.settings.value.learnedIssuers == [LearnedIssuer(keys: ["lumen"], documentType: .invoice)])
     }
 
-    @Test func addsCategoriesOnceBeforeOther() throws {
+    @Test func addsDocumentTypesOnceBeforeOther() throws {
         let fixture = try Fixture()
-        let car = fixture.settings.addCategory(" Car ")
-        #expect(car == DocumentCategory("Car"))
-        #expect(fixture.settings.addCategory("car") == car)
-        #expect(fixture.settings.addCategory("invoice") == .invoice)
-        #expect(fixture.settings.addCategory("  ") == nil)
-        fixture.settings.addCategory("Apartment")
-        #expect(fixture.settings.value.allCategories.contains(DocumentCategory("Apartment")))
-        #expect(fixture.settings.value.allCategories.last == .other)
-        fixture.settings.removeCategory(DocumentCategory("Car"))
+        let car = fixture.settings.addDocumentType(" Car ")
+        #expect(car == DocumentType("Car"))
+        #expect(fixture.settings.addDocumentType("car") == car)
+        #expect(fixture.settings.addDocumentType("invoice") == .invoice)
+        #expect(fixture.settings.addDocumentType("  ") == nil)
+        fixture.settings.addDocumentType("Apartment")
+        #expect(fixture.settings.value.allDocumentTypes.contains(DocumentType("Apartment")))
+        #expect(fixture.settings.value.allDocumentTypes.last == .other)
+        fixture.settings.removeDocumentType(DocumentType("Car"))
         fixture.settings.save()
-        #expect(SettingsStore(defaults: fixture.defaults).value.categories == [DocumentCategory("Apartment")])
+        #expect(SettingsStore(defaults: fixture.defaults).value.documentTypes == [DocumentType("Apartment")])
     }
 }
 

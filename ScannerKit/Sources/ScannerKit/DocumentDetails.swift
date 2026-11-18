@@ -1,7 +1,7 @@
 import Foundation
 
-/// What kind of document a scan is: one of the built-in categories, or one the user added.
-public struct DocumentCategory: Hashable, Sendable, Codable, RawRepresentable, Comparable {
+/// What kind of document a scan is: one of the built-in document types, or one the user added.
+public struct DocumentType: Hashable, Sendable, Codable, RawRepresentable, Comparable {
     public var rawValue: String
 
     public init(rawValue: String) {
@@ -31,25 +31,25 @@ public struct DocumentCategory: Hashable, Sendable, Codable, RawRepresentable, C
 
     public static let builtIn: [Self] = [.invoice, .receipt, .quote, .contract, .payslip, .bankStatement, .taxNotice, .insurance, .medical, .certificate, .letter, .other]
 
-    /// The categories sorted by name, Other last.
-    public static func alphabetical(_ categories: [Self]) -> [Self] {
-        let sorted = categories.filter { $0 != .other }.sorted()
-        return categories.contains(.other) ? sorted + [.other] : sorted
+    /// The document types sorted by name, Other last.
+    public static func alphabetical(_ documentTypes: [Self]) -> [Self] {
+        let sorted = documentTypes.filter { $0 != .other }.sorted()
+        return documentTypes.contains(.other) ? sorted + [.other] : sorted
     }
 }
 
 /// The details of a document, detected from its text and editable by the user.
 public struct DocumentDetails: Equatable, Sendable, Codable {
     /// Other when nothing better was found.
-    public var category: DocumentCategory
+    public var documentType: DocumentType
     public var issuer: String?
     /// The date printed on the document.
     public var date: Date?
     /// The reference printed on the document: invoice, contract or policy number.
     public var number: String?
 
-    public init(category: DocumentCategory = .other, issuer: String? = nil, date: Date? = nil, number: String? = nil) {
-        self.category = category
+    public init(documentType: DocumentType = .other, issuer: String? = nil, date: Date? = nil, number: String? = nil) {
+        self.documentType = documentType
         self.issuer = issuer
         self.date = date
         self.number = number
@@ -58,7 +58,7 @@ public struct DocumentDetails: Equatable, Sendable, Codable {
 
 /// The words of the name suggestions that come from details, as printed on the page, so a format showing these details can leave them out of the name.
 public struct SuggestedParts: Equatable, Sendable, Codable {
-    /// The word or heading that gave the category, such as "Facture".
+    /// The word or heading that gave the document type, such as "Facture".
     public var type: String?
     public var issuer: String?
     public var number: String?

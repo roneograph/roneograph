@@ -6,9 +6,9 @@ import Testing
 
 struct WordingTests {
     @Test func listsRememberedValuesInAFixedOrder() {
-        #expect([RememberedValue.category].listed == "Category")
-        #expect([RememberedValue.category, .name].listed == "Name and category")
-        #expect(Set(RememberedValue.allCases).listed == "Name, category, issuer and owner")
+        #expect([RememberedValue.documentType].listed == "Document type")
+        #expect([RememberedValue.documentType, .name].listed == "Name and document type")
+        #expect(Set(RememberedValue.allCases).listed == "Name, document type, issuer and owner")
     }
 
     @Test func countsInTheSingularOnlyForOne() {
@@ -19,10 +19,10 @@ struct WordingTests {
 
     @Test func mentionsOwnersOnlyWhenThereAreSeveral() {
         var settings = ScannerSettings()
-        #expect(settings.nothingRemembered == "Correct the name, issuer or category of a scan, and it is reused for the next documents from the same issuer.")
+        #expect(settings.nothingRemembered == "Correct the name, issuer or document type of a scan, and it is reused for the next documents from the same issuer.")
         let holding = Owner(name: "Fernwood Holding")
         settings.addOwner(holding)
-        #expect(settings.nothingRemembered == "Correct the name, issuer, category or owner of a scan, and it is reused for the next documents from the same issuer.")
+        #expect(settings.nothingRemembered == "Correct the name, issuer, document type or owner of a scan, and it is reused for the next documents from the same issuer.")
     }
 
     @Test func explainsHowTheNamesOfAnOwnerAreRecognized() {
@@ -65,7 +65,7 @@ struct WordingTests {
         #expect(FileNameFormat(datePosition: .start, dateSource: .scan, separator: .dash, lowercase: true).explanation(for: []) == "Format in Settings: date of the scan first, dashes, lowercase.")
         #expect(FileNameFormat(datePosition: .end, separator: .underscore).explanation(for: []) == "Format in Settings: date of the document last, underscores.")
         #expect(FileNameFormat(isCustom: true, template: "{YYYY} {NAME}").explanation(for: []) == "Custom format in Settings: {YYYY} {NAME}")
-        #expect(FileNameFormat(isCustom: true).explanation(for: [FileNameSegment("Invoice", .category), FileNameSegment("", .name)]) == "The format already shows what the suggested name says. Type a name to add to it.")
+        #expect(FileNameFormat(isCustom: true).explanation(for: [FileNameSegment("Invoice", .documentType), FileNameSegment("", .name)]) == "The format already shows what the suggested name says. Type a name to add to it.")
     }
 
     @MainActor

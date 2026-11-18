@@ -41,15 +41,15 @@ struct DocumentDetectorTests {
     }
 
     @Test(arguments: DocumentCorpus.documents + DocumentCorpus.holdout)
-    func detectsTheCategoryOfEveryCorpusDocument(document: CorpusDocument) {
+    func detectsTheDocumentTypeOfEveryCorpusDocument(document: CorpusDocument) {
         let detected = DocumentDetector(monthFirst: document.monthFirst).detect(lines: document.lines, aspectRatio: document.aspectRatio)
-        #expect(detected.details.category == document.category)
+        #expect(detected.details.documentType == document.documentType)
     }
 
-    @Test func theCorpusCoversEveryCategoryInEveryLanguage() {
+    @Test func theCorpusCoversEveryDocumentTypeInEveryLanguage() {
         for language in ["en", "fr", "de", "es", "it"] {
-            let categories = Set(DocumentCorpus.documents.filter { $0.language.hasPrefix(language) }.map(\.category))
-            #expect(categories == Set(DocumentCategory.builtIn), "\(language)")
+            let documentTypes = Set(DocumentCorpus.documents.filter { $0.language.hasPrefix(language) }.map(\.documentType))
+            #expect(documentTypes == Set(DocumentType.builtIn), "\(language)")
         }
     }
 
@@ -59,18 +59,18 @@ struct DocumentDetectorTests {
         }
     }
 
-    // MARK: Category
+    // MARK: Document type
 
     @Test(arguments: [
-        ("ATTESTATION D'ASSURANCE HABITATION", DocumentCategory.insurance),
+        ("ATTESTATION D'ASSURANCE HABITATION", DocumentType.insurance),
         ("CERTIFICATE OF MOTOR INSURANCE", .insurance),
         ("Arbeitsunfähigkeitsbescheinigung", .medical),
         ("CERTIFICATO DI ASSICURAZIONE", .insurance),
         ("FACTURA SIMPLIFICADA", .receipt),
         ("Stromrechnung", .invoice),
     ])
-    func aMoreSpecificPhraseWins(title: String, category: DocumentCategory) {
-        #expect(detector.detect(lines: [line(title, y: 0.2, height: 0.02), line("Lorem ipsum", y: 0.3)]).details.category == category)
+    func aMoreSpecificPhraseWins(title: String, documentType: DocumentType) {
+        #expect(detector.detect(lines: [line(title, y: 0.2, height: 0.02), line("Lorem ipsum", y: 0.3)]).details.documentType == documentType)
     }
 
     @Test func aCallForFundsOfABuildingIsAnInvoiceNotAQuote() {
@@ -81,23 +81,23 @@ struct DocumentDetectorTests {
             TextLine(text: "Quote part", frame: CGRect(x: 0.72, y: 0.36, width: 0.1, height: 0.016)),
             line("Provisions sur charges 3e trimestre", y: 0.4),
         ]
-        #expect(detector.detect(lines: lines).details.category == .invoice)
+        #expect(detector.detect(lines: lines).details.documentType == .invoice)
     }
 
-    @Test func aLetterLosesToACategoryWithEvidence() {
+    @Test func aLetterLosesToADocumentTypeWithEvidence() {
         let letter = [
             line("Objet : votre consommation", y: 0.3),
             line("Madame,", y: 0.35),
             line("Veuillez agréer, Madame, nos salutations distinguées.", y: 0.45),
         ]
-        #expect(detector.detect(lines: letter).details.category == .letter)
+        #expect(detector.detect(lines: letter).details.documentType == .letter)
         let invoice = letter + [line("FACTURE", y: 0.2, height: 0.02), line("Total TTC", y: 0.4)]
-        #expect(detector.detect(lines: invoice).details.category == .invoice)
+        #expect(detector.detect(lines: invoice).details.documentType == .invoice)
     }
 
     @Test func aTitleWordInASentenceIsNotATitle() {
         let lines = [line("Veuillez trouver ci-joint votre facture du mois de mars et une copie de votre contrat.", y: 0.3)]
-        #expect(detector.detect(lines: lines).details.category == .other)
+        #expect(detector.detect(lines: lines).details.documentType == .other)
         #expect(detector.detect(lines: lines).parts.type == nil)
     }
 
@@ -109,7 +109,7 @@ struct DocumentDetectorTests {
             line("conditions de votre contrat de fourniture.", y: 0.413),
             line("Veuillez agréer, Madame, nos salutations distinguées.", y: 0.5),
         ]
-        #expect(detector.detect(lines: lines).details.category == .letter)
+        #expect(detector.detect(lines: lines).details.documentType == .letter)
     }
 
     @Test func theNameOverAnAddressIsNotTheTypeOfTheDocument() {
@@ -120,14 +120,14 @@ struct DocumentDetectorTests {
             line("Lorem ipsum", y: 0.5),
         ]
         let detected = detector.detect(lines: lines)
-        #expect(detected.details.category == .insurance)
+        #expect(detected.details.documentType == .insurance)
         #expect(detected.parts.type == nil)
     }
 
     @Test func narrowPagesLeanTowardsReceipts() {
         let lines = [line("PAIN DE CAMPAGNE 3,20", y: 0.1), line("CB SANS CONTACT 3,20", y: 0.2)]
-        #expect(detector.detect(lines: lines).details.category == .other)
-        #expect(detector.detect(lines: lines, aspectRatio: 0.35).details.category == .receipt)
+        #expect(detector.detect(lines: lines).details.documentType == .other)
+        #expect(detector.detect(lines: lines, aspectRatio: 0.35).details.documentType == .receipt)
     }
 
     // MARK: Issuer
@@ -571,7 +571,7 @@ struct CorpusReport {
         var rate: String { total == 0 ? "-" : "\(hits)/\(total)" }
     }
 
-    static let details = ["category", "issuer", "date", "number"]
+    static let details = ["documentType", "issuer", "date", "number"]
     var tallies: [String: [String: Tally]] = [:]
     var misses: [String] = []
 
@@ -581,7 +581,7 @@ struct CorpusReport {
             let detected = DocumentDetector(monthFirst: document.monthFirst).detect(lines: document.lines, owners: matcher, aspectRatio: document.aspectRatio)
             let found = detected.details
             let checks: [(String, Bool, String)] = [
-                ("category", found.category == document.category, found.category.rawValue),
+                ("documentType", found.documentType == document.documentType, found.documentType.rawValue),
                 ("issuer", Self.sameIssuer(found.issuer, document.issuer), found.issuer ?? "nil"),
                 ("date", found.date.map(Self.iso) == document.date, found.date.map(Self.iso) ?? "nil"),
                 ("number", found.number == document.number, found.number ?? "nil"),

@@ -204,7 +204,7 @@ final class ScanProcessorTests {
         var scan = Scan(name: "Invoice")
         let page = try addFlatPage(SyntheticPage(title: "INVOICE"), to: &scan)
         let document = try #require(try await processor.detectDocument(on: page, scanID: scan.id))
-        #expect(document.details.category == .invoice)
+        #expect(document.details.documentType == .invoice)
         #expect(document.parts.type == "Invoice")
     }
 

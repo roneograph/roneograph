@@ -238,9 +238,9 @@ public final class ScanModel: Identifiable {
             document.details.issuer = issuer
             document.parts.issuer = issuer
         }
-        if let category = learned?.category {
-            if category != document.details.category { remembered.insert(.category) }
-            document.details.category = category
+        if let documentType = learned?.documentType {
+            if documentType != document.details.documentType { remembered.insert(.documentType) }
+            document.details.documentType = documentType
         }
         let names = FileNamer.names(for: document.parts, date: date)
         scan.suggestions = names
@@ -380,7 +380,7 @@ public final class ScanModel: Identifiable {
                 details.issuer = read.details.issuer
                 parts.issuer = read.parts.issuer
             }
-            if restored.contains(.category) { details.category = read.details.category }
+            if restored.contains(.documentType) { details.documentType = read.details.documentType }
         }
         let followsSuggestion = restored.contains(.name) || (!scan.isNamedByUser && scan.title == scan.suggestions.first)
         let names = FileNamer.names(for: parts, date: scan.created)
@@ -417,18 +417,18 @@ public final class ScanModel: Identifiable {
     /// Whether corrections can be reused for the next documents from the same issuer.
     public var learnsIssuer: Bool { !scan.issuerKeys.isEmpty }
 
-    /// Changes the details; a new issuer or category is learned for the next document from the same issuer.
+    /// Changes the details; a new issuer or document type is learned for the next document from the same issuer.
     public func setDetails(_ details: DocumentDetails) {
         guard details != scan.details else { return }
         let old = scan.details
-        if details.issuer != old.issuer || details.category != old.category {
+        if details.issuer != old.issuer || details.documentType != old.documentType {
             settings.learn(keys: scan.issuerKeys, label: details.issuer) { learned in
                 if details.issuer != old.issuer { learned.issuer = details.issuer }
-                if details.category != old.category { learned.category = details.category }
+                if details.documentType != old.documentType { learned.documentType = details.documentType }
             }
         }
         if details.issuer != old.issuer { scan.remembered.remove(.issuer) }
-        if details.category != old.category { scan.remembered.remove(.category) }
+        if details.documentType != old.documentType { scan.remembered.remove(.documentType) }
         resuggestNames(from: old, to: details)
         scan.details = details
         scan.areDetailsEditedByUser = true

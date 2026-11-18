@@ -8,9 +8,9 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
         didSet { if !owners.contains(where: { $0.id == defaultOwnerID }) { defaultOwnerID = oldValue } }
     }
     public var autoCapture = true
-    /// Categories the user added to the built-in ones.
-    public var categories: [DocumentCategory] = []
-    /// The issuer, category, name and owner the user gave to documents from an issuer, most recent first.
+    /// Document types the user added to the built-in ones.
+    public var documentTypes: [DocumentType] = []
+    /// The issuer, document type, name and owner the user gave to documents from an issuer, most recent first.
     public var learnedIssuers: [LearnedIssuer] = []
 
     public init() {
@@ -28,8 +28,14 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
         let defaultOwnerID = try container.decode(.defaultOwnerID, or: self.owners[0].id)
         self.defaultOwnerID = hasOwner(defaultOwnerID) ? defaultOwnerID : self.owners[0].id
         autoCapture = try container.decode(.autoCapture, or: autoCapture)
-        categories = try container.decode(.categories, or: categories)
+        let legacy = try decoder.container(keyedBy: LegacyKeys.self)
+        documentTypes = try container.decode(.documentTypes, or: legacy.decode(.categories, or: documentTypes))
         learnedIssuers = try container.decode(.learnedIssuers, or: learnedIssuers)
+    }
+
+    /// Keys older builds saved under another name.
+    private enum LegacyKeys: String, CodingKey {
+        case categories
     }
 
     public var hasSeveralOwners: Bool { owners.count > 1 }
@@ -67,15 +73,15 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
         owners.removeAll { $0.id == id }
     }
 
-    /// The built-in categories and the user's in alphabetical order, Other last.
-    public var allCategories: [DocumentCategory] {
-        DocumentCategory.alphabetical(DocumentCategory.builtIn + categories)
+    /// The built-in document types and the user's in alphabetical order, Other last.
+    public var allDocumentTypes: [DocumentType] {
+        DocumentType.alphabetical(DocumentType.builtIn + documentTypes)
     }
 
-    /// The categories to pick from, with the current one even when the user removed it since.
-    public func categories(keeping current: DocumentCategory) -> [DocumentCategory] {
-        let all = allCategories
-        return all.contains(current) ? all : DocumentCategory.alphabetical(all + [current])
+    /// The document types to pick from, with the current one even when the user removed it since.
+    public func documentTypes(keeping current: DocumentType) -> [DocumentType] {
+        let all = allDocumentTypes
+        return all.contains(current) ? all : DocumentType.alphabetical(all + [current])
     }
 }
 
@@ -85,22 +91,40 @@ public struct LearnedIssuer: Equatable, Sendable, Codable {
     /// The issuer of the last corrected document, to show who this is.
     public var label: String?
     public var issuer: String?
-    public var category: DocumentCategory?
+    public var documentType: DocumentType?
     public var name: NamePattern?
     public var owner: UUID?
 
-    public init(keys: [String], label: String? = nil, issuer: String? = nil, category: DocumentCategory? = nil, name: NamePattern? = nil, owner: UUID? = nil) {
+    public init(keys: [String], label: String? = nil, issuer: String? = nil, documentType: DocumentType? = nil, name: NamePattern? = nil, owner: UUID? = nil) {
         self.keys = keys
         self.label = label
         self.issuer = issuer
-        self.category = category
+        self.documentType = documentType
         self.name = name
         self.owner = owner
     }
 
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let legacy = try decoder.container(keyedBy: LegacyKeys.self)
+        try self.init(
+            keys: container.decode([String].self, forKey: .keys),
+            label: container.decodeIfPresent(String.self, forKey: .label),
+            issuer: container.decodeIfPresent(String.self, forKey: .issuer),
+            documentType: container.decodeIfPresent(DocumentType.self, forKey: .documentType) ?? legacy.decodeIfPresent(DocumentType.self, forKey: .category),
+            name: container.decodeIfPresent(NamePattern.self, forKey: .name),
+            owner: container.decodeIfPresent(UUID.self, forKey: .owner)
+        )
+    }
+
+    /// Keys older builds saved under another name.
+    private enum LegacyKeys: String, CodingKey {
+        case category
+    }
+
     /// Whether anything is left to reuse for the next documents.
     public var isEmpty: Bool {
-        issuer == nil && category == nil && name == nil && owner == nil
+        issuer == nil && documentType == nil && name == nil && owner == nil
     }
 
     /// Who this is: the corrected issuer, the issuer of the last document, or how it is recognized.

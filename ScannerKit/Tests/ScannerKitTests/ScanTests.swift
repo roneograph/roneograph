@@ -31,17 +31,17 @@ struct ScanTests {
 
     @Test func keepsWhatWasReadAndWhatIsRemembered() throws {
         var scan = Scan(name: "Invoice")
-        scan.read = ReadDocument(details: DocumentDetails(category: .letter, issuer: "Lumen"), parts: SuggestedParts(type: "Invoice"))
+        scan.read = ReadDocument(details: DocumentDetails(documentType: .letter, issuer: "Lumen"), parts: SuggestedParts(type: "Invoice"))
         scan.remembered = [.name, .issuer]
         scan.sent = Sent(date: Date(timeIntervalSince1970: 1_794_700_000), method: .share)
         let decoded = try JSONDecoder().decode(Scan.self, from: JSONEncoder().encode(scan))
         #expect(decoded == scan)
     }
 
-    @Test func storesTheCategoryAsItsName() throws {
-        let details = DocumentDetails(category: .bankStatement)
+    @Test func storesTheDocumentTypeAsItsName() throws {
+        let details = DocumentDetails(documentType: .bankStatement)
         let json = try String(decoding: JSONEncoder().encode(details), as: UTF8.self)
-        #expect(json == #"{"category":"Bank statement"}"#)
+        #expect(json == #"{"documentType":"Bank statement"}"#)
         #expect(try JSONDecoder().decode(DocumentDetails.self, from: Data(json.utf8)) == details)
     }
 }

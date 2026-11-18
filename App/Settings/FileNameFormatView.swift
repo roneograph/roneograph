@@ -56,7 +56,7 @@ struct FileNameFormatView: View {
             if value.contains(where: \.isNewline) {
                 draft = value.filter { !$0.isNewline }
                 isEditing = false
-            } else if (try? FileNameFormat.Template(value)) != nil { format.template = value }
+            } else if (try? FileNameFormat.Template(value)) != nil { format.template = FileNameFormat.Template.normalized(value) }
         }
     }
 
@@ -86,7 +86,7 @@ extension FileNameFormat.Template.Variable {
         case .year, .shortYear: "Year"
         case .month: "Month"
         case .day: "Day"
-        case .category: "Category"
+        case .documentType: "Document type"
         case .issuer: "Issuer"
         case .number: "Reference number"
         }
@@ -96,7 +96,7 @@ extension FileNameFormat.Template.Variable {
 /// A made-up invoice, to show what file name formats and Paperless storage paths give.
 enum SampleDocument {
     static let name = "Invoice Lumen Energy"
-    static let category = DocumentCategory.invoice
+    static let documentType = DocumentType.invoice
     static let issuer = "Lumen Energy"
     static let number = "2026-0042"
 }
@@ -105,9 +105,9 @@ extension FileNameFormat {
     var sampleSegments: [FileNameSegment] {
         segments(
             name: SampleDocument.name,
-            details: DocumentDetails(category: SampleDocument.category, issuer: SampleDocument.issuer, date: .now, number: SampleDocument.number),
+            details: DocumentDetails(documentType: SampleDocument.documentType, issuer: SampleDocument.issuer, date: .now, number: SampleDocument.number),
             scanDate: .now,
-            suggestedParts: SuggestedParts(type: SampleDocument.category.rawValue, issuer: SampleDocument.issuer, number: SampleDocument.number)
+            suggestedParts: SuggestedParts(type: SampleDocument.documentType.rawValue, issuer: SampleDocument.issuer, number: SampleDocument.number)
         )
     }
 

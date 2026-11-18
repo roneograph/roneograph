@@ -13,7 +13,7 @@ struct SettingsView: View {
                 OwnersSection(app: app, settings: settings)
 
                 Section {
-                    NavigationLink("Categories") { CategoriesView(settings: settings) }
+                    NavigationLink("Document Types") { DocumentTypesView(settings: settings) }
                 } header: {
                     Text("Advanced")
                 }

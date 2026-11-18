@@ -53,7 +53,7 @@ public struct PendingPage: Identifiable, Equatable, Sendable, Codable {
 
 /// A value of a scan that can come from what the user corrected on a past document from the same issuer.
 public enum RememberedValue: String, CaseIterable, Comparable, Sendable, Codable {
-    case name, category, issuer, owner
+    case name, documentType, issuer, owner
 
     public static func < (lhs: Self, rhs: Self) -> Bool {
         allCases.firstIndex(of: lhs)! < allCases.firstIndex(of: rhs)!

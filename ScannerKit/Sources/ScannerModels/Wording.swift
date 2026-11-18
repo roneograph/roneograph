@@ -30,7 +30,7 @@ extension ScannerSettings {
 
     /// In Settings › Memory › Issuers, before anything is remembered.
     public var nothingRemembered: String {
-        "Correct the \(hasSeveralOwners ? "name, issuer, category or owner" : "name, issuer or category") of a scan, and it is reused for the next documents from the same issuer."
+        "Correct the \(hasSeveralOwners ? "name, issuer, document type or owner" : "name, issuer or document type") of a scan, and it is reused for the next documents from the same issuer."
     }
 }
 
@@ -114,10 +114,21 @@ extension SendMethod {
     }
 }
 
+extension RememberedValue {
+    var word: String {
+        switch self {
+        case .name: "name"
+        case .documentType: "document type"
+        case .issuer: "issuer"
+        case .owner: "owner"
+        }
+    }
+}
+
 extension Collection<RememberedValue> {
-    /// "Name and category", in a fixed order, for the line that says what is remembered.
+    /// "Name and document type", in a fixed order, for the line that says what is remembered.
     public var listed: String {
-        let words = sorted().map(\.rawValue)
+        let words = sorted().map(\.word)
         let text = words.count <= 1 ? words.joined() : words.dropLast().joined(separator: ", ") + " and " + words.last!
         return text.prefix(1).uppercased() + text.dropFirst()
     }

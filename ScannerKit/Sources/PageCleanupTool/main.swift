@@ -45,7 +45,7 @@ for path in arguments.dropFirst() {
             print(String(format: "  text: %d lines, %d characters, %.0f ms", lines.count, lines.reduce(0) { $0 + $1.text.count }, Date().timeIntervalSince(reading) * 1000))
             let details = document.details
             print("  names: \(FileNamer.names(for: document.parts, date: .now))")
-            print("  details: \(details.category.rawValue) · issuer \(details.issuer ?? "-") · date \(details.date.map(FileNamer.isoDate) ?? "-") · number \(details.number ?? "-") · keys \(document.issuerKeys)")
+            print("  details: \(details.documentType.rawValue) · issuer \(details.issuer ?? "-") · date \(details.date.map(FileNamer.isoDate) ?? "-") · number \(details.number ?? "-") · keys \(document.issuerKeys)")
         }
         guard let data = extractor.jpegData(of: image, quality: 0.8) else { continue }
         try data.write(to: output.appending(path: "\(name)-\(look?.rawValue ?? "auto").jpg"))

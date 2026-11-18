@@ -134,7 +134,7 @@ public final class SettingsStore {
         guard learnedIssuer(for: keys) != nil else { return }
         learn(keys: keys) { learned in
             if values.contains(.name) { learned.name = nil }
-            if values.contains(.category) { learned.category = nil }
+            if values.contains(.documentType) { learned.documentType = nil }
             if values.contains(.issuer) { learned.issuer = nil }
             if values.contains(.owner) { learned.owner = nil }
         }
@@ -149,19 +149,19 @@ public final class SettingsStore {
     }
 
 
-    /// Adds a category of the user's; returns it, or the existing category with the same name.
+    /// Adds a document type of the user's; returns it, or the existing document type with the same name.
     @discardableResult
-    public func addCategory(_ name: String) -> DocumentCategory? {
+    public func addDocumentType(_ name: String) -> DocumentType? {
         let name = FileNamer.finalName(name, fallback: "")
         guard !name.isEmpty else { return nil }
-        if let existing = value.allCategories.first(where: { $0.rawValue.caseInsensitiveCompare(name) == .orderedSame }) { return existing }
-        let category = DocumentCategory(name)
-        value.categories.append(category)
-        return category
+        if let existing = value.allDocumentTypes.first(where: { $0.rawValue.caseInsensitiveCompare(name) == .orderedSame }) { return existing }
+        let documentType = DocumentType(name)
+        value.documentTypes.append(documentType)
+        return documentType
     }
 
-    public func removeCategory(_ category: DocumentCategory) {
-        value.categories.removeAll { $0 == category }
+    public func removeDocumentType(_ documentType: DocumentType) {
+        value.documentTypes.removeAll { $0 == documentType }
     }
 
     /// Saving encodes every setting, learned issuers included, so a burst of changes such as typing is saved once.

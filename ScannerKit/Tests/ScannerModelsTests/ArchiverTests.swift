@@ -111,13 +111,13 @@ struct ArchiverTests {
         #expect(app.notSent.isEmpty)
     }
 
-    @Test func sendsTheDocumentTypeNamedLikeTheCategory() async throws {
+    @Test func sendsTheDocumentTypeNamedLikeTheDocumentType() async throws {
         try connect()
         server.answer("GET", "/api/document_types/", #"{"results": [{"id": 3, "name": "invoice"}]}"#)
         let first = await readyScan()
-        first.setDetails(DocumentDetails(category: .invoice))
+        first.setDetails(DocumentDetails(documentType: .invoice))
         let second = await readyScan()
-        second.setDetails(DocumentDetails(category: .invoice))
+        second.setDetails(DocumentDetails(documentType: .invoice))
         await first.preparePDF()
         await second.preparePDF()
 
@@ -136,9 +136,9 @@ struct ArchiverTests {
         server.answer("GET", "/api/document_types/", #"{"results": [{"id": 3, "name": "Invoice"}]}"#)
         server.answer("GET", "/api/document_types/", #"{"results": [{"id": 7, "name": "Invoice"}]}"#)
         let mine = await readyScan()
-        mine.setDetails(DocumentDetails(category: .invoice))
+        mine.setDetails(DocumentDetails(documentType: .invoice))
         let theirs = await readyScan()
-        theirs.setDetails(DocumentDetails(category: .invoice))
+        theirs.setDetails(DocumentDetails(documentType: .invoice))
         theirs.setOwner(holding.id)
         await mine.preparePDF()
         await theirs.preparePDF()
@@ -148,12 +148,12 @@ struct ArchiverTests {
         #expect(String(decoding: try #require(uploader.uploads.last).body, as: UTF8.self).contains("name=\"document_type\"\r\n\r\n7\r\n"))
     }
 
-    @Test func createsTheDocumentTypeOfANewCategory() async throws {
+    @Test func createsTheDocumentTypeOfANewDocumentType() async throws {
         try connect()
         server.answer("GET", "/api/document_types/", #"{"results": []}"#)
         server.answer("POST", "/api/document_types/", #"{"id": 8, "name": "Payslip"}"#, status: 201)
         let scan = await readyScan()
-        scan.setDetails(DocumentDetails(category: .payslip))
+        scan.setDetails(DocumentDetails(documentType: .payslip))
         await scan.preparePDF()
 
         try await app.archive([scan])
@@ -167,9 +167,9 @@ struct ArchiverTests {
         server.answer("GET", "/api/document_types/", #"{"results": [{"id": 3, "name": "Invoice"}]}"#)
         server.answer("POST", "/api/document_types/", #"{"id": 8, "name": "Payslip"}"#, status: 201)
         let invoice = await readyScan()
-        invoice.setDetails(DocumentDetails(category: .invoice))
+        invoice.setDetails(DocumentDetails(documentType: .invoice))
         let payslip = await readyScan()
-        payslip.setDetails(DocumentDetails(category: .payslip))
+        payslip.setDetails(DocumentDetails(documentType: .payslip))
         await invoice.preparePDF()
         await payslip.preparePDF()
 
@@ -192,7 +192,7 @@ struct ArchiverTests {
         server.answer("GET", "/api/document_types/", #"{"results": []}"#)
         server.answer("POST", "/api/document_types/", #"{"detail": "You do not have permission to perform this action."}"#, status: 403)
         let scan = await readyScan()
-        scan.setDetails(DocumentDetails(category: .receipt))
+        scan.setDetails(DocumentDetails(documentType: .receipt))
         await scan.preparePDF()
 
         try await app.archive([scan])
@@ -203,7 +203,7 @@ struct ArchiverTests {
         try connect()
         server.answer("GET", "/api/document_types/", "", status: 503)
         let scan = await readyScan()
-        scan.setDetails(DocumentDetails(category: .invoice))
+        scan.setDetails(DocumentDetails(documentType: .invoice))
         await scan.preparePDF()
 
         try await app.archive([scan])
@@ -221,7 +221,7 @@ struct ArchiverTests {
         try connect()
         server.answer("GET", "/api/document_types/", "", status: 503)
         let scan = await readyScan()
-        scan.setDetails(DocumentDetails(category: .invoice))
+        scan.setDetails(DocumentDetails(documentType: .invoice))
         await scan.preparePDF()
         guard case .ready(let url, _) = scan.pdf else { Issue.record("No PDF"); return }
         try await app.archive([scan])

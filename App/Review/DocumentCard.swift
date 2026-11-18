@@ -9,14 +9,14 @@ enum DocumentField: Identifiable {
     var id: Self { self }
 }
 
-/// The name of the scan and its details as chips, each editing its own value: a sheet for text, a menu for the owner and the category, a calendar for the date;
+/// The name of the scan and its details as chips, each editing its own value: a sheet for text, a menu for the owner and the document type, a calendar for the date;
 /// then the comment, shown in full once there is one.
 struct DocumentCard: View {
     let scan: ScanModel
     let settings: SettingsStore
     let edit: (DocumentField) -> Void
-    @State private var addingCategory = false
-    @State private var newCategory = ""
+    @State private var addingDocumentType = false
+    @State private var newDocumentType = ""
     @State private var pickingDate = false
     @State private var forgetting = false
     @State private var addingOwner = false
@@ -35,7 +35,7 @@ struct DocumentCard: View {
                     nameButton
                     FlowLayout(spacing: 6, lineSpacing: 6) {
                         if settings.value.hasSeveralOwners { ownerChip }
-                        categoryChip
+                        documentTypeChip
                         textChip(.issuer, title: "Issuer", systemImage: "person.text.rectangle", value: details.issuer)
                         dateChip
                         textChip(.number, title: "Number", systemImage: "number", value: details.number.map { "No. \($0)" })
@@ -51,13 +51,13 @@ struct DocumentCard: View {
             }
         }
         .animation(reduceMotion ? nil : .default, value: scan.isReading)
-        .alert("New Category", isPresented: $addingCategory) {
-            TextField("Name", text: $newCategory)
+        .alert("New Document Type", isPresented: $addingDocumentType) {
+            TextField("Name", text: $newDocumentType)
             Button("Add") {
-                if let category = settings.addCategory(newCategory) { update { $0.category = category } }
-                newCategory = ""
+                if let documentType = settings.addDocumentType(newDocumentType) { update { $0.documentType = documentType } }
+                newDocumentType = ""
             }
-            Button("Cancel", role: .cancel) { newCategory = "" }
+            Button("Cancel", role: .cancel) { newDocumentType = "" }
         }
         .alert("New Owner", isPresented: $addingOwner) {
             TextField("Name", text: $newOwner)
@@ -122,18 +122,18 @@ struct DocumentCard: View {
         .accessibilityLabel(["Owner", owner.name, scan.ownerCaption, remembered.contains(.owner) ? "remembered" : nil].compactMap(\.self).joined(separator: ", "))
     }
 
-    private var categoryChip: some View {
+    private var documentTypeChip: some View {
         Menu {
-            Picker("Category", selection: Binding(get: { details.category }, set: { category in update { $0.category = category } })) {
-                ForEach(settings.value.categories(keeping: details.category), id: \.self) { Text($0.rawValue).tag($0) }
+            Picker("Document Type", selection: Binding(get: { details.documentType }, set: { documentType in update { $0.documentType = documentType } })) {
+                ForEach(settings.value.documentTypes(keeping: details.documentType), id: \.self) { Text($0.rawValue).tag($0) }
             }
             Divider()
-            Button("New Category…", systemImage: "plus") { addingCategory = true }
+            Button("New Document Type…", systemImage: "plus") { addingDocumentType = true }
         } label: {
-            Chip(text: details.category.rawValue, systemImage: "square.grid.2x2", isRemembered: remembered.contains(.category), opensMenu: true)
+            Chip(text: details.documentType.rawValue, systemImage: "square.grid.2x2", isRemembered: remembered.contains(.documentType), opensMenu: true)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Category, \(details.category.rawValue)\(remembered.contains(.category) ? ", remembered" : "")")
+        .accessibilityLabel("Type, \(details.documentType.rawValue)\(remembered.contains(.documentType) ? ", remembered" : "")")
     }
 
     private var dateChip: some View {
@@ -373,7 +373,7 @@ struct DetailTextView: View {
     private var footer: String {
         guard field == .issuer else { return "The reference printed on the document, such as an invoice, contract or policy number." }
         guard scan.learnsIssuer else { return "Who sent the document." }
-        return "Read on the page. A new issuer is reused for the next documents from the same issuer, along with the category."
+        return "Read on the page. A new issuer is reused for the next documents from the same issuer, along with the document type."
     }
 
     private func save() {

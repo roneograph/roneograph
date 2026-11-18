@@ -23,6 +23,18 @@ struct ScannerSettingsTests {
         for key in ["email", "archiveFolder", "showsSaveToFiles", "showsShare", "keepScans", "dismissedSendSetup", "dismissedPageTip"] { #expect(!saved.contains(key)) }
     }
 
+    @Test func readsTheDocumentTypesSavedAsCategoriesByOlderBuilds() throws {
+        let json = #"""
+            {"owners":[{"id":"3F2504E0-4F89-11D3-9A0C-0305E82C3301","name":"Personal","fileNameFormat":{"isCustom":true,"template":"{YYYY} {CATEGORY} {ISSUER}"}}],"categories":["Car"],"learnedIssuers":[{"keys":["lumen"],"issuer":"Lumen Energy","category":"Car"}]}
+            """#
+        let settings = try JSONDecoder().decode(ScannerSettings.self, from: Data(json.utf8))
+        #expect(settings.documentTypes == [DocumentType("Car")])
+        #expect(settings.learnedIssuers == [LearnedIssuer(keys: ["lumen"], issuer: "Lumen Energy", documentType: DocumentType("Car"))])
+        #expect(settings.defaultOwner.fileNameFormat.template == "{YYYY} {TYPE} {ISSUER}")
+        let saved = String(decoding: try JSONEncoder().encode(settings), as: UTF8.self)
+        for old in ["categories", "category", "CATEGORY"] { #expect(!saved.contains(old)) }
+    }
+
     @Test func keepsOnlyTheFileNameOfACustomFormatSavedWithFolders() throws {
         let json = #"{"owners":[{"id":"3F2504E0-4F89-11D3-9A0C-0305E82C3301","name":"Personal","fileNameFormat":{"isCustom":true,"template":"{CATEGORY}/{YYYY}-{MM} {ISSUER}"}}]}"#
         let settings = try JSONDecoder().decode(ScannerSettings.self, from: Data(json.utf8))
@@ -58,12 +70,14 @@ struct ScannerSettingsTests {
         settings.addOwner(owner)
         settings.defaultOwnerID = owner.id
         settings.autoCapture = false
-        settings.categories = [DocumentCategory("Car")]
-        settings.learnedIssuers = [LearnedIssuer(keys: ["lumen"], issuer: "Lumen Energy")]
+        settings.documentTypes = [DocumentType("Car")]
+        let learned = LearnedIssuer(keys: ["lumen"], label: "Lumen", issuer: "Lumen Energy", documentType: .invoice, name: NamePattern(name: "Lumen bill", details: .init(), date: .now), owner: owner.id)
+        settings.learnedIssuers = [learned]
 
         expectEveryPropertyChanged(settings, from: ScannerSettings())
         expectEveryPropertyChanged(owner, from: Owner(id: owner.id, name: owner.name))
         expectEveryPropertyChanged(format, from: FileNameFormat())
+        expectEveryPropertyChanged(learned, from: LearnedIssuer(keys: []))
         #expect(try JSONDecoder().decode(ScannerSettings.self, from: JSONEncoder().encode(settings)) == settings)
     }
 
@@ -74,21 +88,21 @@ struct ScannerSettingsTests {
         }
     }
 
-    @Test func listsCategoriesAlphabeticallyWithOtherLast() {
+    @Test func listsDocumentTypesAlphabeticallyWithOtherLast() {
         var settings = ScannerSettings()
-        settings.categories = [DocumentCategory("Car"), DocumentCategory("Apartment")]
-        let names = settings.allCategories.map(\.rawValue)
+        settings.documentTypes = [DocumentType("Car"), DocumentType("Apartment")]
+        let names = settings.allDocumentTypes.map(\.rawValue)
         #expect(names == ["Apartment", "Bank statement", "Car", "Certificate", "Contract", "Insurance", "Invoice", "Letter", "Medical", "Payslip", "Quote", "Receipt", "Tax notice", "Other"])
     }
 
-    @Test func keepsTheCurrentCategoryEvenWhenRemoved() {
+    @Test func keepsTheCurrentDocumentTypeEvenWhenRemoved() {
         var settings = ScannerSettings()
-        settings.categories = [DocumentCategory("Car")]
-        #expect(settings.categories(keeping: .invoice) == settings.allCategories)
-        #expect(settings.categories(keeping: DocumentCategory("Car")) == settings.allCategories)
-        let kept = settings.categories(keeping: DocumentCategory("Boat"))
-        #expect(kept == DocumentCategory.alphabetical(settings.allCategories + [DocumentCategory("Boat")]))
-        #expect(kept[1] == DocumentCategory("Boat"))
+        settings.documentTypes = [DocumentType("Car")]
+        #expect(settings.documentTypes(keeping: .invoice) == settings.allDocumentTypes)
+        #expect(settings.documentTypes(keeping: DocumentType("Car")) == settings.allDocumentTypes)
+        let kept = settings.documentTypes(keeping: DocumentType("Boat"))
+        #expect(kept == DocumentType.alphabetical(settings.allDocumentTypes + [DocumentType("Boat")]))
+        #expect(kept[1] == DocumentType("Boat"))
     }
 
     @Test(arguments: [

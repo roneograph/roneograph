@@ -166,7 +166,7 @@ public final class Archiver {
         if case .preparing = attempts[scanID] { true } else { false }
     }
 
-    /// Finds or creates the correspondent of the scan's issuer, the document type of its category, the Owner custom field and the Comment one when the scan has a comment,
+    /// Finds or creates the correspondent of the scan's issuer, its document type, the Owner custom field and the Comment one when the scan has a comment,
     /// then makes the PDF unless it is current, as after a relaunch, saves the request body and starts the upload.
     /// The scan waits for the app to be active again when the server cannot be reached; it goes without the ones the server refuses to make.
     private func prepare(_ model: ScanModel) async {
@@ -181,7 +181,7 @@ public final class Archiver {
         let commentField: Paperless.TextField?
         do throws(Unreachable) {
             correspondent = try await findCorrespondent(of: model.scan.details.issuer, server: server.url, token: token).get()
-            documentType = try await findDocumentType(of: model.scan.details.category, server: server.url, token: token).get()
+            documentType = try await findDocumentType(of: model.scan.details.documentType, server: server.url, token: token).get()
             ownerField = try await find(Paperless.ownerField, in: .ownerField, cache: \.textFields, server: server.url, token: token).get()
             commentField = model.scan.comment == nil ? nil : try await find(Paperless.commentField, in: .commentField, cache: \.textFields, server: server.url, token: token).get()
         } catch {
@@ -213,10 +213,10 @@ public final class Archiver {
         let reason: String
     }
 
-    /// The ID of the document type named like the category; nil for Other.
-    private func findDocumentType(of category: DocumentCategory, server: URL, token: String) async -> Result<Int?, Unreachable> {
-        guard category != .other else { return .success(nil) }
-        return await find(category.rawValue, in: .documentTypes, cache: \.ids, server: server, token: token)
+    /// The ID of the Paperless document type named like the scan's; nil for Other.
+    private func findDocumentType(of documentType: DocumentType, server: URL, token: String) async -> Result<Int?, Unreachable> {
+        guard documentType != .other else { return .success(nil) }
+        return await find(documentType.rawValue, in: .documentTypes, cache: \.ids, server: server, token: token)
     }
 
     /// The ID of the correspondent named like the issuer; nil when the scan has none.

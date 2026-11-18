@@ -79,6 +79,7 @@ public struct FileNameFormat: Equatable, Sendable, Codable {
         if template.contains("/"), let fileName = template.split(separator: "/", omittingEmptySubsequences: false).last {
             template = fileName.trimmingCharacters(in: .whitespaces)
         }
+        template = Template.normalized(template)
     }
 
     /// The file name; `suggestedParts` is nil for a name the user typed: a custom format then keeps it as typed instead of leaving out what it already shows.
@@ -133,7 +134,7 @@ public struct FileNameFormat: Equatable, Sendable, Codable {
 }
 
 extension FileNameFormat {
-    /// A custom format such as "{YYYY}-{MM} {CATEGORY} {ISSUER}": text and variables in braces.
+    /// A custom format such as "{YYYY}-{MM} {TYPE} {ISSUER}": text and variables in braces.
     public struct Template: Equatable, Sendable {
         public enum Variable: String, CaseIterable, Sendable {
             case name = "NAME"
@@ -141,7 +142,7 @@ extension FileNameFormat {
             case shortYear = "YY"
             case month = "MM"
             case day = "DD"
-            case category = "CATEGORY"
+            case documentType = "TYPE"
             case issuer = "ISSUER"
             case number = "NUMBER"
 
@@ -151,7 +152,7 @@ extension FileNameFormat {
                 switch self {
                 case .name: .name
                 case .year, .shortYear, .month, .day: .date
-                case .category: .category
+                case .documentType: .documentType
                 case .issuer: .issuer
                 case .number: .number
                 }
@@ -183,8 +184,13 @@ extension FileNameFormat {
 
         private let tokens: [Token]
 
+        /// The format with the variables of older builds renamed: {CATEGORY} is {TYPE}.
+        public static func normalized(_ string: String) -> String {
+            string.replacingOccurrences(of: "{CATEGORY}", with: Variable.documentType.placeholder)
+        }
+
         public init(_ string: String) throws(ParseError) {
-            let string = string.hasSuffix(".pdf") ? String(string.dropLast(4)) : string
+            let string = Self.normalized(string.hasSuffix(".pdf") ? String(string.dropLast(4)) : string)
             guard !string.trimmingCharacters(in: .whitespaces).isEmpty else { throw .empty }
             tokens = try Self.tokens(Substring(string))
         }
@@ -223,7 +229,7 @@ extension FileNameFormat {
                 .shortYear: String(iso.dropFirst(2).prefix(2)),
                 .month: String(iso.dropFirst(5).prefix(2)),
                 .day: String(iso.suffix(2)),
-                .category: details.category.rawValue,
+                .documentType: details.documentType.rawValue,
                 .issuer: details.issuer ?? "",
                 .number: details.number ?? "",
             ].mapValues { format.words(FileNamer.sanitize($0)).joined(separator: format.separator.character) }
@@ -257,7 +263,7 @@ extension FileNameFormat {
         private func strip(_ parts: SuggestedParts, dates: [Date], from name: String) -> String {
             let variables = variables
             var shown: [String] = []
-            if variables.contains(.category), let type = parts.type { shown.append(type) }
+            if variables.contains(.documentType), let type = parts.type { shown.append(type) }
             if variables.contains(.issuer), let issuer = parts.issuer { shown.append(issuer) }
             if variables.contains(.number), let number = parts.number { shown.append(number) }
             if !variables.isDisjoint(with: [.year, .shortYear, .month, .day]) { shown += dates.map(FileNamer.isoDate) }
@@ -273,7 +279,7 @@ extension FileNameFormat {
 /// A part of a file name and where it comes from.
 public struct FileNameSegment: Equatable, Sendable {
     public enum Source: Equatable, Sendable {
-        case text, name, date, category, issuer, number
+        case text, name, date, documentType, issuer, number
     }
 
     public var text: String

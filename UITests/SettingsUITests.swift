@@ -24,8 +24,8 @@ final class SettingsUITests: XCTestCase {
         roneograph.openSettings()
         let app = roneograph.app
         let me = roneograph.button("Me, default")
-        let categories = app.buttons["Categories"]
-        XCTAssertTrue(categories.waitForExistence(timeout: Roneograph.timeout))
+        let documentTypes = app.buttons["Document Types"]
+        XCTAssertTrue(documentTypes.waitForExistence(timeout: Roneograph.timeout))
         let meFrame = me.frame
 
         roneograph.tap(roneograph.button("Add Owner…"))
@@ -36,7 +36,7 @@ final class SettingsUITests: XCTestCase {
 
         XCTAssertTrue(app.buttons["Fernwood Holding, Paperless not connected"].waitForExistence(timeout: Roneograph.timeout))
         XCTAssertEqual(me.frame, meFrame, "The first owner moved")
-        XCTAssertTrue(categories.exists)
+        XCTAssertTrue(documentTypes.exists)
         XCTAssertEqual(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Me, default")).count, 1)
     }
 

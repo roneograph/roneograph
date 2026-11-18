@@ -13,7 +13,7 @@ struct PaperlessGuideView: View {
                 field("Title", from: "The scan's name", placeholder: "{{ title }}")
                 field("Created", from: "The date on the document", placeholder: "{{ created_year }}, {{ created_month }}, {{ created_day }}")
                 field("Correspondent", from: "The issuer", placeholder: "{{ correspondent }}")
-                field("Document type", from: "The category", placeholder: "{{ document_type }}")
+                field("Document type", from: "The scan's type, such as Invoice", placeholder: "{{ document_type }}")
                 field("Owner", from: ownerName, placeholder: "{{ custom_fields|get_cf_value('\(Paperless.ownerField)') }}")
                 field("Comment", from: "The scan's comment, when it has one", placeholder: "{{ custom_fields|get_cf_value('\(Paperless.commentField)') }}")
                 field("Original name", from: "The file name", placeholder: "{{ original_name }}")
@@ -91,7 +91,7 @@ struct PaperlessGuideView: View {
         let originalName = owner.fileNameFormat.sampleFileName
         return [
             ("{{ created_year }}/{{ correspondent }}/{{ title }}", "\(year)/\(SampleDocument.issuer)/\(SampleDocument.name)"),
-            ("\(ownerValue)/{{ document_type }}/{{ original_name }}", "\(ownerExample)/\(SampleDocument.category.rawValue)/\(originalName)"),
+            ("\(ownerValue)/{{ document_type }}/{{ original_name }}", "\(ownerExample)/\(SampleDocument.documentType.rawValue)/\(originalName)"),
             ("\(ownerValue)/{{ created_year }}/{{ original_name }}", "\(ownerExample)/\(year)/\(originalName)"),
         ]
     }

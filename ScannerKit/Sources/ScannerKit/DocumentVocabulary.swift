@@ -4,14 +4,14 @@
 /// (German compounds such as "Stromrechnung"), and a leading "^" only matches at the start of a line.
 enum DocumentVocabulary {
     struct Entry: Sendable {
-        var category: DocumentCategory?
+        var documentType: DocumentType?
         /// Document titles, such as "Facture".
         var titles: [String] = []
         /// Titles that weigh less because they are vague, such as "Statement".
         var weakTitles: [String] = []
         /// Words that are often a title but also appear in the names of issuers, such as "Assurances".
         var nameWords: [String] = []
-        /// Field labels and wording typical of the category.
+        /// Field labels and wording typical of the document type.
         var labels: [String] = []
         /// Labels followed by the reference number of the document.
         var numberLabels: [String] = []
@@ -19,7 +19,7 @@ enum DocumentVocabulary {
 
     static let entries: [Entry] = [
         Entry(
-            category: .invoice,
+            documentType: .invoice,
             titles: [
                 "invoice", "tax invoice", "credit note", "facture", "facture acquittée", "note d'honoraires", "rechnung", "*rechnung", "gutschrift",
                 "factura", "fattura", "fattura elettronica", "nota di credito", "nota de crédito", "appel de fonds", "avis d'appel de fonds",
@@ -41,7 +41,7 @@ enum DocumentVocabulary {
             ]
         ),
         Entry(
-            category: .receipt,
+            documentType: .receipt,
             titles: [
                 "receipt", "sales receipt", "payment receipt", "till receipt", "rent receipt", "reçu", "reçu de paiement", "ticket de caisse", "quittance",
                 "quittance de loyer", "quittung", "kassenbon", "kassenbeleg", "kassenzettel", "zahlungsbeleg", "recibo", "ticket de compra",
@@ -62,7 +62,7 @@ enum DocumentVocabulary {
             ]
         ),
         Entry(
-            category: .quote,
+            documentType: .quote,
             titles: [
                 "quote", "quotation", "estimate", "devis", "proposition commerciale", "angebot", "kostenvoranschlag", "presupuesto", "cotización",
                 "preventivo", "offerta commerciale", "offerta economica",
@@ -78,7 +78,7 @@ enum DocumentVocabulary {
             ]
         ),
         Entry(
-            category: .contract,
+            documentType: .contract,
             titles: [
                 "contract", "agreement", "tenancy agreement", "employment contract", "contrat", "contrat de travail", "contrat de location", "bail",
                 "vertrag", "*vertrag", "vereinbarung", "contrato", "contrato de arrendamiento", "contrato de trabajo", "contrato de prestación de servicios",
@@ -97,7 +97,7 @@ enum DocumentVocabulary {
             ]
         ),
         Entry(
-            category: .payslip,
+            documentType: .payslip,
             titles: [
                 "payslip", "pay slip", "pay stub", "pay statement", "earnings statement", "bulletin de paie", "bulletin de salaire", "fiche de paie",
                 "lohnabrechnung", "gehaltsabrechnung", "entgeltabrechnung", "verdienstabrechnung", "*lohnabrechnung", "nómina", "recibo de salarios",
@@ -113,7 +113,7 @@ enum DocumentVocabulary {
             ]
         ),
         Entry(
-            category: .bankStatement,
+            documentType: .bankStatement,
             titles: [
                 "bank statement", "account statement", "statement of account", "current account statement", "relevé de compte", "relevé bancaire",
                 "relevé de compte courant", "extrait de compte", "kontoauszug", "extracto bancario", "extracto de cuenta", "estratto conto",
@@ -131,7 +131,7 @@ enum DocumentVocabulary {
             ]
         ),
         Entry(
-            category: .taxNotice,
+            documentType: .taxNotice,
             titles: [
                 "avis d'impôt", "avis d'imposition", "avis de taxe foncière", "avis de taxe d'habitation", "taxe foncière", "steuerbescheid",
                 "*steuerbescheid", "notice of assessment", "tax assessment", "tax notice", "tax bill", "council tax bill",
@@ -156,7 +156,7 @@ enum DocumentVocabulary {
             ]
         ),
         Entry(
-            category: .insurance,
+            documentType: .insurance,
             titles: [
                 "insurance certificate", "certificate of insurance", "certificate of motor insurance", "insurance policy", "policy schedule",
                 "attestation d'assurance", "contrat d'assurance", "conditions particulières", "avis d'échéance", "carte verte", "versicherungsschein",
@@ -181,7 +181,7 @@ enum DocumentVocabulary {
             ]
         ),
         Entry(
-            category: .medical,
+            documentType: .medical,
             titles: [
                 "prescription", "medical certificate", "lab report", "laboratory report", "test results", "medical report", "discharge summary",
                 "ordonnance", "certificat médical", "compte rendu", "compte-rendu", "résultats d'analyses", "arztbrief", "rezept", "befund", "*befund",
@@ -199,7 +199,7 @@ enum DocumentVocabulary {
             ]
         ),
         Entry(
-            category: .certificate,
+            documentType: .certificate,
             titles: [
                 "certificate", "certificate of completion", "certificat", "certificat de scolarité", "attestation", "attestation de scolarité",
                 "attestation employeur", "attestation sur l'honneur", "relevé de notes", "bescheinigung", "*bescheinigung", "meldebescheinigung",
@@ -218,7 +218,7 @@ enum DocumentVocabulary {
             ]
         ),
         Entry(
-            category: nil,
+            documentType: nil,
             titles: ["order", "purchase order", "commande", "bon de commande", "bestellung", "auftragsbestätigung", "pedido", "ordine", "avis", "bulletin"],
             numberLabels: [
                 "customer number", "customer n°", "customer reference", "account reference", "our ref", "your ref", "case number", "file number",

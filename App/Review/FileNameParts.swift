@@ -53,7 +53,7 @@ private extension FileNameSegment.Source {
         switch self {
         case .name: "name"
         case .date: "date"
-        case .category: "category"
+        case .documentType: "type"
         case .issuer: "issuer"
         case .number: "number"
         case .text: ""

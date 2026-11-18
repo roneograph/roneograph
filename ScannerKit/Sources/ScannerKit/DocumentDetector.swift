@@ -25,7 +25,7 @@ public struct DocumentDetector: Sendable {
         let candidates = Self.issuerCandidates(in: page, clues: kind.clues, evidence: evidence)
         let issuer = Self.issuer(among: candidates, page: page, evidence: evidence)
         let details = DocumentDetails(
-            category: kind.category,
+            documentType: kind.documentType,
             issuer: issuer,
             date: date(in: page),
             number: Self.number(in: page, kind: kind)
@@ -214,14 +214,14 @@ public struct DocumentDetector: Sendable {
         }
     }
 
-    // MARK: Category
+    // MARK: Document type
 
     enum Evidence: Sendable {
         case title(weight: Double), label, letter
     }
 
     struct Clue: Sendable {
-        var category: DocumentCategory?
+        var documentType: DocumentType?
         var evidence: Evidence
         /// Also found in the names of organizations, such as "Assurances".
         var isInNames = false
@@ -231,42 +231,42 @@ public struct DocumentDetector: Sendable {
     private static let clues: Phrases<Clue> = {
         var phrases: [(Phrase, Clue)] = []
         for entry in DocumentVocabulary.entries {
-            for title in entry.titles { phrases.append((Phrase(title), Clue(category: entry.category, evidence: .title(weight: 3), phrase: phrases.count))) }
-            for title in entry.weakTitles { phrases.append((Phrase(title), Clue(category: entry.category, evidence: .title(weight: 2), phrase: phrases.count))) }
-            for word in entry.nameWords { phrases.append((Phrase(word), Clue(category: entry.category, evidence: .title(weight: 2), isInNames: true, phrase: phrases.count))) }
-            for label in entry.labels { phrases.append((Phrase(label), Clue(category: entry.category, evidence: .label, phrase: phrases.count))) }
+            for title in entry.titles { phrases.append((Phrase(title), Clue(documentType: entry.documentType, evidence: .title(weight: 3), phrase: phrases.count))) }
+            for title in entry.weakTitles { phrases.append((Phrase(title), Clue(documentType: entry.documentType, evidence: .title(weight: 2), phrase: phrases.count))) }
+            for word in entry.nameWords { phrases.append((Phrase(word), Clue(documentType: entry.documentType, evidence: .title(weight: 2), isInNames: true, phrase: phrases.count))) }
+            for label in entry.labels { phrases.append((Phrase(label), Clue(documentType: entry.documentType, evidence: .label, phrase: phrases.count))) }
         }
-        for phrase in DocumentVocabulary.letter { phrases.append((Phrase(phrase), Clue(category: .letter, evidence: .letter, phrase: phrases.count))) }
+        for phrase in DocumentVocabulary.letter { phrases.append((Phrase(phrase), Clue(documentType: .letter, evidence: .letter, phrase: phrases.count))) }
         return Phrases(phrases)
     }()
 
     struct Kind {
-        var category: DocumentCategory
+        var documentType: DocumentType
         /// The clues found on each line.
         var clues: [[(range: Range<Int>, tag: Clue)]]
     }
 
     static let threshold = 3.0
 
-    /// Scores every category over the page: titles weigh more than labels, more so in big letters near the top.
+    /// Scores every document type over the page: titles weigh more than labels, more so in big letters near the top.
     static func kind(of page: Page, aspectRatio: CGFloat?) -> Kind {
         let found = page.lines.map(clues.matches)
-        var best: [Int: (category: DocumentCategory, weight: Double)] = [:]
+        var best: [Int: (documentType: DocumentType, weight: Double)] = [:]
         for (line, matches) in zip(page.lines, found) {
             for match in matches {
-                guard let category = match.tag.category else { continue }
+                guard let documentType = match.tag.documentType else { continue }
                 let weight = Self.weight(of: match.tag.evidence, on: line, page: page)
-                if weight > best[match.tag.phrase]?.weight ?? 0 { best[match.tag.phrase] = (category, weight) }
+                if weight > best[match.tag.phrase]?.weight ?? 0 { best[match.tag.phrase] = (documentType, weight) }
             }
         }
-        var scores: [DocumentCategory: Double] = [:]
-        for (_, (category, weight)) in best.sorted(by: { $0.key < $1.key }) { scores[category, default: 0] += weight }
+        var scores: [DocumentType: Double] = [:]
+        for (_, (documentType, weight)) in best.sorted(by: { $0.key < $1.key }) { scores[documentType, default: 0] += weight }
         if let aspectRatio, aspectRatio < 0.5 { scores[.receipt, default: 0] += 2 }
 
-        let ranked = DocumentCategory.builtIn.filter { $0 != .letter && $0 != .other }.map { ($0, scores[$0] ?? 0) }
+        let ranked = DocumentType.builtIn.filter { $0 != .letter && $0 != .other }.map { ($0, scores[$0] ?? 0) }
         let winner = ranked.max { $0.1 < $1.1 }
-        let category: DocumentCategory = if let winner, winner.1 >= threshold { winner.0 } else if scores[.letter] ?? 0 >= threshold { .letter } else { .other }
-        return Kind(category: category, clues: found)
+        let documentType: DocumentType = if let winner, winner.1 >= threshold { winner.0 } else if scores[.letter] ?? 0 >= threshold { .letter } else { .other }
+        return Kind(documentType: documentType, clues: found)
     }
 
     private static func weight(of evidence: Evidence, on line: Line, page: Page) -> Double {
@@ -300,18 +300,18 @@ public struct DocumentDetector: Sendable {
 
     // MARK: Type
 
-    struct DocumentType {
+    struct TypeTitle {
         var word: String
         var isHeading: Bool
     }
 
-    /// The title that gave the category, or the whole heading it starts.
-    static func type(in page: Page, kind: Kind) -> DocumentType? {
-        var best: (type: DocumentType, weight: Double)?
+    /// The title that gave the document type, or the whole heading it starts.
+    static func type(in page: Page, kind: Kind) -> TypeTitle? {
+        var best: (type: TypeTitle, weight: Double)?
         for (line, clues) in zip(page.lines, kind.clues) where isTitleLike(line, on: page) && !isOverAnAddress(line, on: page) {
             for match in clues {
-                guard isTitle(match.tag, of: kind.category) else { continue }
-                let weight = match.tag.category == nil ? 1 : Self.weight(of: match.tag.evidence, on: line, page: page)
+                guard isTitle(match.tag, of: kind.documentType) else { continue }
+                let weight = match.tag.documentType == nil ? 1 : Self.weight(of: match.tag.evidence, on: line, page: page)
                 guard weight > best?.weight ?? 0 else { continue }
                 let words = line.text.split(whereSeparator: \.isWhitespace).map(String.init)
                 let isHeading = match.range.lowerBound == line.firstWordIndex && (2...6).contains(words.count) && !line.text.contains(where: \.isNumber) && !line.text.contains(":")
@@ -322,16 +322,16 @@ public struct DocumentDetector: Sendable {
                     let text = line.tokens[match.range].map(\.text).joined(separator: " ").trimmingCharacters(in: .punctuationCharacters)
                     word = text.prefix(1).uppercased() + text.dropFirst().lowercased()
                 }
-                best = (DocumentType(word: word, isHeading: isHeading), weight)
+                best = (TypeTitle(word: word, isHeading: isHeading), weight)
             }
         }
         return best?.type
     }
 
-    /// A title of the category, or a generic title such as "Order" on a page without category.
-    static func isTitle(_ clue: Clue, of category: DocumentCategory) -> Bool {
+    /// A title of the document type, or a generic title such as "Order" on a page without document type.
+    static func isTitle(_ clue: Clue, of documentType: DocumentType) -> Bool {
         guard case .title = clue.evidence else { return false }
-        return clue.category == category || (clue.category == nil && [.other, .letter].contains(category))
+        return clue.documentType == documentType || (clue.documentType == nil && [.other, .letter].contains(documentType))
     }
 
     private static let smallWords: Set<String> = ["de", "du", "des", "la", "le", "les", "et", "of", "the", "and", "for", "von", "der", "und", "di", "del", "della", "delle", "y", "il"]
@@ -358,22 +358,22 @@ public struct DocumentDetector: Sendable {
 
     // MARK: Number
 
-    private static let numberLabels: [DocumentCategory?: Phrases<Bool>] = Dictionary(
-        uniqueKeysWithValues: DocumentVocabulary.entries.map { ($0.category, Phrases($0.numberLabels.map { (Phrase($0), true) })) }
+    private static let numberLabels: [DocumentType?: Phrases<Bool>] = Dictionary(
+        uniqueKeysWithValues: DocumentVocabulary.entries.map { ($0.documentType, Phrases($0.numberLabels.map { (Phrase($0), true) })) }
     )
 
     private static let allNumberLabels = Phrases(DocumentVocabulary.entries.flatMap(\.numberLabels).map { (Phrase($0), true) })
 
-    /// The reference next to a label of the category (of any category for letters and other documents), after the title, or next to a customer or file reference.
+    /// The reference next to a label of the document type (of any document type for letters and other documents), after the title, or next to a customer or file reference.
     static func number(in page: Page, kind: Kind) -> String? {
-        let labels = [.letter, .other].contains(kind.category) ? allNumberLabels : numberLabels[kind.category] ?? Phrases([])
+        let labels = [.letter, .other].contains(kind.documentType) ? allNumberLabels : numberLabels[kind.documentType] ?? Phrases([])
         for line in page.lines where !line.isOwn {
             for match in labels.matches(in: line) {
                 if let value = value(after: match.range.upperBound, in: line, page: page) { return value }
             }
         }
         for (line, clues) in zip(page.lines, kind.clues) where isTitleLike(line, on: page) {
-            for match in clues where isTitle(match.tag, of: kind.category) {
+            for match in clues where isTitle(match.tag, of: kind.documentType) {
                 if let value = value(after: match.range.upperBound, in: line, page: page, sameLineOnly: true) { return value }
             }
         }

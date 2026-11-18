@@ -68,7 +68,7 @@ private struct IssuerRow: View {
             Group {
                 if let name = issuer.name { Text(nameLine(name)) }
                 if let corrected = issuer.issuer { Text("Issuer: \(corrected)") }
-                if let category = issuer.category { Text("Category: \(category.rawValue)") }
+                if let documentType = issuer.documentType { Text("Document type: \(documentType.rawValue)") }
                 if let owner { Text("Owner: \(owner.name)") }
                 if let recognizedBy = issuer.recognizedBy { Text(recognizedBy).foregroundStyle(.secondary) }
             }

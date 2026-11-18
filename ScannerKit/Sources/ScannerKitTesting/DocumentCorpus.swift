@@ -5,7 +5,7 @@ import ScannerKit
 /// A made-up first page with the details a person would file it under.
 public struct CorpusDocument: Sendable {
     public var name: String
-    public var category: DocumentCategory
+    public var documentType: DocumentType
     public var issuer: String?
     /// ISO day, such as 2026-03-14.
     public var date: String?
@@ -19,9 +19,9 @@ public struct CorpusDocument: Sendable {
     public var language: String { String(name.split(separator: "-").last ?? "") }
 
     /// Each row is "x y size text", with x and y in percent of the page and size T (title), H (heading), B (body) or S (small).
-    public init(_ name: String, _ category: DocumentCategory, issuer: String?, date: String?, number: String? = nil, monthFirst: Bool = false, aspectRatio: CGFloat = 210.0 / 297.0, _ rows: String) {
+    public init(_ name: String, _ documentType: DocumentType, issuer: String?, date: String?, number: String? = nil, monthFirst: Bool = false, aspectRatio: CGFloat = 210.0 / 297.0, _ rows: String) {
         self.name = name
-        self.category = category
+        self.documentType = documentType
         self.issuer = issuer
         self.date = date
         self.number = number
