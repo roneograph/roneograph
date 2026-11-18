@@ -342,16 +342,14 @@ struct AppModelTests {
         let fixture = try Fixture()
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)
         let scan = await fixture.capturedScan(in: app)
-        #expect(app.sendButtons(for: [scan]) == SendButtons(named: .share, title: "Share", isProminent: false))
-        #expect(!app.archives([scan]), "Not connected without an archiver")
-        #expect(app.ownerToConnect(for: [scan]) == nil, "Nothing to connect without an archiver")
+        #expect(app.sendButtons(for: scan) == SendButtons(named: .share, title: "Share", isProminent: false))
+        #expect(!app.archives(scan), "Not connected without an archiver")
+        #expect(app.ownerToConnect(for: scan) == nil, "Nothing to connect without an archiver")
 
         let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
         let theirs = await fixture.capturedScan(in: app)
         theirs.setOwner(holding.id)
-        #expect(app.sendButtons(for: [scan, theirs]).named == .share)
-        #expect(app.sendingOwners(for: [theirs, scan, theirs]).map(\.id) == [holding.id, scan.owner.id])
-        #expect(app.sendingOwners(for: []).count == 2)
+        #expect(app.sendButtons(for: theirs).named == .share)
     }
 
     @Test func tellsWhereAnOwnersDocumentsAreArchived() async throws {
@@ -375,20 +373,17 @@ struct AppModelTests {
         #expect(connected.summary(of: owner) == "Me, default, archives to paperless.example.com")
     }
 
-    @Test func namesTheOwnersOfTheScansOnlyWhenThereAreSeveral() async throws {
+    @Test func namesTheOwnerOfTheScanOnlyWhenThereAreSeveral() async throws {
         let fixture = try Fixture()
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)
         let mine = await fixture.capturedScan(in: app)
         let other = await fixture.capturedScan(in: app)
-        let third = await fixture.capturedScan(in: app)
-        #expect(app.ownerLabel(of: [mine]) == nil)
+        #expect(app.ownerLabel(of: mine) == nil)
 
         let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
-        #expect(app.ownerLabel(of: []) == nil)
-        #expect(app.ownerLabel(of: [mine]) == "Me")
+        #expect(app.ownerLabel(of: mine) == "Me")
         other.setOwner(holding.id)
-        #expect(app.ownerLabel(of: [other, third]) == "2 owners")
-        #expect(app.ownerLabel(of: [mine, other, third]) == "2 owners")
+        #expect(app.ownerLabel(of: other) == "Fernwood Holding")
     }
 
     @Test func deletingAnOwnerMovesItsScansToAnother() async throws {

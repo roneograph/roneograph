@@ -3,14 +3,11 @@ import ScannerModels
 import SwiftUI
 
 /// The way to send shown with its name, the other one as a round button, and Delete, for the scan under review:
-/// Archive, filled with the accent color, then Share when every owner of the scans has a Paperless server; Share alone otherwise, or once the scan is archived.
-/// A button tapped before the PDFs are made shows a spinner, and sends once they are.
+/// Archive, filled with the accent color, then Share when the owner of the scan has a Paperless server; Share alone otherwise, or once the scan is archived.
+/// A button tapped before the PDF is made shows a spinner, and sends once it is.
 struct SendBar: View {
     let app: AppModel
-    let scans: [ScanModel]
-    /// The scans that went out or were deleted.
-    var finished: (Set<UUID>) -> Void = { _ in }
-    let summary: String
+    let scan: ScanModel
     @State private var showingShare = false
     @State private var confirmingDelete = false
     @State private var sending = SendBarModel()
@@ -19,27 +16,24 @@ struct SendBar: View {
     @State private var sentBy: SendMethod?
     @State private var connecting: Owner?
 
-    private func pdfs(of scans: [ScanModel]) -> [URL] {
-        scans.compactMap { scan in
-            if case .ready(let url, _) = scan.pdf { url } else { nil }
-        }
+    private var pdfs: [URL] {
+        if case .ready(let url, _) = scan.pdf { [url] } else { [] }
     }
 
     var body: some View {
         VStack(spacing: 8) {
-            if scans.count == 1, let status = app.sendStatus(of: scans[0]) {
+            if let status = app.sendStatus(of: scan) {
                 StatusLine(status: status)
             }
-            let buttons = app.sendButtons(for: scans)
+            let buttons = app.sendButtons(for: scan)
             HStack(spacing: 8) {
                 sendButton(buttons.named, title: buttons.title, isNamed: true, isProminent: buttons.isProminent)
                 if let round = buttons.round {
                     sendButton(round, title: round.title, isNamed: false, isProminent: false)
                 }
-                Button(scans.count > 1 ? "Delete Scans" : "Delete Scan", systemImage: "trash", role: .destructive) { confirmingDelete = true }
+                Button("Delete Scan", systemImage: "trash", role: .destructive) { confirmingDelete = true }
                     .buttonStyle(.glass)
-                    .foregroundStyle(.red.opacity(scans.isEmpty ? 0.4 : 1))
-                    .disabled(scans.isEmpty)
+                    .foregroundStyle(.red)
                     .labelStyle(SendButtonLabelStyle(isNamed: false))
                     .buttonBorderShape(.circle)
             }
@@ -51,13 +45,13 @@ struct SendBar: View {
         }
         .padding(.horizontal)
         .padding(.top, 8)
-        .onChange(of: scans.map(\.id)) { sending.cancel() }
+        .onChange(of: scan.id) { sending.cancel() }
         .onDisappear { sending.cancel() }
-        .confirmationDialog(scans.count > 1 ? "Delete \(scans.count) scans?" : "Delete this scan?", isPresented: $confirmingDelete, titleVisibility: .visible) {
-            Button(scans.count > 1 ? "Delete \(scans.count) Scans" : "Delete Scan", role: .destructive, action: delete)
+        .confirmationDialog("Delete this scan?", isPresented: $confirmingDelete, titleVisibility: .visible) {
+            Button("Delete Scan", role: .destructive, action: delete)
         }
         .sheet(isPresented: $showingShare, onDismiss: finishSharing) {
-            ShareSheet(items: pdfs(of: scans)) { completed in
+            ShareSheet(items: pdfs) { completed in
                 if completed { sentBy = .share }
             }
             .presentationDetents([.medium, .large])
@@ -68,15 +62,15 @@ struct SendBar: View {
                 PaperlessSetupView(ownerID: owner.id, settings: app.settings, archiver: archiver)
             }
         }
-        .alert("The PDFs could not be archived", isPresented: $archivingFailed) {
+        .alert("The PDF could not be archived", isPresented: $archivingFailed) {
             Button("OK") {}
         } message: {
-            Text("Try to archive them again.")
+            Text("Try to archive it again.")
         }
     }
 
     private var footer: some View {
-        let footer = app.sendFooter(for: scans, waiting: sending.waiting, summary: summary)
+        let footer = app.sendFooter(for: scan, waiting: sending.waiting)
         return HStack(spacing: 0) {
             Group {
                 if let lead = footer.lead {
@@ -87,7 +81,7 @@ struct SendBar: View {
             }
             .truncationMode(.middle)
             if footer.lead == nil, footer.connectsPaperless {
-                Button("Connect Paperless") { connecting = app.ownerToConnect(for: scans) }
+                Button("Connect Paperless") { connecting = app.ownerToConnect(for: scan) }
                     .buttonStyle(.plain)
                     .fontWeight(.semibold)
                     .foregroundStyle(.tint)
@@ -100,8 +94,7 @@ struct SendBar: View {
     private func finishSharing() {
         guard let sentBy else { return }
         self.sentBy = nil
-        app.didSend(scans, by: sentBy)
-        finished(Set(scans.map(\.id)))
+        app.didSend([scan], by: sentBy)
     }
 
     /// The button shown with its name takes the room the round ones leave; VoiceOver reads the name of a round one too.
@@ -109,8 +102,8 @@ struct SendBar: View {
         let isWaiting = sending.waiting == method
         return Button {
             switch method {
-            case .paperless: sending.tap(.paperless, scans: scans, send: archive)
-            case .share: sending.tap(.share, scans: scans) { showingShare = true }
+            case .paperless: sending.tap(.paperless, scans: [scan], send: archive)
+            case .share: sending.tap(.share, scans: [scan]) { showingShare = true }
             }
         } label: {
             Label {
@@ -133,27 +126,24 @@ struct SendBar: View {
         .labelStyle(SendButtonLabelStyle(isNamed: isNamed))
         .sendButtonStyle(isProminent: isProminent)
         .buttonBorderShape(isNamed ? .automatic : .circle)
-        .disabled(scans.isEmpty || sending.isSending)
+        .disabled(sending.isSending)
         .accessibilityLabel(title)
-        .accessibilityValue(isWaiting ? (scans.count > 1 ? "Waiting for the PDFs" : "Waiting for the PDF") : "")
+        .accessibilityValue(isWaiting ? "Waiting for the PDF" : "")
     }
 
-    /// The uploads go on in the background.
+    /// The upload goes on in the background.
     private func archive() async {
         do {
-            try await app.archive(scans)
-            finished(Set(scans.map(\.id)))
+            try await app.archive([scan])
         } catch {
             archivingFailed = true
         }
     }
 
     private func delete() {
-        let ids = Set(scans.map(\.id))
         withAnimation {
-            app.delete(ids)
+            app.delete(scan.id)
         }
-        finished(ids)
     }
 }
 

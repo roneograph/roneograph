@@ -144,7 +144,7 @@ struct SendBarModelTests {
         try await waitUntil { bar.waiting == nil }
         try await Task.sleep(for: .milliseconds(50))
         #expect(sent.methods.isEmpty)
-        #expect(app.sendFooter(for: [scan], waiting: bar.waiting, summary: scan.summary).text == (storageFull ? "1 page · the iPhone storage is full" : "1 page · the PDF could not be made"))
+        #expect(app.sendFooter(for: scan, waiting: bar.waiting).text == (storageFull ? "1 page · the iPhone storage is full" : "1 page · the PDF could not be made"))
     }
 
     @Test func nothingToSendWithoutScans() {
@@ -158,33 +158,31 @@ struct SendBarModelTests {
         let other = await fixture.capturedScan(in: app)
         other.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
         await other.waitUntilIdle()
-        #expect(app.sendFooter(for: [scan], waiting: nil, summary: scan.summary) == SendFooter(text: "1 page · preparing the PDF…"))
-        #expect(app.sendFooter(for: [scan], waiting: .share, summary: scan.summary) == SendFooter(lead: "Share opens when the PDF is ready", text: "1 page"))
-        #expect(app.sendFooter(for: [scan, other], waiting: .paperless, summary: "3 pages") == SendFooter(lead: "Archives when the PDFs are ready", text: "3 pages"))
+        #expect(app.sendFooter(for: scan, waiting: nil) == SendFooter(text: "1 page · preparing the PDF…"))
+        #expect(app.sendFooter(for: scan, waiting: .share) == SendFooter(lead: "Share opens when the PDF is ready", text: "1 page"))
+        #expect(app.sendFooter(for: other, waiting: .paperless) == SendFooter(lead: "Archives when the PDF is ready", text: "2 pages"))
 
         _ = fixture.settings.addOwner("Fernwood Holding")
-        #expect(app.sendFooter(for: [scan], waiting: nil, summary: scan.summary) == SendFooter(text: "Me · 1 page · preparing the PDF…"))
-        #expect(app.sendFooter(for: [scan], waiting: .share, summary: scan.summary) == SendFooter(lead: "Share opens when the PDF is ready", text: "1 page"))
+        #expect(app.sendFooter(for: scan, waiting: nil) == SendFooter(text: "Me · 1 page · preparing the PDF…"))
+        #expect(app.sendFooter(for: scan, waiting: .share) == SendFooter(lead: "Share opens when the PDF is ready", text: "1 page"))
     }
 
     @Test func namesArchiveAndWhereItSendsOnceConnected() async throws {
         let tokens = MemoryTokens()
         let app = AppModel(processor: fixture.processor, settings: fixture.settings, archiver: Archiver(uploader: FakeUploader(), tokens: tokens, directory: fixture.root.appending(path: "Uploads"), fetch: FakeServer().fetch))
         let scan = await fixture.capturedScan(in: app)
-        let footer = { app.sendFooter(for: [scan], waiting: nil, summary: scan.summary).text }
-        #expect(app.sendButtons(for: [scan]) == SendButtons(named: .share, title: "Share", isProminent: false))
-        #expect(app.destination(of: [scan]) == nil)
-        #expect(app.sendFooter(for: [scan], waiting: nil, summary: scan.summary) == SendFooter(text: "1 page · preparing the PDF…", connectsPaperless: true))
+        #expect(app.sendButtons(for: scan) == SendButtons(named: .share, title: "Share", isProminent: false))
+        #expect(app.destination(of: scan) == nil)
+        #expect(app.sendFooter(for: scan, waiting: nil) == SendFooter(text: "1 page · preparing the PDF…", connectsPaperless: true))
 
         fixture.settings.value.defaultOwner.paperless = PaperlessServer(url: URL(string: "https://paperless.example.com/")!)
-        #expect(!app.archives([scan]), "Not connected without its token")
+        #expect(!app.archives(scan), "Not connected without its token")
         try tokens.setToken("secret", for: scan.owner.id)
-        #expect(app.sendButtons(for: [scan]) == SendButtons(named: .paperless, title: "Archive", isProminent: true, round: .share))
-        #expect(footer() == "To paperless.example.com · 1 page · preparing the PDF…")
-        #expect(!app.sendFooter(for: [scan], waiting: nil, summary: scan.summary).connectsPaperless)
+        #expect(app.sendButtons(for: scan) == SendButtons(named: .paperless, title: "Archive", isProminent: true, round: .share))
+        #expect(app.sendFooter(for: scan, waiting: nil) == SendFooter(text: "To paperless.example.com · 1 page · preparing the PDF…"))
     }
 
-    @Test func namesTheDestinationOnlyWhenTheScansHaveOneOwner() async throws {
+    @Test func namesTheServerOfTheOwnerOfTheScan() async throws {
         let tokens = MemoryTokens()
         let app = AppModel(processor: fixture.processor, settings: fixture.settings, archiver: Archiver(uploader: FakeUploader(), tokens: tokens, directory: fixture.root.appending(path: "Uploads"), fetch: FakeServer().fetch))
         fixture.settings.value.defaultOwner.paperless = PaperlessServer(url: URL(string: "https://paperless.example.com/")!)
@@ -193,19 +191,15 @@ struct SendBarModelTests {
         let mine = await fixture.capturedScan(in: app)
         let theirs = await fixture.capturedScan(in: app)
         theirs.setOwner(holding.id)
-        #expect(!app.archives([mine, theirs]), "Fernwood Holding is not connected")
-        #expect(app.sendFooter(for: [mine], waiting: nil, summary: "1 page").text == "To paperless.example.com · 1 page")
-        #expect(app.sendFooter(for: [theirs], waiting: nil, summary: "1 page").text == "Fernwood Holding · 1 page")
+        #expect(app.sendFooter(for: mine, waiting: nil).text == "To paperless.example.com · 1 page · preparing the PDF…")
+        #expect(app.sendFooter(for: theirs, waiting: nil) == SendFooter(text: "Fernwood Holding · 1 page · preparing the PDF…", connectsPaperless: true))
+        #expect(app.ownerToConnect(for: theirs)?.id == holding.id)
 
         holding.paperless = PaperlessServer(url: URL(string: "https://archive.fernwood.example/")!)
         fixture.settings.value.updateOwner(holding)
         try tokens.setToken("secret", for: holding.id)
-        #expect(app.archives([mine, theirs]))
-        #expect(app.destination(of: [mine, theirs]) == nil)
-        #expect(app.sendFooter(for: [mine, theirs], waiting: nil, summary: "2 documents · 2 pages").text == "2 owners · 2 documents · 2 pages")
-        #expect(app.sendFooter(for: [theirs], waiting: nil, summary: "1 page").text == "To archive.fernwood.example · 1 page")
-        #expect(app.archives([]), "Every owner when none is selected")
-        #expect(app.destination(of: []) == nil)
+        #expect(app.destination(of: theirs) == "To archive.fernwood.example")
+        #expect(app.sendFooter(for: theirs, waiting: nil) == SendFooter(text: "To archive.fernwood.example · 1 page · preparing the PDF…"))
     }
 
     private nonisolated static let now = Date(timeIntervalSince1970: 1_794_998_520)
@@ -232,28 +226,28 @@ struct SendBarModelTests {
         let app = try connectedApp()
         let scan = await fixture.capturedScan(in: app)
         let archive = SendButtons(named: .paperless, title: "Archive", isProminent: true, round: .share)
-        #expect(app.sendButtons(for: [scan]) == archive)
+        #expect(app.sendButtons(for: scan) == archive)
         #expect(status(scan, in: app) == nil)
 
         scan.setArchiving(Archiving())
-        #expect(app.sendButtons(for: [scan]).title == "Try Now")
+        #expect(app.sendButtons(for: scan).title == "Try Now")
         #expect(status(scan, in: app) == SendStatus(kind: .uploading, text: "Archiving to paperless.example.com…"))
         scan.setArchiving(Archiving(state: .waiting("The server is not ready (error 503).")))
-        #expect(app.sendButtons(for: [scan]) == SendButtons(named: .paperless, title: "Try Now", isProminent: true, round: .share))
+        #expect(app.sendButtons(for: scan) == SendButtons(named: .paperless, title: "Try Now", isProminent: true, round: .share))
         #expect(status(scan, in: app) == SendStatus(kind: .uploading, text: "Waiting for paperless.example.com"))
         scan.setArchiving(Archiving(state: .failed("The token was refused.")))
-        #expect(app.sendButtons(for: [scan]) == SendButtons(named: .paperless, title: "Try Again", isProminent: true, round: .share))
+        #expect(app.sendButtons(for: scan) == SendButtons(named: .paperless, title: "Try Again", isProminent: true, round: .share))
         #expect(status(scan, in: app) == SendStatus(kind: .failed, text: "Not archived: The token was refused."))
 
-        let other = await fixture.capturedScan(in: app)
-        #expect(app.sendButtons(for: [scan, other]).title == "Archive")
+        scan.setArchiving(nil)
+        #expect(app.sendButtons(for: scan).title == "Archive")
     }
 
     @Test func anArchivedScanOffersOnlyShare() async throws {
         let app = try connectedApp()
         let scan = await fixture.capturedScan(in: app)
         scan.markSent(.paperless)
-        #expect(app.sendButtons(for: [scan]) == SendButtons(named: .share, title: "Share", isProminent: false))
+        #expect(app.sendButtons(for: scan) == SendButtons(named: .share, title: "Share", isProminent: false))
         #expect(status(scan, in: app) == SendStatus(kind: .sent, text: "Archived to paperless.example.com · 10:42"))
 
         scan.markSent(.share)
@@ -264,7 +258,7 @@ struct SendBarModelTests {
         let app = try connectedApp()
         let scan = await fixture.capturedScan(in: app)
         app.didSend([scan], by: .share)
-        #expect(app.sendButtons(for: [scan]).named == .paperless)
+        #expect(app.sendButtons(for: scan).named == .paperless)
         #expect(status(scan, in: app) == SendStatus(kind: .sent, text: "Shared · 10:42"))
     }
 
@@ -283,14 +277,14 @@ struct SendBarModelTests {
         let clock = TestClock(Self.now)
         let app = AppModel(processor: fixture.processor, settings: fixture.settings, now: clock.now)
         let scan = await fixture.capturedScan(in: app)
-        let footer = { app.sendFooter(for: [scan], waiting: nil, summary: scan.summary, calendar: Self.utc, locale: Locale(identifier: "en_GB")) }
+        let footer = { app.sendFooter(for: scan, waiting: nil, calendar: Self.utc, locale: Locale(identifier: "en_GB")) }
         app.didSend([scan], by: .share)
         #expect(footer() == SendFooter(text: "Leaves this iPhone tomorrow at 10:42"))
         clock.advance(hours: 14)
         #expect(footer() == SendFooter(text: "Leaves this iPhone today at 10:42"))
         clock.advance(hours: 11)
         #expect(footer() == SendFooter(text: "Leaves this iPhone soon"))
-        #expect(app.sendFooter(for: [scan], waiting: .share, summary: scan.summary) == SendFooter(lead: "Share opens when the PDF is ready", text: "1 page"))
+        #expect(app.sendFooter(for: scan, waiting: .share) == SendFooter(lead: "Share opens when the PDF is ready", text: "1 page"))
     }
 
     @Test func offersToConnectPaperlessForTheOwnerOfTheScan() async throws {
@@ -298,8 +292,8 @@ struct SendBarModelTests {
         let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
         let scan = await fixture.capturedScan(in: app)
         scan.setOwner(holding.id)
-        #expect(app.ownerToConnect(for: [scan])?.id == holding.id)
-        #expect(app.sendFooter(for: [scan], waiting: nil, summary: "2 pages · 240 KB") == SendFooter(text: "Fernwood Holding · 2 pages · 240 KB", connectsPaperless: true))
+        #expect(app.ownerToConnect(for: scan)?.id == holding.id)
+        #expect(app.sendFooter(for: scan, waiting: nil) == SendFooter(text: "Fernwood Holding · 1 page · preparing the PDF…", connectsPaperless: true))
     }
 
     @Test func homeOffersToArchiveOrShareEachScan() async throws {

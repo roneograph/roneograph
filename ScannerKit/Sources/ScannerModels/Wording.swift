@@ -105,12 +105,11 @@ extension SendMethod {
         }
     }
 
-    /// What happens once the PDFs of that many scans are made, while the button waits for them: "Share opens when the PDF is ready".
-    public func whenReady(pdfs count: Int) -> String {
-        let pdfs = count > 1 ? "the PDFs are" : "the PDF is"
-        return switch self {
-        case .paperless: "Archives when \(pdfs) ready"
-        case .share: "Share opens when \(pdfs) ready"
+    /// What happens once the PDF is made, while the button waits for it: "Share opens when the PDF is ready".
+    public var whenReady: String {
+        switch self {
+        case .paperless: "Archives when the PDF is ready"
+        case .share: "Share opens when the PDF is ready"
         }
     }
 }
@@ -154,35 +153,23 @@ extension Int {
 extension ScanModel {
     /// Under the send buttons in Review: "3 pages · 1.2 MB", or where the PDF is at.
     public var summary: String {
-        let count = scan.pages.count + processing
-        guard count > 0 else { return "No pages" }
-        let pages = count.counted("page")
-        if let size = [self].currentPDFSize { return "\(pages) · \(size.fileSize)" }
+        guard pageCount > 0 else { return "No pages" }
+        let pages = pageCount.counted("page")
+        if hasCurrentPDF, case .ready(_, let size) = pdf { return "\(pages) · \(size.fileSize)" }
         return switch pdf {
         case .failed: "\(pages) · the PDF could not be made"
         case .storageFull: "\(pages) · the iPhone storage is full"
         default: "\(pages) · preparing the PDF…"
         }
     }
-}
 
-@MainActor
-extension Collection<ScanModel> {
-    /// "2 pages", counting the pages still processed.
-    var pageCount: String {
-        reduce(0) { $0 + $1.scan.pages.count + $1.processing }.counted("page")
-    }
-
-    /// The size of the PDFs, once each is made from its scan as it is now.
-    var currentPDFSize: Int? {
-        guard !isEmpty, allSatisfy(\.hasCurrentPDF) else { return nil }
-        return reduce(0) { total, model in
-            if case .ready(_, let size) = model.pdf { total + size } else { total }
-        }
+    /// The pages, counting the ones still processed.
+    var pageCount: Int {
+        scan.pages.count + processing
     }
 }
 
-/// The line under the send buttons; `lead`, in bold before `text`, says what a button waiting for the PDFs will do, and Connect Paperless follows `text` when `connectsPaperless`.
+/// The line under the send buttons; `lead`, in bold before `text`, says what a button waiting for the PDF will do, and Connect Paperless follows `text` when `connectsPaperless`.
 public struct SendFooter: Equatable {
     public var lead: String?
     public var text: String
@@ -210,17 +197,16 @@ public struct SendStatus: Equatable {
 }
 
 extension AppModel {
-    /// Archive, named, then Share when every owner of the scans has a Paperless server; Share alone otherwise, and once a scan is archived, as Paperless refuses a file it already has.
-    /// Archive reads "Try Again" once the uploads failed and "Try Now" while they wait.
-    public func sendButtons(for models: [ScanModel]) -> SendButtons {
-        let scans = models.map(\.scan)
-        guard archives(models), !scans.contains(where: \.isArchived) else {
+    /// Archive, named, then Share when the owner of the scan has a Paperless server; Share alone otherwise, and once the scan is archived, as Paperless refuses a file it already has.
+    /// Archive reads "Try Again" once the upload failed and "Try Now" while it waits.
+    public func sendButtons(for model: ScanModel) -> SendButtons {
+        guard archives(model), !model.scan.isArchived else {
             return SendButtons(named: .share, title: SendMethod.share.title, isProminent: false)
         }
-        let archivings = scans.compactMap(\.archiving)
-        var title = SendMethod.paperless.title
-        if !scans.isEmpty, archivings.count == scans.count {
-            if archivings.allSatisfy(\.isInProgress) { title = "Try Now" } else if !archivings.contains(where: \.isInProgress) { title = "Try Again" }
+        let title = switch model.scan.archiving?.isInProgress {
+        case true?: "Try Now"
+        case false?: "Try Again"
+        case nil: SendMethod.paperless.title
         }
         return SendButtons(named: .paperless, title: title, isProminent: true, round: .share)
     }
@@ -240,16 +226,15 @@ extension AppModel {
         return SendStatus(kind: .sent, text: sent.method == .paperless ? "Archived to \(host) · \(time)" : "Shared · \(time)")
     }
 
-    /// Under the send buttons: "**Share opens when the PDF is ready** · 2 pages" while a button waits for the PDFs, when the scans leave this iPhone once they all went out,
-    /// otherwise where Archive sends them, or the owner of the scans with several owners, then the summary, followed by Connect Paperless when an owner has no server.
-    public func sendFooter(for models: [ScanModel], waiting: SendMethod?, summary: String, calendar: Calendar = .current, locale: Locale = .current) -> SendFooter {
-        if let waiting { return SendFooter(lead: waiting.whenReady(pdfs: models.count), text: models.pageCount) }
-        let sent = models.compactMap { $0.scan.archiving?.isInProgress == true ? nil : $0.scan.sent?.date }
-        if !models.isEmpty, sent.count == models.count, let first = sent.min() {
-            return SendFooter(text: "Leaves this iPhone \(leaving(first.addingTimeInterval(Self.sentScanLifetime), calendar: calendar, locale: locale))")
+    /// Under the send buttons: "**Share opens when the PDF is ready** · 2 pages" while a button waits for the PDF, when the scan leaves this iPhone once it went out,
+    /// otherwise where Archive sends it, or its owner with several owners, then its summary, followed by Connect Paperless when its owner has no server.
+    public func sendFooter(for model: ScanModel, waiting: SendMethod?, calendar: Calendar = .current, locale: Locale = .current) -> SendFooter {
+        if let waiting { return SendFooter(lead: waiting.whenReady, text: model.pageCount.counted("page")) }
+        if model.scan.archiving?.isInProgress != true, let sent = model.scan.sent {
+            return SendFooter(text: "Leaves this iPhone \(leaving(sent.date.addingTimeInterval(Self.sentScanLifetime), calendar: calendar, locale: locale))")
         }
-        let text = [destination(of: models) ?? ownerLabel(of: models), summary].compactMap(\.self).joined(separator: " · ")
-        return SendFooter(text: text, connectsPaperless: ownerToConnect(for: models) != nil)
+        let text = [destination(of: model) ?? ownerLabel(of: model), model.summary].compactMap(\.self).joined(separator: " · ")
+        return SendFooter(text: text, connectsPaperless: ownerToConnect(for: model) != nil)
     }
 
     /// "today at 10:42", "tomorrow at 10:42", "soon" once the time is past.
@@ -262,10 +247,9 @@ extension AppModel {
         return "\(date.formatted(Date.FormatStyle(locale: locale, calendar: calendar, timeZone: calendar.timeZone).month(.abbreviated).day())) at \(time)"
     }
 
-    /// Where Archive sends the scans when they all have one owner: "To paperless.example.com".
-    public func destination(of models: [ScanModel]) -> String? {
-        let owners = Self.owners(of: models)
-        guard owners.count == 1, archives(models), let host = owners[0].paperlessHost else { return nil }
+    /// Where Archive sends the scan: "To paperless.example.com".
+    public func destination(of model: ScanModel) -> String? {
+        guard archives(model), let host = model.owner.paperlessHost else { return nil }
         return "To \(host)"
     }
 

@@ -139,19 +139,14 @@ public final class AppModel {
         }
     }
 
-    /// The owners the send bar is for: those of the scans, every owner when no scan is selected yet.
-    public func sendingOwners(for models: [ScanModel]) -> [Owner] {
-        models.isEmpty ? settings.value.owners : Self.owners(of: models)
+    /// Whether Archive sends the scan in a single tap: its owner has a Paperless server.
+    public func archives(_ model: ScanModel) -> Bool {
+        isConnected(model.owner)
     }
 
-    /// Whether Archive sends these scans in a single tap: every owner of the scans has a Paperless server.
-    public func archives(_ models: [ScanModel]) -> Bool {
-        archiver != nil && sendingOwners(for: models).allSatisfy(isConnected)
-    }
-
-    /// The first owner of these scans without a Paperless server, for the send bar to offer to connect it.
-    public func ownerToConnect(for models: [ScanModel]) -> Owner? {
-        archiver == nil ? nil : sendingOwners(for: models).first { !isConnected($0) }
+    /// The owner of the scan when it has no Paperless server, for the send bar to offer to connect it.
+    public func ownerToConnect(for model: ScanModel) -> Owner? {
+        archiver == nil || archives(model) ? nil : model.owner
     }
 
     /// Whether the owner's documents go out to its Paperless server in a single tap.
@@ -168,15 +163,9 @@ public final class AppModel {
         await archiver.archive(models)
     }
 
-    /// Under the send buttons, before the pages and size, with several owners: the owner of the scans, or how many there are.
-    public func ownerLabel(of models: [ScanModel]) -> String? {
-        guard settings.value.hasSeveralOwners else { return nil }
-        let owners = Self.owners(of: models)
-        return switch owners.count {
-        case 0: nil
-        case 1: owners[0].name
-        default: owners.count.counted("owner")
-        }
+    /// Under the send buttons, before the pages and size, with several owners: the owner of the scan.
+    public func ownerLabel(of model: ScanModel) -> String? {
+        settings.value.hasSeveralOwners ? model.owner.name : nil
     }
 
     /// The scans of an owner, which deleting it moves or deletes.

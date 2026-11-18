@@ -22,7 +22,7 @@ struct ReviewView: View {
             .padding(.bottom, 24)
         }
         .safeAreaBar(edge: .bottom) {
-            SendBar(app: app, scans: [scan], summary: scan.summary)
+            SendBar(app: app, scan: scan)
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

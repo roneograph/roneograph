@@ -62,23 +62,22 @@ struct ArchiverTests {
         #expect(tokens.token(for: ownerID) == "secret")
     }
 
-    @Test func showsArchiveOnlyWhenEveryOwnerOfTheScansIsConnected() async throws {
+    @Test func showsArchiveOnlyWhenTheOwnerOfTheScanIsConnected() async throws {
         let holding = try #require(fixture.settings.addOwner("Holding"))
         let personal = await readyScan()
         let company = await readyScan()
         company.setOwner(holding.id)
-        #expect(!app.archives([personal]))
+        #expect(!app.archives(personal))
+        #expect(app.ownerToConnect(for: personal)?.id == fixture.settings.value.defaultOwnerID)
 
         try connect()
-        #expect(app.archives([personal]))
-        #expect(!app.archives([personal, company]))
-        #expect(app.ownerToConnect(for: [personal, company])?.id == holding.id)
-        #expect(!app.archives([]), "With nothing selected, every owner counts")
+        #expect(app.archives(personal))
+        #expect(app.ownerToConnect(for: personal) == nil)
+        #expect(!app.archives(company))
+        #expect(app.ownerToConnect(for: company)?.id == holding.id)
 
         try connect(holding.id)
-        #expect(app.archives([personal, company]))
-        #expect(app.archives([]))
-        #expect(app.ownerToConnect(for: [personal, company]) == nil)
+        #expect(app.archives(company))
     }
 
     @Test func hidesArchiveWhenTheTokenIsMissing() async throws {
@@ -86,8 +85,8 @@ struct ArchiverTests {
         var owner = scan.owner
         owner.paperless = PaperlessServer(url: URL(string: "https://paperless.example.com/")!)
         fixture.settings.value.updateOwner(owner)
-        #expect(!app.archives([scan]))
-        #expect(app.ownerToConnect(for: [scan])?.id == owner.id)
+        #expect(!app.archives(scan))
+        #expect(app.ownerToConnect(for: scan)?.id == owner.id)
     }
 
     @Test func uploadsThePDFWithItsTitleAndStoragePath() async throws {
