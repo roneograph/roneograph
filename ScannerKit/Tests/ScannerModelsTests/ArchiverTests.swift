@@ -469,12 +469,15 @@ struct ArchiverTests {
 
     @Test func aScanWaitingForPaperlessIsNotDeletedByRetention() async throws {
         try connect()
+        server.answer("GET", "/api/custom_fields/", "", status: 503)
         let scan = await readyScan()
+        scan.markSent(.email)
         try await app.archive([scan])
+        #expect(scan.scan.archiving?.state == .waiting("The server is not ready (error 503)."))
         fixture.settings.value.keepScans = .day
         app.path = []
 
-        let later = AppModel(processor: fixture.processor, settings: fixture.settings, now: { .now.addingTimeInterval(400 * 86400) })
+        let later = AppModel(processor: fixture.processor, settings: fixture.settings, now: { .now.addingTimeInterval(2 * 86400) })
         #expect(later.scans.map(\.id) == [scan.id])
     }
 
