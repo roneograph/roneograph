@@ -93,7 +93,7 @@ private struct ZoomablePage: View {
     var body: some View {
         ZoomableImage(image: image, label: label)
             .task(id: PageImage.Key(url: url, revision: revision)) {
-                if let loaded = await PageImage.load(url, maximumSize: 2000) { image = loaded }
+                if let loaded = await PageImage.load(url, maximumSize: 2000), !Task.isCancelled { image = loaded }
             }
     }
 }

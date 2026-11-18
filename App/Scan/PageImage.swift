@@ -19,7 +19,7 @@ struct PageImage: View {
             }
         }
         .task(id: Key(url: url, revision: revision)) {
-            if let loaded = await Self.load(url, maximumSize: maximumSize) { image = loaded }
+            if let loaded = await Self.load(url, maximumSize: maximumSize), !Task.isCancelled { image = loaded }
         }
     }
 
