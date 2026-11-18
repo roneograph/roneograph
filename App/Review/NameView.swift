@@ -41,8 +41,15 @@ struct NameView: View {
                                     .contentShape(Rectangle())
                                 }
                                 .accessibilityAddTraits(rememberedName == name ? .isSelected : [])
-                                Button("Forget", role: .destructive) { scan.forget([.name]) }
-                                    .font(.footnote.weight(.semibold))
+                                Button(role: .destructive) { scan.forget([.name]) } label: {
+                                    Text("Forget")
+                                        .font(.footnote.weight(.semibold))
+                                        .padding(.horizontal, 8)
+                                        .frame(minWidth: 44, minHeight: 44)
+                                        .contentShape(Rectangle())
+                                }
+                                .padding(.vertical, -12)
+                                .padding(.horizontal, -8)
                             }
                             .buttonStyle(.borderless)
                         }

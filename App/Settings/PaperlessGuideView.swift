@@ -66,12 +66,17 @@ struct PaperlessGuideView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
-            Button(copied == template ? "Copied" : "Copy", systemImage: copied == template ? "checkmark" : "doc.on.doc") {
+            Button {
                 UIPasteboard.general.string = template
                 copied = template
+            } label: {
+                Label(copied == template ? "Copied" : "Copy", systemImage: copied == template ? "checkmark" : "doc.on.doc")
+                    .labelStyle(.iconOnly)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
-            .labelStyle(.iconOnly)
             .buttonStyle(.borderless)
+            .padding(-12)
         }
         .accessibilityElement(children: .combine)
     }
