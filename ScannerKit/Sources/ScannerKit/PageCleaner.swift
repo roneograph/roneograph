@@ -63,7 +63,6 @@ public struct PageCleaner: Sendable {
     private let lightingSize: CGFloat = 128
     private let lightingRadius: Double = 12
     private let statisticsSize: CGFloat = 256
-    private let textSize: CGFloat = 1400
     /// Anything at least this bright relative to the paper becomes pure white, which hides leftover shadows and noise.
     private let paperKnee: Double = 0.8
     /// Darkens the ink below the knee, for faint pencil and thin strokes.
@@ -76,16 +75,18 @@ public struct PageCleaner: Sendable {
     /// Above this, shadow removal could wash out the pictures, so the page is only evened by its paper color.
     private let pictureFractionForPaperColor: Double = 0.15
     private let minimumSkew: Double = 0.15
-    private let minimumLinesForSize = 5
     private let edgeSize: CGFloat = 600
     /// How far in from each side dark areas touching the side are taken for the table or a shadow around the sheet, as a share of the short side.
     private let edgeBand: Double = 0.04
     private let edgeDarkness: Float = 0.85
 
     private let context: CIContext
+    private let readOrientation: @Sendable (CIImage) async throws -> (PageOrientation, Double?)
 
-    public init(context: CIContext) {
+    /// `readOrientation` tells how the page is turned and the median height of its text lines, nil without enough text.
+    public init(context: CIContext, readOrientation: @escaping @Sendable (CIImage) async throws -> (PageOrientation, Double?) = PageCleaner.readOrientation) {
         self.context = context
+        self.readOrientation = readOrientation
     }
 
     public func analyze(_ page: CIImage) async throws -> PageAnalysis {
@@ -253,9 +254,20 @@ public struct PageCleaner: Sendable {
 
     // MARK: Text
 
+    /// A page whose text cannot be read is taken for upright, which the user can still turn.
+    private func orientationAndTextLineHeight(of page: CIImage) async throws -> (PageOrientation, Double?) {
+        do {
+            return try await readOrientation(page)
+        } catch {
+            if error is CancellationError || Task.isCancelled { throw error }
+            return (.up, nil)
+        }
+    }
+
     /// The accurate recognizer reads text in any orientation; the direction of its lines says how the page is turned,
     /// and their median height, as a share of the page's long side, how big the text is.
-    private func orientationAndTextLineHeight(of page: CIImage) async throws -> (PageOrientation, Double?) {
+    public static func readOrientation(of page: CIImage) async throws -> (PageOrientation, Double?) {
+        let textSize: CGFloat = 1400, minimumLinesForSize = 5
         let extent = page.extent
         var request = RecognizeTextRequest.page()
         request.usesLanguageCorrection = false

@@ -31,9 +31,19 @@ struct PageCleanerTests {
         #expect((height == nil) == (lines < 5))
     }
 
-    @Test func failsWhenTheTextCannotBeRead() async {
+    @Test func takesAPageWhoseTextCannotBeReadForUpright() async throws {
+        struct Failure: Error {}
+        let cleaner = PageCleaner(context: context) { _ in throw Failure() }
+        let analysis = try await cleaner.analyze(SyntheticPage(stamp: true).render().oriented(.down))
+        #expect(analysis.orientation == .up)
+        #expect(analysis.textLineHeight == nil)
+        #expect(analysis.suggestedLook == .color)
+    }
+
+    @Test func stopsWhenCancelled() async {
         let cleaner = cleaner, page = SyntheticPage().render()
         await #expect(throws: (any Error).self) { try await inCancelledTask { try await cleaner.analyze(page) } }
+        await #expect(throws: CancellationError.self) { try await PageCleaner(context: context) { _ in throw CancellationError() }.analyze(page) }
     }
 
     @Test func aColoredStampKeepsColor() async throws {
