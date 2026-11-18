@@ -38,6 +38,12 @@ struct PageExtractorTests {
         #expect(abs(page.extent.height / page.extent.width - 1.4142) < 0.01)
     }
 
+    @Test func signatureOfAWhitePageIsEvenUpToItsEdges() throws {
+        let white = CIImage(color: .white).cropped(to: CGRect(origin: .zero, size: SyntheticPhoto.size))
+        let signature = try #require(extractor.signature(of: white, quad: .rect(x: 0, y: 0, width: 1, height: 1)))
+        #expect(signature.values.allSatisfy { abs($0) < 0.001 }, "darkest cell \(signature.values.min() ?? 0)")
+    }
+
     @Test func signatureIgnoresExposureButNotContent() throws {
         let photo = SyntheticPhoto.render(page: tilted)
         let darker = SyntheticPhoto.render(page: tilted, paper: 0.8)

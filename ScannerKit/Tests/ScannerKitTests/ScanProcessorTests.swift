@@ -60,6 +60,20 @@ final class ScanProcessorTests {
         #expect(try Data(contentsOf: store.flatURL(scanID: scanID, page: page)) == flat)
     }
 
+    @Test func keepsTheEdgesOfTheWhitePreviewOfAWhitePageWhite() throws {
+        let scanID = UUID()
+        let page = ScanPage(quad: nil, analysis: .sample)
+        try FileManager.default.createDirectory(at: store.directory(of: scanID), withIntermediateDirectories: true)
+        try processor.writePreview(of: page, scanID: scanID, flat: CIImage(color: .white).cropped(to: CGRect(x: 0, y: 0, width: 1001, height: 1415)))
+        let preview = try #require(CIImage(contentsOf: store.previewURL(scanID: scanID, pageID: page.id)))
+        let width = Int(preview.extent.width), height = Int(preview.extent.height)
+        #expect(height == 1200)
+        var pixels = [UInt8](repeating: 0, count: width * height)
+        CIContext().render(preview, toBitmap: &pixels, rowBytes: width, bounds: preview.extent, format: .L8, colorSpace: CGColorSpaceCreateDeviceGray())
+        let edges = edgePixels(of: pixels, width: width, height: height)
+        #expect(edges.allSatisfy { $0 == 255 }, "darkest edge pixel \(edges.min() ?? 0)")
+    }
+
     @Test func makesThePDFSearchableWithTheTextOfThePages() async throws {
         var scan = Scan(name: "Invoice")
         let page = ScanPage(quad: nil, analysis: .sample)

@@ -66,7 +66,7 @@ public struct ScanProcessor: Sendable {
     /// Writes the small cleaned image shown in the app, after any change to the page.
     public func writePreview(of page: ScanPage, scanID: UUID, flat: CIImage? = nil) throws {
         guard let flat = flat ?? CIImage(contentsOf: store.flatURL(scanID: scanID, page: page)) else { throw ProcessingError.unreadablePage }
-        let clean = cleaner.render(flat.scaled(by: flat.scale(toLongSide: previewSize)), analysis: page.analysis, look: page.look)
+        let clean = cleaner.render(flat.scaledKeepingEdges(by: flat.scale(toLongSide: previewSize)), analysis: page.analysis, look: page.look)
         guard let data = extractor.jpegData(of: clean, quality: 0.8) else { throw ProcessingError.cannotEncode }
         try data.write(to: store.previewURL(scanID: scanID, pageID: page.id), options: .atomic)
     }

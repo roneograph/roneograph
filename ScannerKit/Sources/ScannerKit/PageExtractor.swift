@@ -44,13 +44,13 @@ public struct PageExtractor: Sendable {
         let width = PageSignature.width, height = PageSignature.height
         let scale = CGFloat(height) / page.extent.height
         let filter = CIFilter.lanczosScaleTransform()
-        filter.inputImage = page
+        filter.inputImage = page.clampedToExtent()
         filter.scale = Float(scale)
         filter.aspectRatio = Float((CGFloat(width) / page.extent.width) / scale)
         guard let small = filter.outputImage else { return nil }
 
         var bitmap = [UInt8](repeating: 0, count: width * height * 4)
-        context.render(small, toBitmap: &bitmap, rowBytes: width * 4, bounds: CGRect(x: small.extent.minX, y: small.extent.minY, width: CGFloat(width), height: CGFloat(height)), format: .RGBA8, colorSpace: CGColorSpaceCreateDeviceRGB())
+        context.render(small, toBitmap: &bitmap, rowBytes: width * 4, bounds: CGRect(x: 0, y: 0, width: width, height: height), format: .RGBA8, colorSpace: CGColorSpaceCreateDeviceRGB())
         let luminance = stride(from: 0, to: bitmap.count, by: 4).map { (i: Int) -> Float in
             let red = 0.299 * Float(bitmap[i]), green = 0.587 * Float(bitmap[i + 1]), blue = 0.114 * Float(bitmap[i + 2])
             return (red + green + blue) / 255

@@ -1,6 +1,7 @@
 import CoreGraphics
 import CoreImage
 import Foundation
+import ImageIO
 import PDFKit
 import ScannerKit
 import ScannerKitTesting
@@ -116,6 +117,16 @@ struct PDFWriterTests {
         #expect(abs(bounds.midY - expected.midY) < expected.height / 2)
     }
 
+    @Test(arguments: [(PageLook.gray, 1.0), (.gray, 2.0), (.color, 1.0), (.color, 2.0)])
+    func keepsTheEdgesOfAWhitePageWhite(look: PageLook, scale: CGFloat) throws {
+        let white = CIImage(color: .white).cropped(to: CGRect(x: 0, y: 0, width: 840 * scale, height: 1188 * scale))
+        let data = try PDFWriter(context: context).data(pages: [PDFPageContent(image: white, look: look)], title: "", defaultPaper: .a4)
+        let (pixels, width, height) = try grayImage(onFirstPageOf: data)
+        #expect(width == (scale == 1 ? 840 : 1240))
+        let edges = edgePixels(of: pixels, width: width, height: height)
+        #expect(edges.allSatisfy { $0 == 255 }, "darkest edge pixel \(edges.min() ?? 0)")
+    }
+
     @Test func keepsTheTextInvisible() throws {
         let image = SyntheticPage().render()
         let line = TextLine(text: "Invoice 2026-114 Lumen Energy", frame: CGRect(x: 0.1, y: 0.02, width: 0.5, height: 0.03))
@@ -123,6 +134,41 @@ struct PDFWriterTests {
         let withText = try writer.data(pages: [PDFPageContent(image: image, look: .gray, text: [line])], title: "", defaultPaper: .a4)
         let withoutText = try writer.data(pages: [PDFPageContent(image: image, look: .gray)], title: "", defaultPaper: .a4)
         #expect(try pixels(ofFirstPageOf: withText) == pixels(ofFirstPageOf: withoutText))
+    }
+
+    /// The image of the first page in 8-bit gray, row 0 at the top.
+    private func grayImage(onFirstPageOf data: Data) throws -> (pixels: [UInt8], width: Int, height: Int) {
+        let document = try #require(CGPDFDocument(CGDataProvider(data: data as CFData)!))
+        defer { withExtendedLifetime(document) {} }
+        let page = try #require(document.page(at: 1)?.dictionary)
+        var resources: CGPDFDictionaryRef?, images: CGPDFDictionaryRef?
+        #expect(CGPDFDictionaryGetDictionary(page, "Resources", &resources))
+        #expect(resources.map { CGPDFDictionaryGetDictionary($0, "XObject", &images) } == true)
+        var stream: CGPDFStreamRef?
+        CGPDFDictionaryApplyBlock(try #require(images), { _, object, _ in
+            CGPDFObjectGetValue(object, .stream, &stream)
+            return stream == nil
+        }, nil)
+        let image = try #require(stream)
+        var format = CGPDFDataFormat.raw, width: CGPDFInteger = 0, height: CGPDFInteger = 0
+        let bytes = try #require(CGPDFStreamCopyData(image, &format)) as Data
+        let dictionary = try #require(CGPDFStreamGetDictionary(image))
+        #expect(CGPDFDictionaryGetInteger(dictionary, "Width", &width) && CGPDFDictionaryGetInteger(dictionary, "Height", &height))
+        var pixels = [UInt8](repeating: 0, count: width * height)
+        if format == .raw {
+            let packed = [UInt8](bytes), row = (width + 1) / 2
+            for y in 0..<height {
+                for x in 0..<width {
+                    let byte = packed[y * row + x / 2]
+                    pixels[y * width + x] = (x.isMultiple(of: 2) ? byte >> 4 : byte & 15) * 17
+                }
+            }
+        } else {
+            let decoded = try #require(CGImageSourceCreateWithData(bytes as CFData, nil).flatMap { CGImageSourceCreateImageAtIndex($0, 0, nil) })
+            let bitmap = try #require(CGContext(data: &pixels, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width, space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.none.rawValue))
+            bitmap.draw(decoded, in: CGRect(x: 0, y: 0, width: width, height: height))
+        }
+        return (pixels, width, height)
     }
 
     /// Components of the ICC profile of the image on the first page.

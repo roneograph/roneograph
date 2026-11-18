@@ -113,7 +113,7 @@ public struct PDFWriter: Sendable {
         let k = min(1, max(size.width / target.width, size.height / target.height))
         let width = max(1, (target.width * k).rounded()), height = max(1, (target.height * k).rounded())
         let scaleY = height / size.height
-        let scaled = image.applyingFilter("CILanczosScaleTransform", parameters: [kCIInputScaleKey: scaleY, kCIInputAspectRatioKey: (width / size.width) / scaleY])
+        let scaled = image.clampedToExtent().applyingFilter("CILanczosScaleTransform", parameters: [kCIInputScaleKey: scaleY, kCIInputAspectRatioKey: (width / size.width) / scaleY])
         return scaled.cropped(to: CGRect(x: 0, y: 0, width: width, height: height))
     }
 

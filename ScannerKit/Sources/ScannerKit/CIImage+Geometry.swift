@@ -14,4 +14,11 @@ extension CIImage {
     func scaled(by scale: CGFloat) -> CIImage {
         transformed(by: CGAffineTransform(scaleX: scale, y: scale))
     }
+
+    /// Scaled from the image clamped to its edges, then cropped to whole pixels, so its outer pixels do not fade into the transparency around it.
+    func scaledKeepingEdges(by scale: CGFloat) -> CIImage {
+        guard scale != 1 else { return self }
+        let image = atOrigin
+        return image.clampedToExtent().scaled(by: scale).cropped(to: image.scaled(by: scale).extent.integral)
+    }
 }
