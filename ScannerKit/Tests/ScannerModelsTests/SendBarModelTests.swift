@@ -309,11 +309,11 @@ struct SendBarModelTests {
         #expect(app.swipeActions(for: scan.scan) == [.tryAgain, .share])
         scan.setArchiving(nil)
         scan.markSent(.paperless)
-        #expect(app.swipeActions(for: scan.scan) == [.share])
+        #expect(app.swipeActions(for: scan.scan) == [.archive, .share], "An archived scan can be archived again")
 
         let shared = await fixture.capturedScan(in: app)
         app.didSend([shared], by: .share)
-        #expect(app.swipeActions(for: shared.scan) == [.share], "A sent scan is only shared again")
+        #expect(app.swipeActions(for: shared.scan) == [.archive, .share], "A shared scan can still be archived")
 
         let theirs = await fixture.capturedScan(in: app)
         theirs.setOwner(holding.id)

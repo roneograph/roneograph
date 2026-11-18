@@ -300,13 +300,13 @@ public struct NotSentOffer: Equatable {
 }
 
 extension AppModel {
-    /// The swipe actions of a scan on Home, in order: Archive when its owner has a Paperless server, or Try Again once its upload failed, then Share; Share alone once it was sent, as Paperless refuses a file it already has.
+    /// The swipe actions of a scan on Home, in order: Archive when its owner has a Paperless server, even once sent, or Try Again once its upload failed, then Share.
     /// None while it is in progress, which has no PDF yet, or on its way to Paperless.
     public func swipeActions(for scan: Scan) -> [RowAction] {
         guard scan.isFinished, scan.archiving?.isInProgress != true else { return [] }
         let connected = isConnected(settings.value.owner(scan.owner?.id))
         if scan.archiving != nil { return connected ? [.tryAgain, .share] : [.share] }
-        return connected && scan.sent == nil ? [.archive, .share] : [.share]
+        return connected ? [.archive, .share] : [.share]
     }
 
     /// Offered once more than one finished scan was not sent.
