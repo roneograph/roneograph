@@ -99,7 +99,7 @@ struct SendBar: View {
             SendingSetupView(app: app, ownerIDs: setup.ownerIDs)
         }
         .sheet(item: $mail, onDismiss: finishMail) { mail in
-            MailView(recipient: mail.recipient, subject: mail.subject, attachments: mail.attachments) { result in
+            MailView(recipient: mail.recipient, subject: mail.subject, body: mail.body, attachments: mail.attachments) { result in
                 if result == .sent { sentBy = .email }
                 if result == .failed { mailFailed = true }
             }
@@ -296,7 +296,7 @@ struct SendBar: View {
             attachingFailed = true
             return
         }
-        mail = MailDraft(recipient: mails?.recipient, subject: scans.map(\.scan).mailSubject, attachments: read)
+        mail = MailDraft(recipient: mails?.recipient, subject: scans.map(\.scan).mailSubject, body: scans.map(\.scan).mailBody, attachments: read)
     }
 
     private func delete() {

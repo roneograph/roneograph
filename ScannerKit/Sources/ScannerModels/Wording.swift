@@ -228,6 +228,12 @@ extension Collection<Scan> {
         count == 1 ? first!.title : count.counted("document")
     }
 
+    /// The comment of one scan; for several, "Name: comment" for each that has one, a blank line apart.
+    public var mailBody: String {
+        if count == 1 { return first!.comment ?? "" }
+        return compactMap { scan in scan.comment.map { "\(scan.title): \($0)" } }.joined(separator: "\n\n")
+    }
+
     /// Warns before sending again what already went out: "“Payslip” was already emailed", "2 were already sent".
     public var alreadySent: String? {
         let sent = filter { $0.sent != nil }

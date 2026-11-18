@@ -2,11 +2,12 @@ import MessageUI
 import SwiftUI
 import UIKit
 
-/// Apple's mail composer, filled in with the recipient, the subject and the PDFs; the user taps Send.
+/// Apple's mail composer, filled in with the recipient, the subject, the comments and the PDFs; the user taps Send.
 /// It is filled in once, when it is made: what it shows never follows a later change.
 struct MailView: UIViewControllerRepresentable {
     let recipient: String?
     let subject: String
+    let body: String
     let attachments: [MailAttachment]
     let finished: (MFMailComposeResult) -> Void
     @Environment(\.dismiss) private var dismiss
@@ -21,11 +22,12 @@ struct MailView: UIViewControllerRepresentable {
 
     func makeUIViewController(context: Context) -> UIViewController {
         #if DEBUG
-        if AppData.isUITesting { return MailStandIn(recipient: recipient, subject: subject, attachments: attachments, finished: context.coordinator.finished) }
+        if AppData.isUITesting { return MailStandIn(recipient: recipient, subject: subject, body: body, attachments: attachments, finished: context.coordinator.finished) }
         #endif
         let controller = MFMailComposeViewController()
         controller.mailComposeDelegate = context.coordinator
         controller.setSubject(subject)
+        controller.setMessageBody(body, isHTML: false)
         if let recipient { controller.setToRecipients([recipient]) }
         for attachment in attachments {
             controller.addAttachmentData(attachment.data, mimeType: "application/pdf", fileName: attachment.fileName)
@@ -61,8 +63,8 @@ private final class MailStandIn: UIViewController {
     private let lines: [String]
     private let finished: (MFMailComposeResult) -> Void
 
-    init(recipient: String?, subject: String, attachments: [MailAttachment], finished: @escaping (MFMailComposeResult) -> Void) {
-        lines = ["To: \(recipient ?? "")", "Subject: \(subject)"] + attachments.map { "Attachment: \($0.fileName)" }
+    init(recipient: String?, subject: String, body: String, attachments: [MailAttachment], finished: @escaping (MFMailComposeResult) -> Void) {
+        lines = ["To: \(recipient ?? "")", "Subject: \(subject)"] + (body.isEmpty ? [] : ["Body: \(body)"]) + attachments.map { "Attachment: \($0.fileName)" }
         self.finished = finished
         super.init(nibName: nil, bundle: nil)
     }
@@ -100,6 +102,7 @@ struct MailDraft: Identifiable {
     let id = UUID()
     let recipient: String?
     let subject: String
+    let body: String
     let attachments: [MailAttachment]
 }
 

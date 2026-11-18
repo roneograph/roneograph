@@ -166,6 +166,18 @@ struct WordingTests {
         #expect([bill, Scan(name: "letter", title: "Letter")].mailSubject == "2 documents")
     }
 
+    @Test func putsTheCommentsInTheMail() {
+        var lunch = Scan(name: "lunch", title: "Receipt Café Nord")
+        var taxi = Scan(name: "taxi", title: "Taxi receipt")
+        let bill = Scan(name: "bill", title: "Water bill")
+        #expect([bill].mailBody == "")
+        lunch.comment = "Lunch with Ada and Linus\nto plan the release"
+        #expect([lunch].mailBody == "Lunch with Ada and Linus\nto plan the release")
+        taxi.comment = "Back from the office"
+        #expect([lunch, bill, taxi].mailBody == "Receipt Café Nord: Lunch with Ada and Linus\nto plan the release\n\nTaxi receipt: Back from the office")
+        #expect([bill, Scan(name: "letter", title: "Letter")].mailBody == "")
+    }
+
     @Test func warnsAboutScansAlreadySent() {
         var payslip = Scan(name: "payslip", title: "Payslip")
         let bill = Scan(name: "bill", title: "Water bill")
