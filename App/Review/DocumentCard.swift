@@ -4,12 +4,13 @@ import SwiftUI
 
 /// What a row of the document card edits in a sheet.
 enum DocumentField: Identifiable {
-    case name, issuer, number
+    case name, issuer, number, comment
 
     var id: Self { self }
 }
 
-/// The name of the scan and its details as chips, each editing its own value: a sheet for text, a menu for the owner and the category, a calendar for the date.
+/// The name of the scan and its details as chips, each editing its own value: a sheet for text, a menu for the owner and the category, a calendar for the date;
+/// then the comment, shown in full once there is one.
 struct DocumentCard: View {
     let scan: ScanModel
     let settings: SettingsStore
@@ -38,8 +39,14 @@ struct DocumentCard: View {
                         textChip(.issuer, title: "Issuer", systemImage: "person.text.rectangle", value: details.issuer)
                         dateChip
                         textChip(.number, title: "Number", systemImage: "number", value: details.number.map { "No. \($0)" })
+                        if scan.scan.comment == nil {
+                            Button { edit(.comment) } label: { AddChip(title: "Comment") }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel("Add Comment")
+                        }
                     }
                     if !remembered.isEmpty { legend }
+                    if let comment = scan.scan.comment { commentButton(comment) }
                 }
             }
         }
@@ -168,6 +175,27 @@ struct DocumentCard: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(value.map { "\(title), \($0)\(isRemembered ? ", remembered" : "")" } ?? "Add \(title)")
+    }
+
+    private func commentButton(_ comment: String) -> some View {
+        Button { edit(.comment) } label: {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Image(systemName: "text.bubble").foregroundStyle(.tint)
+                Text(comment)
+                    .multilineTextAlignment(.leading)
+                    .lineLimitUnlessAccessibilitySize(4)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Image(systemName: "chevron.right").font(.caption.bold()).foregroundStyle(.tertiary)
+            }
+            .font(.subheadline)
+            .padding(.horizontal, 11).padding(.vertical, 8)
+            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+            .contentShape(RoundedRectangle(cornerRadius: 14))
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Comment, \(comment)")
+        .accessibilityAddTraits(.isButton)
     }
 
     /// Says that the marked values come from a past correction, and how to undo them.

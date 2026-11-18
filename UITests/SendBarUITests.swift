@@ -93,4 +93,20 @@ final class SendBarUITests: XCTestCase {
         XCTAssertTrue(sheet.waitForNonExistence(timeout: Roneograph.timeout))
         XCTAssertFalse(app.buttons["Set Up"].exists, "The card is still on Home")
     }
+
+    func testEmailsTheCommentWithTheScan() throws {
+        let roneograph = Roneograph(settings: Self.emailSet, photos: try photos())
+        let app = roneograph.app
+        roneograph.tap(app.buttons["Add Comment"])
+        let sheet = app.navigationBars["Comment"]
+        XCTAssertTrue(sheet.waitForExistence(timeout: Roneograph.timeout), "The Comment sheet did not open")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: Roneograph.timeout), "The keyboard is not up")
+        app.typeText("Lunch with Ada and Linus")
+        roneograph.tap(sheet.buttons["Done"])
+        XCTAssertTrue(sheet.waitForNonExistence(timeout: Roneograph.timeout))
+        XCTAssertTrue(app.buttons["Comment, Lunch with Ada and Linus"].waitForExistence(timeout: Roneograph.timeout), "The comment is not shown")
+        XCTAssertFalse(app.buttons["Add Comment"].exists)
+        roneograph.tap(app.buttons["Email"])
+        XCTAssertTrue(app.staticTexts["Body: Lunch with Ada and Linus"].waitForExistence(timeout: 30), "The mail has no comment")
+    }
 }

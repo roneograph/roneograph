@@ -52,6 +52,7 @@ struct ReviewView: View {
             switch field {
             case .name: NameView(scan: scan)
             case .issuer, .number: DetailTextView(scan: scan, field: field)
+            case .comment: CommentView(scan: scan)
             }
         }
         .fullScreenCover(item: $viewedPage) { page in
