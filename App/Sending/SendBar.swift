@@ -13,7 +13,8 @@ struct SendBar: View {
     var finished: (Set<UUID>) -> Void = { _ in }
     let summary: String
     var warning: String?
-    @State private var showingMail = false
+    /// The mail being composed; the sheet gets everything it shows from it, as it is filled in only once.
+    @State private var mail: MailDraft?
     @State private var showingShare = false
     @State private var confirmingDelete = false
     @State private var choosingFolder = false
@@ -30,7 +31,6 @@ struct SendBar: View {
     /// The owner the folder picker is for.
     @State private var ownerID: UUID?
     @State private var mails: MailQueue?
-    @State private var attachments: [MailAttachment] = []
     /// Set when the PDFs went out, acted on once the mail or share sheet is gone.
     @State private var sentBy: SendMethod?
     @State private var settingUpSending: SendingSetup?
@@ -98,8 +98,8 @@ struct SendBar: View {
         .sheet(item: $settingUpSending) { setup in
             SendingSetupView(app: app, ownerIDs: setup.ownerIDs)
         }
-        .sheet(isPresented: $showingMail, onDismiss: finishMail) {
-            MailView(recipient: mails?.recipient, subject: (mails?.scans ?? []).map(\.scan).mailSubject, attachments: attachments) { result in
+        .sheet(item: $mail, onDismiss: finishMail) { mail in
+            MailView(recipient: mail.recipient, subject: mail.subject, attachments: mail.attachments) { result in
                 if result == .sent { sentBy = .email }
                 if result == .failed { mailFailed = true }
             }
@@ -270,7 +270,7 @@ struct SendBar: View {
     /// Mail needs an account in the Mail app; without one, the share sheet is offered so another app can send the PDFs.
     /// Scans of different owners go in one mail per owner, one after the other.
     private func email() {
-        if !MFMailComposeViewController.canSendMail() {
+        if !MailView.isAvailable {
             sending.cancel()
             mailUnavailable = true
         } else {
@@ -296,8 +296,7 @@ struct SendBar: View {
             attachingFailed = true
             return
         }
-        attachments = read
-        showingMail = true
+        mail = MailDraft(recipient: mails?.recipient, subject: scans.map(\.scan).mailSubject, attachments: read)
     }
 
     private func delete() {

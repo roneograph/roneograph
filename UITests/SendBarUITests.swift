@@ -6,6 +6,10 @@ final class SendBarUITests: XCTestCase {
     private static let nothingToSendWith = """
         {"owners": [{"id": "6F1C2D3E-0000-4000-8000-000000000001", "name": "Personal", "showsSaveToFiles": false, "showsShare": false}]}
         """
+    private static let emailSet = """
+        {"owners": [{"id": "6F1C2D3E-0000-4000-8000-000000000001", "name": "Claire Dupont", "email": "claire@example.com"}]}
+        """
+
     override func setUp() {
         continueAfterFailure = false
     }
@@ -41,6 +45,20 @@ final class SendBarUITests: XCTestCase {
         let app = roneograph.app
         roneograph.tap(app.buttons["Share"])
         XCTAssertTrue(app.otherElements["ActivityListView"].waitForExistence(timeout: Roneograph.timeout), "The share sheet did not open once the PDF was made")
+    }
+
+    /// Once the PDF is made, nothing on the screen changes anymore before the tap.
+    func testEmailsTheScanToItsOwnerOnTheFirstTap() throws {
+        let roneograph = Roneograph(settings: Self.emailSet, photos: try photos())
+        let app = roneograph.app
+        let made = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@ AND label ENDSWITH %@", "To claire@example.com", "KB")).firstMatch
+        XCTAssertTrue(made.waitForExistence(timeout: 30), "The PDF was not made")
+        roneograph.tap(app.buttons["Email"])
+        XCTAssertTrue(app.staticTexts["To: claire@example.com"].waitForExistence(timeout: Roneograph.timeout), "The mail has no recipient")
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@ AND label ENDSWITH %@", "Attachment: ", ".pdf")).firstMatch.exists, "The mail has no PDF")
+        XCTAssertFalse(app.staticTexts["Subject: 0 documents"].exists)
+        roneograph.tap(app.buttons["Send Mail"])
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Emailed")).firstMatch.waitForExistence(timeout: Roneograph.timeout), "The scan is not marked as emailed")
     }
 
     func testSetsUpSendingFromReview() throws {

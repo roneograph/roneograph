@@ -12,12 +12,14 @@ struct AppData {
 
     static var current: AppData {
         #if DEBUG
-        if ProcessInfo.processInfo.environment["RONEOGRAPH_UI_TESTING"] != nil { return uiTesting() }
+        if isUITesting { return uiTesting() }
         #endif
         return AppData()
     }
 
     #if DEBUG
+    static var isUITesting: Bool { ProcessInfo.processInfo.environment["RONEOGRAPH_UI_TESTING"] != nil }
+
     /// Empty on each launch; RONEOGRAPH_SETTINGS sets the settings to start from, as JSON.
     private static func uiTesting() -> AppData {
         let root = URL.temporaryDirectory.appending(path: "UITesting", directoryHint: .isDirectory)
