@@ -39,6 +39,8 @@ public final class ScanModel: Identifiable {
     @ObservationIgnored var didSave: ((Scan) -> Void)?
     /// Called when the stored scan is deleted because no page is left.
     @ObservationIgnored var didDeleteStoredScan: ((UUID) -> Void)?
+    /// Called when pages are added to a scan on its way to Paperless, whose upload must stop as it lacks them.
+    @ObservationIgnored var didStopArchiving: ((UUID) -> Void)?
     /// The other scans, whose names this one cannot take.
     @ObservationIgnored var otherScans: () -> [Scan] = { [] }
     @ObservationIgnored private var queue: Task<Void, Never>?
@@ -130,6 +132,7 @@ public final class ScanModel: Identifiable {
     // MARK: Capture
 
     /// Saves the photo and the scan right away, then makes the page; false when the photo could not be saved, and the page is lost.
+    /// A scan sent or on its way to Paperless is not sent anymore, as its new pages were not.
     @discardableResult
     public func addPhoto(_ data: Data, liveQuad: Quad?) -> Bool {
         let pending = PendingPage(liveQuad: liveQuad)
@@ -140,6 +143,11 @@ public final class ScanModel: Identifiable {
             return false
         }
         scan.pending.append(pending)
+        scan.sent = nil
+        if scan.archiving?.isInProgress == true {
+            scan.archiving = nil
+            didStopArchiving?(id)
+        }
         save()
         process(pending)
         return true
