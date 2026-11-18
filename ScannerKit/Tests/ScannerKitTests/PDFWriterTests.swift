@@ -19,6 +19,14 @@ struct PDFWriterTests {
         #expect(abs(box.width - Paper.a4.size.width) < 1 && abs(box.height - Paper.a4.size.height) < 1)
         #expect(document.documentAttributes?[PDFDocumentAttribute.titleAttribute] as? String == "Invoice")
         #expect(document.documentAttributes?[PDFDocumentAttribute.creatorAttribute] as? String == "Roneograph")
+        #expect(document.documentAttributes?[PDFDocumentAttribute.subjectAttribute] == nil)
+    }
+
+    @Test func writesTheCommentAsTheSubject() throws {
+        let comment = "Lunch with Ada & Linus <Café Nord>\nto plan the release"
+        let data = try PDFWriter(context: context).data(pages: [PDFPageContent(image: SyntheticPage().render(), look: .gray)], title: "Receipt", subject: comment, defaultPaper: .a4)
+        let document = try #require(PDFDocument(data: data))
+        #expect(document.documentAttributes?[PDFDocumentAttribute.subjectAttribute] as? String == comment)
     }
 
     @Test func writesEachPageInItsOrderAtItsOwnSize() throws {

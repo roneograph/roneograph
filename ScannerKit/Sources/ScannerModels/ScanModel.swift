@@ -14,6 +14,7 @@ public final class ScanModel: Identifiable {
     public struct PDFInputs: Equatable {
         var name: String
         var title: String
+        var comment: String?
         var pages: [ScanPage]
     }
 
@@ -69,7 +70,7 @@ public final class ScanModel: Identifiable {
     }
 
     private var store: ScanStore { processor.store }
-    public var pdfInputs: PDFInputs { PDFInputs(name: scan.fileName, title: scan.title, pages: scan.pages) }
+    public var pdfInputs: PDFInputs { PDFInputs(name: scan.fileName, title: scan.title, comment: scan.comment, pages: scan.pages) }
     public var pdfRequest: PDFRequest { PDFRequest(inputs: pdfInputs, attempt: pdfAttempt) }
     public var fallbackTitle: String { FileNamer.fallback(for: scan.created) }
     /// The name a typed name becomes: trimmed, with single spaces, the first suggestion or the date when empty.
@@ -449,6 +450,15 @@ public final class ScanModel: Identifiable {
         let old = scan.fileName
         scan.name = store.availableName(fileName(for: scan.title), for: scan, among: otherScans(), separator: fileNameFormat.separator.character)
         if !old.isEmpty { store.movePDF(from: old, to: scan) }
+        save()
+    }
+
+    /// Sets the comment as typed, trimmed; a blank one removes it.
+    public func setComment(_ text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let comment = trimmed.isEmpty ? nil : trimmed
+        guard comment != scan.comment else { return }
+        scan.comment = comment
         save()
     }
 

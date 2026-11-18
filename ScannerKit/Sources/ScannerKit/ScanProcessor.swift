@@ -96,7 +96,7 @@ public struct ScanProcessor: Sendable {
     /// Renders, reads and writes one page after the other, so only one page image is in memory at a time.
     @concurrent
     public func pdfData(of scan: Scan) async throws -> Data {
-        let document = try writer.document(title: scan.title, defaultPaper: paper)
+        let document = try writer.document(title: scan.title, subject: scan.comment, defaultPaper: paper)
         for page in scan.pages {
             try await gate.run {
                 try Task.checkCancellation()

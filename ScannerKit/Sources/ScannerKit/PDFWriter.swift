@@ -38,8 +38,8 @@ public struct PDFWriter: Sendable {
         self.context = context
     }
 
-    public func data(pages: [PDFPageContent], title: String, defaultPaper: Paper) throws -> Data {
-        let document = try document(title: title, defaultPaper: defaultPaper)
+    public func data(pages: [PDFPageContent], title: String, subject: String? = nil, defaultPaper: Paper) throws -> Data {
+        let document = try document(title: title, subject: subject, defaultPaper: defaultPaper)
         for page in pages {
             try document.add(page)
         }
@@ -47,8 +47,8 @@ public struct PDFWriter: Sendable {
     }
 
     /// A PDF written one page at a time, so the image of a page can be released once it is added.
-    public func document(title: String, defaultPaper: Paper) throws -> Document {
-        try Document(writer: self, title: title, defaultPaper: defaultPaper)
+    public func document(title: String, subject: String? = nil, defaultPaper: Paper) throws -> Document {
+        try Document(writer: self, title: title, subject: subject, defaultPaper: defaultPaper)
     }
 
     public final class Document {
@@ -57,11 +57,13 @@ public struct PDFWriter: Sendable {
         private let data = NSMutableData()
         private let pdf: CGContext
 
-        fileprivate init(writer: PDFWriter, title: String, defaultPaper: Paper) throws {
+        fileprivate init(writer: PDFWriter, title: String, subject: String?, defaultPaper: Paper) throws {
             self.writer = writer
             self.defaultPaper = defaultPaper
+            var info: [CFString: Any] = [kCGPDFContextTitle: title, kCGPDFContextCreator: writer.creator, kCGPDFContextCreatePDFA: true]
+            if let subject { info[kCGPDFContextSubject] = subject }
             guard let consumer = CGDataConsumer(data: data as CFMutableData),
-                  let pdf = CGContext(consumer: consumer, mediaBox: nil, [kCGPDFContextTitle: title, kCGPDFContextCreator: writer.creator, kCGPDFContextCreatePDFA: true] as CFDictionary) else {
+                  let pdf = CGContext(consumer: consumer, mediaBox: nil, info as CFDictionary) else {
                 throw PDFWriterError.cannotCreateDocument
             }
             self.pdf = pdf

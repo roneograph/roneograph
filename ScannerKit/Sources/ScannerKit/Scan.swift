@@ -132,6 +132,8 @@ public struct Scan: Identifiable, Equatable, Sendable, Codable {
     /// The name as people read it: shown in the app and used as the email subject.
     public var title: String
     public var details = DocumentDetails()
+    /// What the page does not say, such as who was at a lunch: written as the PDF's subject and sent with it; nil when there is none.
+    public var comment: String?
     /// True once the user changed a detail; detection then stops replacing them.
     public var areDetailsEditedByUser = false
     /// True once the user renamed the scan; suggestions then stop replacing the name.
