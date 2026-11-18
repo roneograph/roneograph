@@ -472,7 +472,7 @@ public final class ScanModel: Identifiable {
         applyFileName()
     }
 
-    /// Makes the PDF unless it is current, after the build in progress; cancelling the caller stops the build at the next page.
+    /// Makes the PDF unless it is current, once every page and edit is done and after the build in progress; cancelling the caller stops the build at the next page.
     public func buildPDF(delay: Duration = .milliseconds(200)) async {
         guard !scan.pages.isEmpty else {
             pdf = .idle
@@ -480,6 +480,7 @@ public final class ScanModel: Identifiable {
         }
         guard !hasCurrentPDFOnDisk else { return }
         pdf = .building
+        await waitUntilIdle()
         try? await Task.sleep(for: delay)
         while let running = pdfBuild {
             await running.value

@@ -550,6 +550,33 @@ struct ScanModelTests {
     }
 
     @Test(.timeLimit(.minutes(1)))
+    func buildsThePDFOnlyOnceThePagesAreMade() async throws {
+        let fixture = try Fixture()
+        let model = await fixture.scanModel(pages: 1)
+        let builds = PDFBuilds()
+        model.makePDFData = { scan in
+            builds.start()
+            builds.finish()
+            return Data("%PDF \(scan.pages.count)".utf8)
+        }
+        let release = await fixture.holdGate()
+        model.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
+        model.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
+        let stale = Task { await model.buildPDF(delay: .zero) }
+        let build = Task { await model.buildPDF(delay: .zero) }
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(builds.count == 0)
+
+        stale.cancel()
+        await release()
+        await build.value
+        await stale.value
+        #expect(builds.count == 1)
+        #expect(model.hasCurrentPDF)
+        #expect(try Data(contentsOf: fixture.store.pdfURL(of: model.scan)) == Data("%PDF 3".utf8))
+    }
+
+    @Test(.timeLimit(.minutes(1)))
     func pageWorkOfEveryScanWaitsForItsTurn() async throws {
         let fixture = try Fixture()
         let edited = await fixture.scanModel(pages: 1)
