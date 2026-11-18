@@ -1012,6 +1012,37 @@ struct ScanModelTests {
     }
 
     @Test(.timeLimit(.minutes(1)))
+    func readsTheFirstPageAgainOnceTheAppIsActiveWhenReadingItFailedWhileItWasNot() async throws {
+        let fixture = try Fixture()
+        let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
+        let model = fixture.scanModel()
+        let fallback = model.scan.title
+        let reads = Counter()
+        let gate = fixture.processor.gate
+        let lines = textLines(["LUMEN ENERGY SAS", "Invoice", "FERNWOOD SAS"])
+        model.readDocument = { _, _, owners in
+            guard reads.next() > 1 else {
+                gate.isPaused = true
+                throw CancellationError()
+            }
+            return DocumentDetector().detect(lines: lines, owners: owners)
+        }
+        model.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
+        try await fixture.waitUntilGateHasWaiting(1)
+        #expect(model.processing == 0)
+        #expect(model.isReading)
+        #expect(model.scan.title == fallback)
+
+        gate.isPaused = false
+        await model.waitUntilIdle()
+        #expect(reads.count == 2)
+        #expect(model.scan.read != nil)
+        #expect(model.scan.title != fallback)
+        #expect(model.owner.id == holding.id)
+        #expect(!model.isReading)
+    }
+
+    @Test(.timeLimit(.minutes(1)))
     func isReadingFromTheFirstPhotoUntilThePageIsRead() async throws {
         let fixture = try Fixture()
         let model = fixture.scanModel()

@@ -158,6 +158,7 @@ public final class ScanModel: Identifiable {
         let gate = processor.gate
         enqueue { [self] in
             while await gate.run({ await make(pending) }) {}
+            while readsPage { await gate.run { await readFirstPage() } }
         }
     }
 
@@ -173,7 +174,7 @@ public final class ScanModel: Identifiable {
             scan.pending.removeAll { $0.id == pending.id }
             scan.pages.append(page)
             save()
-            if scan.pages.count == 1 || scan.read == nil, let first = scan.pages.first { await suggestNames(from: first) }
+            if scan.pages.count == 1 || scan.read == nil { await readFirstPage() }
         } catch {
             guard !isDeleted else { return false }
             if processor.gate.isPaused { return true }
@@ -194,14 +195,28 @@ public final class ScanModel: Identifiable {
         save()
     }
 
+    /// Keeps `readsPage` set while the page is to be read again, as reading it failed while the app was not active.
+    private func readFirstPage() async {
+        readsPage = true
+        if !isDeleted, let first = scan.pages.first {
+            readsPage = await suggestNames(from: first)
+        } else {
+            readsPage = false
+        }
+    }
+
     /// Reads the details and names on the first page; what the user corrected for the same issuer before wins over what was read.
     /// A scan with the default owner gets the owner whose name or address is on the page, or else the one remembered for the issuer.
-    /// When the page cannot be read, it is read again after the next page.
-    private func suggestNames(from page: ScanPage) async {
+    /// When the page cannot be read, it is read again after the next page; returns true when it failed while the app was not active, to be read again once it is.
+    private func suggestNames(from page: ScanPage) async -> Bool {
         let readDocument = readDocument, scanID = scan.id, date = scan.created, owners = settings.value.ownerMatcher
-        readsPage = true
-        defer { readsPage = false }
-        guard var document = try? await readDocument(page, scanID, owners), !isDeleted else { return }
+        let read: DetectedDocument?
+        do {
+            read = try await readDocument(page, scanID, owners)
+        } catch {
+            return !isDeleted && processor.gate.isPaused
+        }
+        guard var document = read, !isDeleted else { return false }
         scan.read = ReadDocument(details: document.details, parts: document.parts)
         let learned = settings.learnedIssuer(for: document.issuerKeys)
         var remembered = Set<RememberedValue>()
@@ -240,6 +255,7 @@ public final class ScanModel: Identifiable {
         }
         scan.remembered = remembered
         applyFileName()
+        return false
     }
 
     // MARK: Pages
