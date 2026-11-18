@@ -7,8 +7,7 @@ public struct ScanProcessor: Sendable {
     private let extractor: PageExtractor
     private let cleaner: PageCleaner
     private let writer: PDFWriter
-    private let reader: TextReader
-    private let texts = PageTextCache()
+    private let readText: @Sendable (CIImage) async throws -> [TextLine]
     private let detectionSize: CGFloat = 1600
     private let previewSize: CGFloat = 1200
     /// Shared by every scan: callers run adding, recropping, previewing and reading a page in it, and the PDF runs each of its pages in it.
@@ -17,7 +16,8 @@ public struct ScanProcessor: Sendable {
     public let paper: Paper
 
     /// Renders on a context of its own: concurrent renders on one context can change pixels, and only the work in the gate is kept from running at once.
-    public init(store: ScanStore, paper: Paper = Paper(region: Locale.current.region), background: (any BackgroundActivity)? = nil) {
+    /// `readText` reads the lines of text of a cleaned page.
+    public init(store: ScanStore, paper: Paper = Paper(region: Locale.current.region), background: (any BackgroundActivity)? = nil, readText: @escaping @Sendable (CIImage) async throws -> [TextLine] = { try await TextReader().lines(in: $0) }) {
         let context = CIContext(options: [.cacheIntermediates: false])
         self.store = store
         self.paper = paper
@@ -25,7 +25,7 @@ public struct ScanProcessor: Sendable {
         extractor = PageExtractor(context: context)
         cleaner = PageCleaner(context: context)
         writer = PDFWriter(context: context)
-        reader = TextReader()
+        self.readText = readText
     }
 
     public enum ProcessingError: Error {
@@ -73,10 +73,24 @@ public struct ScanProcessor: Sendable {
         try data.write(to: store.previewURL(scanID: scanID, pageID: page.id), options: .atomic)
     }
 
-    /// The details of the document, the words to name it after and the owner it is addressed to, from the text of the page.
+    /// The details of the document, the words to name it after and the owner it is addressed to, from the text of the page as the PDF has it.
     public func detectDocument(on page: ScanPage, scanID: UUID, owners: OwnerMatcher = OwnerMatcher()) async throws -> DetectedDocument? {
-        guard let preview = CIImage(contentsOf: store.previewURL(scanID: scanID, pageID: page.id)) else { return nil }
-        return DocumentDetector().detect(lines: try await reader.lines(in: preview), owners: owners, aspectRatio: preview.extent.width / preview.extent.height)
+        guard let flat = CIImage(contentsOf: store.flatURL(scanID: scanID, page: page)) else { return nil }
+        return try await detectDocument(on: page, flat: flat, scanID: scanID, owners: owners)
+    }
+
+    /// The same from the flat page given, as page-cleanup does with pages that do not come from a photo.
+    public func detectDocument(on page: ScanPage, flat: CIImage, scanID: UUID, owners: OwnerMatcher = OwnerMatcher()) async throws -> DetectedDocument {
+        let image = cleaner.render(flat, analysis: page.analysis, look: page.look)
+        return DocumentDetector().detect(lines: try await text(of: page, scanID: scanID, rendered: image), owners: owners, aspectRatio: image.extent.width / image.extent.height)
+    }
+
+    /// The text of the cleaned page, read once for each way it is cut and turned and kept with the scan; a reading that fails is tried again the next time.
+    private func text(of page: ScanPage, scanID: UUID, rendered: CIImage) async throws -> [TextLine] {
+        if let text = store.text(of: page, scanID: scanID) { return text }
+        let text = try await readText(rendered)
+        try? store.saveText(text, of: page, scanID: scanID)
+        return text
     }
 
     /// Renders, reads and writes one page after the other, so only one page image is in memory at a time.
@@ -88,7 +102,7 @@ public struct ScanProcessor: Sendable {
                 try Task.checkCancellation()
                 guard let flat = CIImage(contentsOf: store.flatURL(scanID: scan.id, page: page)) else { throw ProcessingError.unreadablePage }
                 let image = cleaner.render(flat, analysis: page.analysis, look: page.look)
-                let text = try await texts.lines(of: page) { try await reader.lines(in: image) }
+                let text = try await text(of: page, scanID: scan.id, rendered: image)
                 try document.add(PDFPageContent(image: image, look: page.look, textLineHeight: page.analysis.textLineHeight, text: text))
             }
         }

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Keeps each scan in its own hidden folder (photos, flattened pages, previews, scan.json),
+/// Keeps each scan in its own hidden folder (photos, flattened pages, previews, the text read on the pages, scan.json),
 /// and its PDF in the documents folder, which the Files app shows.
 public struct ScanStore: Sendable {
     public let scansDirectory: URL
@@ -21,6 +21,7 @@ public struct ScanStore: Sendable {
     }
 
     public func previewURL(scanID: UUID, pageID: UUID) -> URL { directory(of: scanID).appending(path: "\(pageID.uuidString)-preview.jpg") }
+    public func textURL(scanID: UUID, pageID: UUID) -> URL { directory(of: scanID).appending(path: "\(pageID.uuidString)-text.json") }
 
     /// The local PDF never goes into the folders of a custom format.
     public func pdfURL(of scan: Scan) -> URL {
@@ -37,6 +38,18 @@ public struct ScanStore: Sendable {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         try encoder.encode(scan).write(to: directory(of: scan.id).appending(path: "scan.json"), options: .atomic)
+    }
+
+    /// The text read on the page as it is cut and turned now, nil until it is read; a new look moves no text.
+    public func text(of page: ScanPage, scanID: UUID) -> [TextLine]? {
+        guard let data = try? Data(contentsOf: textURL(scanID: scanID, pageID: page.id)),
+              let text = try? JSONDecoder().decode(PageText.self, from: data),
+              text.crop == page.crop, text.orientation == page.analysis.orientation else { return nil }
+        return text.lines
+    }
+
+    public func saveText(_ lines: [TextLine], of page: ScanPage, scanID: UUID) throws {
+        try JSONEncoder().encode(PageText(crop: page.crop, orientation: page.analysis.orientation, lines: lines)).write(to: textURL(scanID: scanID, pageID: page.id), options: .atomic)
     }
 
     /// All scans, newest first; unreadable folders are skipped.
@@ -118,4 +131,11 @@ public struct ScanStore: Sendable {
             try? FileManager.default.removeItem(at: old)
         }
     }
+}
+
+/// The lines read on a page, with the crop and the orientation they were read on.
+private struct PageText: Codable {
+    var crop: Int
+    var orientation: PageOrientation
+    var lines: [TextLine]
 }
