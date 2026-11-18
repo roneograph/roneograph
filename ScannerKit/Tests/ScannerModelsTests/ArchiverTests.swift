@@ -211,7 +211,7 @@ struct ArchiverTests {
         #expect(app.notSent.isEmpty)
 
         server.answer("GET", "/api/document_types/", #"{"results": [{"id": 3, "name": "Invoice"}]}"#)
-        await app.archiver?.prepareWaitingUploads()
+        await app.archiver?.resume()
         #expect(uploader.uploads.count == 1)
         #expect(scan.scan.archiving == Archiving())
     }
@@ -227,7 +227,7 @@ struct ArchiverTests {
 
         server.answer("GET", "/api/document_types/", #"{"results": [{"id": 3, "name": "Invoice"}]}"#)
         let (later, archiver, uploader) = relaunch()
-        await archiver.prepareWaitingUploads()
+        await archiver.resume()
         #expect(uploader.uploads.count == 1)
         #expect(later.model(for: scan.id)?.scan.archiving == Archiving())
         #expect(try #require(uploader.uploads.first).body.range(of: try Data(contentsOf: url)) != nil)
@@ -301,7 +301,7 @@ struct ArchiverTests {
         #expect(app.scans.first?.status == "Waiting for Paperless · 1 page")
 
         server.answer("GET", "/api/correspondents/", #"{"results": [{"id": 4, "name": "Lumen Energy"}]}"#)
-        await app.archiver?.prepareWaitingUploads()
+        await app.archiver?.resume()
         #expect(String(decoding: try #require(uploader.uploads.first).body, as: UTF8.self).contains("name=\"correspondent\"\r\n\r\n4\r\n"))
     }
 
@@ -372,7 +372,7 @@ struct ArchiverTests {
         #expect(scan.scan.archiving?.state == .waiting("The server is not ready (error 502)."))
 
         server.answer("GET", "/api/custom_fields/", #"{"results": [{"id": 5, "name": "Owner", "data_type": "string"}]}"#, version: "2.19.0")
-        await app.archiver?.prepareWaitingUploads()
+        await app.archiver?.resume()
         #expect(String(decoding: try #require(uploader.uploads.first).body, as: UTF8.self).contains("{\"5\":\"Me\"}"))
     }
 
@@ -510,6 +510,89 @@ struct ArchiverTests {
         #expect(scan.scan.sent?.method == .paperless)
     }
 
+    @Test func appliesAfterARelaunchAResultReceivedWhileTheAppWasNotActive() async throws {
+        try connect()
+        let scan = await readyScan()
+        try await app.archive([scan])
+        app.setActive(false)
+        app.archiver?.complete(UploadResult(scanID: scan.id, status: 200))
+
+        let (later, archiver, uploader) = relaunch()
+        await activate(later, archiver)
+        #expect(later.model(for: scan.id)?.scan.sent?.method == .paperless)
+        #expect(later.model(for: scan.id)?.scan.archiving == nil)
+        #expect(uploader.uploads.isEmpty)
+        #expect(uploadFiles().isEmpty)
+    }
+
+    @Test func startsAgainAfterARelaunchAnUploadTheSessionNoLongerHas() async throws {
+        try connect()
+        let scan = await readyScan()
+        try await app.archive([scan])
+        let first = try #require(uploader.uploads.first)
+
+        let (later, archiver, uploader) = relaunch()
+        await activate(later, archiver)
+        #expect(uploader.uploads.map(\.body) == [first.body])
+        #expect(uploader.uploads.first?.request.value(forHTTPHeaderField: "Authorization") == "Token secret")
+        #expect(later.model(for: scan.id)?.scan.archiving == Archiving())
+    }
+
+    @Test func leavesAfterARelaunchAnUploadTheSessionStillHas() async throws {
+        try connect()
+        let scan = await readyScan()
+        try await app.archive([scan])
+
+        let (later, archiver, _) = relaunch(uploader: uploader)
+        await activate(later, archiver)
+        #expect(uploader.uploads.count == 1)
+        #expect(later.model(for: scan.id)?.scan.archiving == Archiving())
+    }
+
+    @Test func preparesAgainAfterARelaunchAnUploadWhosePreparationWasCutShort() async throws {
+        try connect()
+        let scan = await readyScan()
+        let release = server.hold()
+        defer { release() }
+        let archiving = Task { try await app.archive([scan]) }
+        try await server.waitUntilHolding(1)
+        #expect(scan.scan.archiving == Archiving())
+
+        let (later, archiver, uploader) = relaunch(server: FakeServer())
+        await activate(later, archiver)
+        #expect(uploader.uploads.count == 1)
+        #expect(later.model(for: scan.id)?.scan.archiving == Archiving())
+        archiving.cancel()
+    }
+
+    @Test func preparesAWaitingUploadOnceWhenTheAppIsActivatedTwiceInARow() async throws {
+        try connect()
+        server.answer("GET", "/api/custom_fields/", "", status: 503)
+        let scan = await readyScan()
+        try await app.archive([scan])
+        #expect(scan.scan.archiving?.state == .waiting("The server is not ready (error 503)."))
+        let archiver = try #require(app.archiver)
+        server.delay = .milliseconds(50)
+
+        async let first: Void = archiver.resume()
+        async let second: Void = archiver.resume()
+        _ = await (first, second)
+        #expect(uploader.uploads.count == 1)
+        #expect(uploader.cancelled.isEmpty)
+    }
+
+    @Test func archivingTwiceAtOnceUploadsOnce() async throws {
+        try connect()
+        let scan = await readyScan()
+        server.delay = .milliseconds(50)
+
+        async let first: Void = app.archive([scan])
+        async let second: Void = app.archive([scan])
+        _ = try await (first, second)
+        #expect(uploader.uploads.count == 1)
+        #expect(scan.scan.archiving == Archiving())
+    }
+
     @Test func failsAnUploadWhoseServerWasDisconnected() async throws {
         try connect()
         let scan = await readyScan()
@@ -542,12 +625,16 @@ struct ArchiverTests {
         #expect(tokens.token(for: holding.id) == nil)
     }
 
-    /// The app model, archiver and uploader of the next launch, on the same scans, settings, tokens and server.
-    private func relaunch() -> (AppModel, Archiver, FakeUploader) {
-        let uploader = FakeUploader()
-        let archiver = Archiver(uploader: uploader, tokens: tokens, directory: fixture.root.appending(path: "Uploads"), fetch: server.fetch)
+    /// The app model, archiver and uploader of the next launch, on the same scans, settings and tokens; a new uploader has no upload left.
+    private func relaunch(uploader: FakeUploader = FakeUploader(), server: FakeServer? = nil) -> (AppModel, Archiver, FakeUploader) {
+        let archiver = Archiver(uploader: uploader, tokens: tokens, directory: fixture.root.appending(path: "Uploads"), fetch: (server ?? self.server).fetch)
         let app = AppModel(processor: fixture.processor, settings: fixture.settings, archiver: archiver)
         return (app, archiver, uploader)
+    }
+
+    private func activate(_ app: AppModel, _ archiver: Archiver) async {
+        app.setActive(true)
+        await archiver.resuming?.value
     }
 
     private func uploadFiles() -> [String] {
@@ -566,13 +653,21 @@ final class FakeUploader: Uploader {
 
     var uploads: [Upload] = []
     var cancelled: [UUID] = []
+    /// The scans whose upload was started and not cancelled; the fake never finishes one.
+    var uploading: Set<UUID> = []
 
     func upload(_ request: URLRequest, fromFile file: URL, scanID: UUID, after delay: Duration) {
         uploads.append(Upload(request: request, body: (try? Data(contentsOf: file)) ?? Data(), scanID: scanID, delay: delay))
+        uploading.insert(scanID)
     }
 
     func cancel(scanID: UUID) {
         cancelled.append(scanID)
+        uploading.remove(scanID)
+    }
+
+    func uploadingScanIDs() async -> Set<UUID> {
+        uploading
     }
 }
 
@@ -597,11 +692,37 @@ final class FakeServer: Sendable {
     private struct State {
         var answers: [String: [(status: Int, body: String, version: String?)]] = [:]
         var requests: [URLRequest] = []
+        var delay: Duration = .zero
+        var isHolding = false
+        var held: [CheckedContinuation<Void, Never>] = []
     }
 
     private let state = Mutex(State())
 
     var requests: [URLRequest] { state.withLock { $0.requests } }
+
+    /// How long each answer takes.
+    var delay: Duration {
+        get { state.withLock { $0.delay } }
+        set { state.withLock { $0.delay = newValue } }
+    }
+
+    /// Makes the requests wait for an answer until the returned closure is called.
+    func hold() -> @Sendable () -> Void {
+        state.withLock { $0.isHolding = true }
+        return { [self] in
+            let held = state.withLock { state in
+                state.isHolding = false
+                defer { state.held = [] }
+                return state.held
+            }
+            held.forEach { $0.resume() }
+        }
+    }
+
+    func waitUntilHolding(_ count: Int) async throws {
+        while state.withLock({ $0.held.count }) < count { try await Task.sleep(for: .milliseconds(1)) }
+    }
 
     func requests(to path: String) -> [URLRequest] {
         requests.filter { $0.url?.path() == path }
@@ -614,6 +735,14 @@ final class FakeServer: Sendable {
 
     var fetch: Archiver.Fetch {
         { [self] request in
+            await withCheckedContinuation { continuation in
+                let holds = state.withLock { state in
+                    if state.isHolding { state.held.append(continuation) }
+                    return state.isHolding
+                }
+                if !holds { continuation.resume() }
+            }
+            try await Task.sleep(for: delay)
             let answer = state.withLock { state in
                 state.requests.append(request)
                 let key = "\(request.httpMethod ?? "GET") \(request.url?.path() ?? "")"
