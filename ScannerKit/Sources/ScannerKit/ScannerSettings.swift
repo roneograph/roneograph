@@ -7,8 +7,6 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
     public var defaultOwnerID: UUID {
         didSet { if !owners.contains(where: { $0.id == defaultOwnerID }) { defaultOwnerID = oldValue } }
     }
-    /// Set once the review screen tip about tapping pages was closed, or a page was opened.
-    public var dismissedPageTip = false
     public var autoCapture = true
     /// Categories the user added to the built-in ones.
     public var categories: [DocumentCategory] = []
@@ -29,7 +27,6 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
         if !owners.isEmpty { self.owners = owners }
         let defaultOwnerID = try container.decode(.defaultOwnerID, or: self.owners[0].id)
         self.defaultOwnerID = hasOwner(defaultOwnerID) ? defaultOwnerID : self.owners[0].id
-        dismissedPageTip = try container.decode(.dismissedPageTip, or: dismissedPageTip)
         autoCapture = try container.decode(.autoCapture, or: autoCapture)
         categories = try container.decode(.categories, or: categories)
         learnedIssuers = try container.decode(.learnedIssuers, or: learnedIssuers)

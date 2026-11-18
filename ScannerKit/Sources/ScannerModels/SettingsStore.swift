@@ -164,12 +164,6 @@ public final class SettingsStore {
         value.categories.removeAll { $0 == category }
     }
 
-    public var showsPageTip: Bool { !value.dismissedPageTip }
-
-    public func dismissPageTip() {
-        if !value.dismissedPageTip { value.dismissedPageTip = true }
-    }
-
     /// Saving encodes every setting, learned issuers included, so a burst of changes such as typing is saved once.
     private func scheduleSave() {
         pendingSave?.cancel()

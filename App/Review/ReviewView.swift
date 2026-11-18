@@ -13,10 +13,7 @@ struct ReviewView: View {
             VStack(alignment: .leading, spacing: 14) {
                 DocumentCard(scan: scan, settings: app.settings) { editing = $0 }
                     .padding(.top, 8)
-                if app.settings.showsPageTip, !scan.scan.pages.isEmpty {
-                    PageTip { withAnimation { app.settings.dismissPageTip() } }
-                }
-                PageGrid(scan: scan, open: open, addPages: { app.camera = scan })
+                PageGrid(scan: scan, open: { viewedPage = $0 }, addPages: { app.camera = scan })
             }
             .padding(.horizontal)
             .padding(.bottom, 24)
@@ -53,11 +50,6 @@ struct ReviewView: View {
         .onChange(of: scan.isEmpty && scan.failure == nil) { _, pagesFailed in
             if pagesFailed { app.delete(scan.id) }
         }
-    }
-
-    private func open(_ page: ScanPage) {
-        app.settings.dismissPageTip()
-        viewedPage = page
     }
 
 }
@@ -126,33 +118,5 @@ private struct PageGrid: View {
         let pages = scan.scan.pages
         guard let index = pages.firstIndex(where: { $0.id == page.id }), pages.indices.contains(index + offset) else { return }
         withAnimation { scan.movePage(page.id, to: pages[index + offset].id) }
-    }
-}
-
-/// Shown until closed or until a page is opened: pages do more than they show.
-private struct PageTip: View {
-    let close: () -> Void
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "hand.tap").font(.title2).foregroundStyle(.tint)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Tap a page to adjust it").font(.subheadline.weight(.semibold))
-                Text("Change its look, rotate, crop or delete it. Touch and hold to move it.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer(minLength: 0)
-            Button("Close", systemImage: "xmark", action: close)
-                .labelStyle(.iconOnly)
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(.tertiary)
-                .frame(width: 44, height: 44)
-                .contentShape(Rectangle())
-                .padding(-12)
-                .buttonStyle(.plain)
-        }
-        .padding(12)
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
     }
 }

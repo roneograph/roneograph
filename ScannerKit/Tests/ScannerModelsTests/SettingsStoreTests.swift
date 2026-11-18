@@ -37,7 +37,7 @@ struct SettingsStoreTests {
         let settings = SettingsStore(defaults: defaults, saveDelay: .seconds(3600))
         settings.save()
         #expect(defaults.writes == 0)
-        settings.dismissPageTip()
+        settings.value.autoCapture = false
         settings.save()
         settings.save()
         #expect(defaults.writes == 1)
@@ -220,15 +220,6 @@ struct SettingsStoreTests {
         fixture.settings.removeCategory(DocumentCategory("Car"))
         fixture.settings.save()
         #expect(SettingsStore(defaults: fixture.defaults).value.categories == [DocumentCategory("Apartment")])
-    }
-
-    @Test func showsThePageTipUntilDismissed() throws {
-        let fixture = try Fixture()
-        #expect(fixture.settings.showsPageTip)
-        fixture.settings.dismissPageTip()
-        #expect(!fixture.settings.showsPageTip)
-        fixture.settings.save()
-        #expect(!SettingsStore(defaults: fixture.defaults).showsPageTip)
     }
 }
 

@@ -55,7 +55,7 @@ struct ArchiverTests {
         let archiver = Archiver(uploader: uploader, tokens: tokens, directory: fixture.root.appending(path: "Uploads"), fetch: server.fetch)
 
         _ = AppModel(processor: fixture.processor, settings: settings, archiver: archiver)
-        settings.dismissPageTip()
+        settings.value.autoCapture = false
         settings.save()
         _ = AppModel(processor: fixture.processor, settings: SettingsStore(defaults: fixture.defaults), archiver: archiver)
 
