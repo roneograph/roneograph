@@ -12,9 +12,8 @@ struct RoneographApp: App {
 
     init() {
         let data = AppData.current
-        let context = CIContext(options: [.cacheIntermediates: false])
         let store = ScanStore(scansDirectory: data.support.appending(path: "Scans", directoryHint: .isDirectory), documentsDirectory: data.documents)
-        let processor = ScanProcessor(store: store, context: context, background: SystemBackgroundActivity())
+        let processor = ScanProcessor(store: store, background: SystemBackgroundActivity())
         let uploader = BackgroundUploader(identifier: data.paperlessIdentifier)
         let archiver = Archiver(uploader: uploader, tokens: KeychainTokens(service: data.paperlessIdentifier), directory: data.support.appending(path: "Uploads", directoryHint: .isDirectory), fetch: PaperlessHTTP.fetch)
         uploader.archiver = archiver
@@ -22,7 +21,7 @@ struct RoneographApp: App {
         if let value = data.settings { settings.value = value }
         let app = AppModel(processor: processor, settings: settings, archiver: archiver)
         _app = State(initialValue: app)
-        let service = CameraService(extractor: PageExtractor(context: context))
+        let service = CameraService(extractor: PageExtractor(context: CIContext(options: [.cacheIntermediates: false])))
         session = service.session
         _camera = State(initialValue: CameraModel(device: service, settings: app.settings))
         #if DEBUG

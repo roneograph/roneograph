@@ -8,7 +8,7 @@ import Testing
 final class ScanProcessorTests {
     let root = FileManager.default.temporaryDirectory.appending(path: "ScanProcessorTests-\(UUID().uuidString)")
     lazy var store = ScanStore(scansDirectory: root.appending(path: "Scans"), documentsDirectory: root.appending(path: "Documents"))
-    lazy var processor = ScanProcessor(store: store, context: CIContext(), paper: .a4)
+    lazy var processor = ScanProcessor(store: store, paper: .a4)
 
     deinit {
         try? FileManager.default.removeItem(at: root)

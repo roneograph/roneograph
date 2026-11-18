@@ -16,7 +16,9 @@ public struct ScanProcessor: Sendable {
     /// The paper of pages whose size is not clear from their proportions.
     public let paper: Paper
 
-    public init(store: ScanStore, context: CIContext, paper: Paper = Paper(region: Locale.current.region), background: (any BackgroundActivity)? = nil) {
+    /// Renders on a context of its own: concurrent renders on one context can change pixels, and only the work in the gate is kept from running at once.
+    public init(store: ScanStore, paper: Paper = Paper(region: Locale.current.region), background: (any BackgroundActivity)? = nil) {
+        let context = CIContext(options: [.cacheIntermediates: false])
         self.store = store
         self.paper = paper
         gate = ProcessingGate(background: background)

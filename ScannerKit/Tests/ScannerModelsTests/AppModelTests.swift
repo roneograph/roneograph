@@ -74,7 +74,7 @@ struct AppModelTests {
         scan.addPhoto(SyntheticPhoto.jpeg(page: .rect(x: 0.2, y: 0.1, width: 0.6, height: 0.6)), liveQuad: nil)
         let captured = scan.scan.pending.map(\.id)
 
-        let relaunched = AppModel(processor: ScanProcessor(store: fixture.store, context: CIContext(), paper: .a4), settings: fixture.settings)
+        let relaunched = AppModel(processor: ScanProcessor(store: fixture.store, paper: .a4), settings: fixture.settings)
         while fixture.store.all().first?.pages.count != 2 { try await Task.sleep(for: .milliseconds(10)) }
         let stored = try #require(fixture.store.all().first)
         #expect(stored.pages.map(\.id) == captured)
