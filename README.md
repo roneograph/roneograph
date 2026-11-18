@@ -37,10 +37,10 @@ The PDF:
 Naming:
 
 - Suggests a name from the text, such as the document type, the sender and its number.
-- Reads the details of the document: its category (invoice, payslip, tax notice, or one of your own), its issuer, the date printed on it and its reference number; you can change any of them.
-- Remembers a corrected name, issuer and category and reuses them for the next documents from the same issuer; a month, date or number in your name follows the next document. Remembered values are marked on the review screen and can be forgotten there or in Settings.
+- Reads the details of the document: its document type (invoice, payslip, tax notice, or one of your own), its issuer, the date printed on it and its reference number; you can change any of them.
+- Remembers a corrected name, issuer and document type and reuses them for the next documents from the same issuer; a month, date or number in your name follows the next document. Remembered values are marked on the review screen and can be forgotten there or in Settings.
 - Follows your file name format: date first or last, in three formats, from the document or the scan day, with spaces, dashes or underscores, lowercase or not.
-- Or a custom format built from variables, such as `{YYYY}-{MM} {CATEGORY} {ISSUER}`; the format editor shows what each part gives for a sample invoice.
+- Or a custom format built from variables, such as `{YYYY}-{MM} {TYPE} {ISSUER}`; the format editor shows what each part gives for a sample invoice.
 - The file name is the name of the shared PDF and its original file name in Paperless.
 
 Sending:
@@ -53,7 +53,7 @@ Sending:
 - On Home, swipe a scan from the left to send it: Archive first, which a full swipe does, then Share, also for a scan already sent. Swipe from the right to delete it.
 - When more than one scan is not sent, a card at the top of Home archives them all in one tap with Archive All, or offers Share All when the owners are not all connected to Paperless.
 - Owners keep your own paper apart from a company's you scan for: each owner has its names, addresses, Paperless server and file name format, and a document gets the owner whose name or address is printed at the top of the page (with or without civility, initials or legal form), or the one remembered for its issuer, or the default one.
-- Archive uploads PDFs to a Paperless-ngx server, one per owner, into the storage path picked for the owner, with their title, date, issuer as correspondent, category as document type, owner's name in an Owner custom field and comment in a Comment one (each created when missing, the fields from Paperless-ngx 2.19), so a single storage path such as `{{ custom_fields|get_cf_value('Owner', 'unsorted') }}/{{ document_type }}/{{ original_name }}` can sort documents by owner; uploads go on in the background and are tried again until the server takes them. The Paperless setup lists the placeholders that read each field and storage paths to copy.
+- Archive uploads PDFs to a Paperless-ngx server, one per owner, into the storage path picked for the owner, with their title, date, issuer as correspondent, document type, owner's name in an Owner custom field and comment in a Comment one (each created when missing, the fields from Paperless-ngx 2.19), so a single storage path such as `{{ custom_fields|get_cf_value('Owner', 'unsorted') }}/{{ document_type }}/{{ original_name }}` can sort documents by owner; uploads go on in the background and are tried again until the server takes them. The Paperless setup lists the placeholders that read each field and storage paths to copy.
 - Keeps a scan that was not sent until you delete it, visible in Files; a sent scan is deleted from the iPhone 24 hours after it was sent. Sent means archived, once the Paperless server took it (a waiting or failed upload is kept), or shared, once the share sheet completed, whatever the destination.
 
 ## Requirements
