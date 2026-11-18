@@ -199,7 +199,7 @@ public enum Paperless {
     public static func outcome(status: Int?, body: Data, error: URLError.Code?) -> Outcome {
         if let error {
             switch error {
-            case .serverCertificateUntrusted, .serverCertificateHasBadDate, .serverCertificateHasUnknownRoot, .serverCertificateNotYetValid, .clientCertificateRejected, .secureConnectionFailed, .appTransportSecurityRequiresSecureConnection:
+            case .serverCertificateUntrusted, .serverCertificateHasBadDate, .serverCertificateHasUnknownRoot, .serverCertificateNotYetValid, .clientCertificateRejected, .appTransportSecurityRequiresSecureConnection:
                 return .failed("The server's certificate is not trusted.")
             case .unsupportedURL, .badURL:
                 return .failed("The server address is not valid.")

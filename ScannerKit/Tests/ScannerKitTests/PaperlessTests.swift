@@ -188,6 +188,8 @@ struct PaperlessTests {
         (.timedOut, .retry("The server cannot be reached.")),
         (.cannotFindHost, .retry("The server cannot be found.")),
         (.serverCertificateUntrusted, .failed("The server's certificate is not trusted.")),
+        (.serverCertificateHasBadDate, .failed("The server's certificate is not trusted.")),
+        (.secureConnectionFailed, .retry("The server cannot be reached.")),
     ])
     func tellsWhatANetworkErrorMeans(error: URLError.Code, outcome: Paperless.Outcome) {
         #expect(Paperless.outcome(status: nil, body: Data(), error: error) == outcome)
