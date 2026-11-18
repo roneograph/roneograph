@@ -32,7 +32,7 @@ public final class AppModel {
         self.now = now
         archiver?.model = { [weak self] in self?.model(for: $0) }
         archiver?.scans = { [weak self] in self?.scans ?? [] }
-        archiver?.forgetTokens(keeping: settings.value.owners)
+        if !settings.hasUnreadableSettings { archiver?.forgetTokens(keeping: settings.value.owners) }
         refresh()
         for scan in scans where !scan.pending.isEmpty { _ = model(for: scan.id) }
     }

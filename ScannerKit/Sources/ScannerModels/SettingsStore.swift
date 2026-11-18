@@ -43,6 +43,11 @@ public final class SettingsStore {
         }
     }
 
+    /// Whether settings this build could not read are kept aside, so what they refer to, such as Paperless tokens, must be kept too.
+    public var hasUnreadableSettings: Bool {
+        defaults.data(forKey: Self.unreadableKey) != nil
+    }
+
     /// Remembers the folder picked in Files for the Save button of an owner; refuses the app's own folder.
     public func chooseArchiveFolder(_ url: URL, for ownerID: UUID?) throws {
         if let appFolder, url.resolvingSymlinksInPath().pathComponents.starts(with: appFolder.resolvingSymlinksInPath().pathComponents) {

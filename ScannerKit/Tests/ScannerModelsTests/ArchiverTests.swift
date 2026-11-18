@@ -47,6 +47,21 @@ struct ArchiverTests {
         #expect(tokens.ownerIDs() == [fixture.settings.value.defaultOwnerID])
     }
 
+    @Test func keepsTheTokensWhileSettingsItCouldNotReadAreSetAside() throws {
+        let ownerID = UUID()
+        try tokens.setToken("secret", for: ownerID)
+        fixture.defaults.set(Data(#"{"keepScans":"decade"}"#.utf8), forKey: "settings")
+        let settings = SettingsStore(defaults: fixture.defaults)
+        let archiver = Archiver(uploader: uploader, tokens: tokens, directory: fixture.root.appending(path: "Uploads"), fetch: server.fetch)
+
+        _ = AppModel(processor: fixture.processor, settings: settings, archiver: archiver)
+        settings.dismissPageTip()
+        settings.save()
+        _ = AppModel(processor: fixture.processor, settings: SettingsStore(defaults: fixture.defaults), archiver: archiver)
+
+        #expect(tokens.token(for: ownerID) == "secret")
+    }
+
     @Test func showsArchiveAndEmailOnlyWhenEveryOwnerOfTheScansHasThem() async throws {
         let holding = try #require(fixture.settings.addOwner("Holding"))
         let personal = await readyScan()
