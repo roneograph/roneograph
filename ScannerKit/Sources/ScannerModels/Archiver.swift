@@ -51,7 +51,8 @@ public final class Archiver {
     private let directory: URL
     /// Sends the requests that prepare an upload, while the app is open.
     private let fetch: Fetch
-    /// The IDs of the objects of each catalog of each server by key, nil for one that cannot be sent; read once per launch and completed with the ones created.
+    /// The IDs of the objects of each catalog of each server and token by key, nil for one that cannot be sent; read once per launch and completed with the ones created.
+    /// Owners with another Paperless user on the same server can see other objects.
     private var ids: [Known: [String: Int?]] = [:]
     /// The model of a scan, set by the app model.
     var model: (UUID) -> ScanModel? = { _ in nil }
@@ -173,7 +174,7 @@ public final class Archiver {
     /// The ID of the object of a catalog under the key of its name, read once per launch and created when the server has none;
     /// nil when it cannot be sent, or when the server refuses to list or make it.
     private func find(_ name: String, in catalog: Catalog, server: URL, token: String) async -> Result<Int?, Unreachable> {
-        let known = Known(server: server, catalog: catalog.id)
+        let known = Known(server: server, token: token, catalog: catalog.id)
         if ids[known] == nil {
             switch await send(catalog.list(server, token)) {
             case .answered(let data, let response):
@@ -197,6 +198,7 @@ public final class Archiver {
 
     private struct Known: Hashable {
         let server: URL
+        let token: String
         let catalog: String
     }
 

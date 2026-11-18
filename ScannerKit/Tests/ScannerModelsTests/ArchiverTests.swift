@@ -126,6 +126,27 @@ struct ArchiverTests {
         #expect(server.requests(to: "/api/document_types/").map(\.httpMethod) == ["GET"], "The types are read once")
     }
 
+    @Test func readsTheTypesWithTheTokenOfEachOwnerOfTheSameServer() async throws {
+        let holding = try #require(fixture.settings.addOwner("Holding"))
+        try connect()
+        try connect(holding.id)
+        try tokens.setToken("mine", for: fixture.settings.value.defaultOwnerID)
+        try tokens.setToken("theirs", for: holding.id)
+        server.answer("GET", "/api/document_types/", #"{"results": [{"id": 3, "name": "Invoice"}]}"#)
+        server.answer("GET", "/api/document_types/", #"{"results": [{"id": 7, "name": "Invoice"}]}"#)
+        let mine = await readyScan()
+        mine.setDetails(DocumentDetails(category: .invoice))
+        let theirs = await readyScan()
+        theirs.setDetails(DocumentDetails(category: .invoice))
+        theirs.setOwner(holding.id)
+        await mine.preparePDF()
+        await theirs.preparePDF()
+
+        try await app.archive([mine, theirs])
+        #expect(server.requests(to: "/api/document_types/").map { $0.value(forHTTPHeaderField: "Authorization") } == ["Token mine", "Token theirs"])
+        #expect(String(decoding: try #require(uploader.uploads.last).body, as: UTF8.self).contains("name=\"document_type\"\r\n\r\n7\r\n"))
+    }
+
     @Test func createsTheDocumentTypeOfANewCategory() async throws {
         try connect()
         server.answer("GET", "/api/document_types/", #"{"results": []}"#)
