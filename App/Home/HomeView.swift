@@ -294,7 +294,7 @@ private struct WelcomeView: View {
             VStack(alignment: .leading, spacing: 20) {
                 WelcomePromise("No shutter to press", detail: "Hold your iPhone above a letter, an invoice or a payslip.", systemImage: "doc.viewfinder")
                 WelcomePromise("Small, searchable PDFs", detail: "PDF/A files with text you can search and copy.", systemImage: "doc.text.magnifyingglass")
-                WelcomePromise("Free and open source", detail: "No ads, no account, nothing uploaded.", systemImage: "hand.raised.slash")
+                WelcomePromise("Free and open source", detail: "No ads, no account. Nothing leaves your iPhone unless you send it.", systemImage: "hand.raised.slash")
             }
             .frame(maxWidth: 330)
             .padding(.top, 30)
