@@ -45,7 +45,7 @@ struct FileNameSection: View {
         } header: {
             Text("File name")
         } footer: {
-            Text("The date of the document is the one printed on it, or the day of the scan when there is none. A custom format builds file names from the details of the document, such as {YYYY}-{MM} {ISSUER}, and can file scans into folders.")
+            Text("The date of the document is the one printed on it, or the day of the scan when there is none. A custom format builds file names from the details of the document, such as {YYYY}-{MM} {ISSUER}.")
         }
     }
 }

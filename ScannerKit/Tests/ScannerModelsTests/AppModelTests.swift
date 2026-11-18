@@ -102,7 +102,7 @@ struct AppModelTests {
         let build = Task { await built.buildPDF(delay: .zero) }
         try await fixture.waitUntilGateHasWaiting(2)
         #expect(scan.scan.pages.isEmpty)
-        #expect(!fixture.pdfExists(built.scan.fileName))
+        #expect(!fixture.pdfExists(built.scan.name))
 
         app.setActive(true)
         await scan.waitUntilIdle()
@@ -530,7 +530,7 @@ struct AppModelTests {
         app.deleteAllScans()
         #expect(app.scans.isEmpty)
         #expect(fixture.store.all().isEmpty)
-        #expect(!fixture.pdfExists(first.scan.fileName))
+        #expect(!fixture.pdfExists(first.scan.name))
         #expect(await fixture.store.byteCount() == 0)
     }
 

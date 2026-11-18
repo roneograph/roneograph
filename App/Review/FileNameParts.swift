@@ -19,7 +19,7 @@ struct FileNameParts: View {
     private func part(_ segment: FileNameSegment) -> some View {
         VStack(spacing: 2) {
             switch segment.source {
-            case .text, .folderSeparator:
+            case .text:
                 Text(segment.text == " " ? "\u{00A0}" : segment.text).font(.callout.monospaced()).foregroundStyle(.secondary)
                 Text(" ").font(.caption2)
             case .name where segment.text.isEmpty:
@@ -56,7 +56,7 @@ private extension FileNameSegment.Source {
         case .category: "category"
         case .issuer: "issuer"
         case .number: "number"
-        case .text, .folderSeparator: ""
+        case .text: ""
         }
     }
 }

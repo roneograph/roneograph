@@ -127,7 +127,7 @@ public struct ScanOwner: Equatable, Sendable, Codable {
 public struct Scan: Identifiable, Equatable, Sendable, Codable {
     public let id: UUID
     public var created: Date
-    /// Path of the PDF, without the extension, from `title`, the details and the file name format; a custom format may put it in folders.
+    /// File name of the PDF, without the extension, from `title`, the details and the file name format.
     public var name: String
     /// The name as people read it: shown in the app and sent to Paperless as the title.
     public var title: String
@@ -162,10 +162,5 @@ public struct Scan: Identifiable, Equatable, Sendable, Codable {
         self.created = created
         self.name = name
         self.title = title ?? name
-    }
-
-    /// The file name of the PDF, without its folders: what Share, Paperless and the local copy use.
-    public var fileName: String {
-        name.split(separator: "/").last.map(String.init) ?? name
     }
 }

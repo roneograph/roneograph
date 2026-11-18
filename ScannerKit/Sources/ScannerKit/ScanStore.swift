@@ -23,9 +23,8 @@ public struct ScanStore: Sendable {
     public func previewURL(scanID: UUID, pageID: UUID) -> URL { directory(of: scanID).appending(path: "\(pageID.uuidString)-preview.jpg") }
     public func textURL(scanID: UUID, pageID: UUID) -> URL { directory(of: scanID).appending(path: "\(pageID.uuidString)-text.json") }
 
-    /// The local PDF never goes into the folders of a custom format.
     public func pdfURL(of scan: Scan) -> URL {
-        documentsDirectory.appending(path: "\(scan.fileName).pdf")
+        documentsDirectory.appending(path: "\(scan.name).pdf")
     }
 
     public func savePhoto(_ data: Data, scanID: UUID, pageID: UUID) throws {
@@ -111,20 +110,17 @@ public struct ScanStore: Sendable {
     }
 
     /// A name whose PDF does not collide with the PDF of another of the scans or any other file: "Invoice", then "Invoice 2", and so on.
-    /// Only the file name counts, as all local PDFs share one folder; the folders of the name are kept.
     public func availableName(_ name: String, for scan: Scan, among scans: [Scan], separator: String = " ") -> String {
-        let taken = Set(scans.filter { $0.id != scan.id }.map { $0.fileName.lowercased() })
-        let folders = name.split(separator: "/").dropLast().map { "\($0)/" }.joined()
-        let fileName = Scan(name: name).fileName
-        return folders + FileNamer.available(fileName, separator: separator) { candidate in
-            taken.contains(candidate.lowercased()) || (candidate != scan.fileName && FileManager.default.fileExists(atPath: documentsDirectory.appending(path: "\(candidate).pdf").path(percentEncoded: false)))
+        let taken = Set(scans.filter { $0.id != scan.id }.map { $0.name.lowercased() })
+        return FileNamer.available(name, separator: separator) { candidate in
+            taken.contains(candidate.lowercased()) || (candidate != scan.name && FileManager.default.fileExists(atPath: documentsDirectory.appending(path: "\(candidate).pdf").path(percentEncoded: false)))
         }
     }
 
     /// Moves the PDF along with a renamed scan; one that cannot be moved is deleted, as nothing would delete it under its old name.
     public func movePDF(from oldFileName: String, to scan: Scan) {
         let old = documentsDirectory.appending(path: "\(oldFileName).pdf")
-        guard oldFileName != scan.fileName, FileManager.default.fileExists(atPath: old.path(percentEncoded: false)) else { return }
+        guard oldFileName != scan.name, FileManager.default.fileExists(atPath: old.path(percentEncoded: false)) else { return }
         do {
             try FileManager.default.moveItem(at: old, to: pdfURL(of: scan))
         } catch {

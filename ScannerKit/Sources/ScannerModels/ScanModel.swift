@@ -70,7 +70,7 @@ public final class ScanModel: Identifiable {
     }
 
     private var store: ScanStore { processor.store }
-    public var pdfInputs: PDFInputs { PDFInputs(name: scan.fileName, title: scan.title, comment: scan.comment, pages: scan.pages) }
+    public var pdfInputs: PDFInputs { PDFInputs(name: scan.name, title: scan.title, comment: scan.comment, pages: scan.pages) }
     public var pdfRequest: PDFRequest { PDFRequest(inputs: pdfInputs, attempt: pdfAttempt) }
     public var fallbackTitle: String { FileNamer.fallback(for: scan.created) }
     /// The name a typed name becomes: trimmed, with single spaces, the first suggestion or the date when empty.
@@ -447,7 +447,7 @@ public final class ScanModel: Identifiable {
 
     /// Derives the file name from the name and details, after a change of either.
     public func applyFileName() {
-        let old = scan.fileName
+        let old = scan.name
         scan.name = store.availableName(fileName(for: scan.title), for: scan, among: otherScans(), separator: fileNameFormat.separator.character)
         if !old.isEmpty { store.movePDF(from: old, to: scan) }
         save()

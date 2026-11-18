@@ -202,13 +202,13 @@ struct ScanModelTests {
         let fixture = try Fixture()
         let model = await fixture.scanModel(pages: 1)
         await model.buildPDF(delay: .zero)
-        #expect(fixture.pdfExists(model.scan.fileName))
+        #expect(fixture.pdfExists(model.scan.name))
 
         model.deleteCapturedPage(model.scan.pages[0].id)
         await model.waitUntilIdle()
 
         #expect(fixture.store.all().isEmpty)
-        #expect(!fixture.pdfExists(model.scan.fileName))
+        #expect(!fixture.pdfExists(model.scan.name))
         #expect(!FileManager.default.fileExists(atPath: fixture.store.directory(of: model.id).path(percentEncoded: false)))
     }
 
@@ -525,7 +525,7 @@ struct ScanModelTests {
         caller.cancel()
         await caller.value
         #expect(model.pdf != .failed)
-        #expect(!fixture.pdfExists(model.scan.fileName))
+        #expect(!fixture.pdfExists(model.scan.name))
     }
 
     @Test func keepsABuildThatFinishedAfterItsCallerWasCancelled() async throws {
@@ -543,7 +543,7 @@ struct ScanModelTests {
         builds.release()
         await caller.value
         #expect(model.hasCurrentPDF)
-        #expect(fixture.pdfExists(model.scan.fileName))
+        #expect(fixture.pdfExists(model.scan.name))
     }
 
     @Test func neverRunsTwoBuildsOfAScanAtOnce() async throws {
@@ -562,7 +562,7 @@ struct ScanModelTests {
         #expect(builds.count == 1)
 
         model.rename("Gas bill")
-        let gas = model.scan.fileName
+        let gas = model.scan.name
         let stale = Task { await model.buildPDF(delay: .zero) }
         await builds.waitForStart(of: 2)
         model.rename("Water bill")
@@ -617,7 +617,7 @@ struct ScanModelTests {
         try await fixture.waitUntilGateHasWaiting(3)
         #expect(captured.scan.pages.isEmpty)
         #expect(edited.scan.pages[0].revision == page.revision)
-        #expect(!fixture.pdfExists(built.scan.fileName))
+        #expect(!fixture.pdfExists(built.scan.name))
 
         await release()
         await captured.waitUntilIdle()
@@ -651,7 +651,7 @@ struct ScanModelTests {
         let background = RecordingBackground()
         let fixture = try Fixture(background: background)
         let model = await fixture.scanModel(pages: 1)
-        let name = model.scan.fileName
+        let name = model.scan.name
         model.makePDFData = { _ in Data("%PDF".utf8) }
         let (started, release) = background.holdNext()
         let build = Task { await model.buildPDF(delay: .zero) }
@@ -669,14 +669,14 @@ struct ScanModelTests {
 
     @Test func editedDetailsRenameTheFileWithACustomFormat() async throws {
         let fixture = try Fixture()
-        fixture.settings.value.defaultOwner.fileNameFormat = FileNameFormat(isCustom: true, template: "{CATEGORY}/{YYYY} {ISSUER} {NUMBER}")
+        fixture.settings.value.defaultOwner.fileNameFormat = FileNameFormat(isCustom: true, template: "{CATEGORY} {YYYY} {ISSUER} {NUMBER}")
         let model = await fixture.scanModel(pages: 1)
         let year = String(FileNamer.isoDate(model.scan.created).prefix(4))
         await model.buildPDF(delay: .zero)
         model.setDetails(DocumentDetails(category: .insurance, issuer: "Acme Mutual", number: "P-1234"))
         #expect(model.scan.areDetailsEditedByUser)
-        #expect(model.scan.name == "Insurance/\(year) Acme Mutual P-1234")
-        #expect(fixture.pdfExists("\(year) Acme Mutual P-1234"))
+        #expect(model.scan.name == "Insurance \(year) Acme Mutual P-1234")
+        #expect(fixture.pdfExists("Insurance \(year) Acme Mutual P-1234"))
         #expect(fixture.store.all().first?.details.issuer == "Acme Mutual")
     }
 

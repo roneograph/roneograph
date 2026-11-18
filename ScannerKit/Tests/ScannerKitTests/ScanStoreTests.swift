@@ -122,17 +122,4 @@ final class ScanStoreTests {
         store.movePDF(from: "Scan", to: scan)
         #expect(!FileManager.default.fileExists(atPath: root.appending(path: "Documents/Scan.pdf").path(percentEncoded: false)))
     }
-
-    @Test func keepsLocalPDFsOutOfTheFoldersOfTheName() throws {
-        var scan = Scan(name: "Scan")
-        try Data("%PDF".utf8).write(to: store.pdfURL(of: scan))
-        scan.name = "Invoice/2026 Lumen"
-        store.movePDF(from: "Scan", to: scan)
-        #expect(store.pdfURL(of: scan) == root.appending(path: "Documents/2026 Lumen.pdf"))
-        #expect(FileManager.default.fileExists(atPath: store.pdfURL(of: scan).path(percentEncoded: false)))
-    }
-
-    @Test func numbersATakenFileNameInsideItsFolders() throws {
-        #expect(store.availableName("Invoice/2026 Lumen", for: Scan(name: "Scan"), among: [Scan(name: "Receipt/2026 Lumen")]) == "Invoice/2026 Lumen 2")
-    }
 }

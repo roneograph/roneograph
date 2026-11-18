@@ -132,7 +132,7 @@ struct SendBarModelTests {
         release()
         try await waitUntil { !sent.methods.isEmpty }
         #expect(scan.hasCurrentPDF)
-        #expect(fixture.pdfExists(scan.scan.fileName))
+        #expect(fixture.pdfExists(scan.scan.name))
     }
 
     @Test(arguments: [false, true])

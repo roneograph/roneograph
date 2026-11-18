@@ -44,9 +44,4 @@ struct ScanTests {
         #expect(json == #"{"category":"Bank statement"}"#)
         #expect(try JSONDecoder().decode(DocumentDetails.self, from: Data(json.utf8)) == details)
     }
-
-    @Test func theFileNameLeavesTheFoldersOut() {
-        #expect(Scan(name: "Invoice/2026 Lumen").fileName == "2026 Lumen")
-        #expect(Scan(name: "Lumen").fileName == "Lumen")
-    }
 }

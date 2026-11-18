@@ -33,6 +33,12 @@ struct ScannerSettingsTests {
         for key in ["email", "archiveFolder", "showsSaveToFiles", "showsShare"] { #expect(!saved.contains(key)) }
     }
 
+    @Test func keepsOnlyTheFileNameOfACustomFormatSavedWithFolders() throws {
+        let json = #"{"owners":[{"id":"3F2504E0-4F89-11D3-9A0C-0305E82C3301","name":"Personal","fileNameFormat":{"isCustom":true,"template":"{CATEGORY}/{YYYY}-{MM} {ISSUER}"}}]}"#
+        let settings = try JSONDecoder().decode(ScannerSettings.self, from: Data(json.utf8))
+        #expect(settings.defaultOwner.fileNameFormat == FileNameFormat(isCustom: true, template: "{YYYY}-{MM} {ISSUER}"))
+    }
+
     @Test func ignoresTheHeaderLinesOfOlderBuilds() throws {
         let json = #"{"autoCapture":false,"headerLines":[{"fingerprint":"0a1b2c3d4e5f6071","scans":3,"issuers":["lumen"],"owners":[]}]}"#
         let settings = try JSONDecoder().decode(ScannerSettings.self, from: Data(json.utf8))

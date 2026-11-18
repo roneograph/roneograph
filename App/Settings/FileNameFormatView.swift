@@ -28,7 +28,6 @@ struct FileNameFormatView: View {
             } footer: {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("For a made-up invoice from Lumen Energy.")
-                    Text("Each / starts a folder; Share and Paperless get the file name only.")
                     Text("A variable with no value disappears, with the separator next to it.")
                     Text("{NAME} leaves out of a suggested name what the format already shows; a name you type stays whole.")
                 }

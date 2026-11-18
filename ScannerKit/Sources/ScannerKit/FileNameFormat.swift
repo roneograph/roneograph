@@ -1,7 +1,7 @@
 import Foundation
 
 /// Turns the name and details of a scan into its file name: "Lumen Energy invoice" can become "2026-11-12-lumen-energy-invoice",
-/// or "Invoice/2026-11 Lumen Energy" with a custom format.
+/// or "Invoice 2026-11 Lumen Energy" with a custom format.
 public struct FileNameFormat: Equatable, Sendable, Codable {
     public enum Separator: String, Equatable, Sendable, Codable, CaseIterable {
         case space, dash, underscore
@@ -75,10 +75,13 @@ public struct FileNameFormat: Equatable, Sendable, Codable {
         lowercase = try container.decode(.lowercase, or: lowercase)
         isCustom = try container.decode(.isCustom, or: isCustom)
         template = try container.decode(.template, or: template)
+        // Older builds put folders before the file name, separated by "/".
+        if template.contains("/"), let fileName = template.split(separator: "/", omittingEmptySubsequences: false).last {
+            template = fileName.trimmingCharacters(in: .whitespaces)
+        }
     }
 
-    /// The file name, with folders separated by "/" when a custom format has them.
-    /// `suggestedParts` is nil for a name the user typed: a custom format then keeps it as typed instead of leaving out what it already shows.
+    /// The file name; `suggestedParts` is nil for a name the user typed: a custom format then keeps it as typed instead of leaving out what it already shows.
     public func fileName(name: String, details: DocumentDetails = .init(), scanDate: Date, suggestedParts: SuggestedParts? = nil) -> String {
         segments(name: name, details: details, scanDate: scanDate, suggestedParts: suggestedParts).map(\.text).joined()
     }
@@ -130,7 +133,7 @@ public struct FileNameFormat: Equatable, Sendable, Codable {
 }
 
 extension FileNameFormat {
-    /// A custom format such as "{CATEGORY}/{YYYY}-{MM} {ISSUER}": text, variables in braces, and "/" between folders.
+    /// A custom format such as "{YYYY}-{MM} {CATEGORY} {ISSUER}": text and variables in braces.
     public struct Template: Equatable, Sendable {
         public enum Variable: String, CaseIterable, Sendable {
             case name = "NAME"
@@ -166,8 +169,6 @@ extension FileNameFormat {
             case unclosedBrace
             case forbiddenCharacter(Character)
             case lineBreak
-            case emptyFolder
-            case relativeFolder
 
             public var message: String {
                 switch self {
@@ -176,33 +177,25 @@ extension FileNameFormat {
                 case .unclosedBrace: "A { is not closed."
                 case .forbiddenCharacter(let character): "File names cannot contain \(character)."
                 case .lineBreak: "File names cannot contain a line break."
-                case .emptyFolder: "A folder name is empty."
-                case .relativeFolder: "Folders cannot be named . or .."
                 }
             }
         }
 
-        /// The folders, then the file name.
-        private let components: [[Token]]
+        private let tokens: [Token]
 
         public init(_ string: String) throws(ParseError) {
             let string = string.hasSuffix(".pdf") ? String(string.dropLast(4)) : string
             guard !string.trimmingCharacters(in: .whitespaces).isEmpty else { throw .empty }
-            components = try string.split(separator: "/", omittingEmptySubsequences: false).map { component throws(ParseError) in
-                let trimmed = component.trimmingCharacters(in: .whitespaces)
-                guard !trimmed.isEmpty else { throw .emptyFolder }
-                guard trimmed != ".", trimmed != ".." else { throw .relativeFolder }
-                return try Self.tokens(component)
-            }
+            tokens = try Self.tokens(Substring(string))
         }
 
         private var variables: Set<Variable> {
-            Set(components.joined().compactMap { if case .variable(let variable) = $0 { variable } else { nil } })
+            Set(tokens.compactMap { if case .variable(let variable) = $0 { variable } else { nil } })
         }
 
-        private static func tokens(_ component: Substring) throws(ParseError) -> [Token] {
+        private static func tokens(_ string: Substring) throws(ParseError) -> [Token] {
             var tokens: [Token] = []
-            var rest = component
+            var rest = string
             while !rest.isEmpty {
                 if rest.first == "{" {
                     guard let close = rest.firstIndex(of: "}") else { throw .unclosedBrace }
@@ -235,30 +228,25 @@ extension FileNameFormat {
                 .number: details.number ?? "",
             ].mapValues { format.words(FileNamer.sanitize($0)).joined(separator: format.separator.character) }
 
-            let rendered = components.map { component in
-                var pieces = component.map { token -> (text: String?, source: FileNameSegment.Source) in
-                    switch token {
-                    case .text(let text): (FileNamer.withoutAccents(format.separator == .space ? text : text.replacing(/\s+/, with: format.separator.character)), .text)
-                    case .variable(let variable): (values[variable].flatMap { $0.isEmpty ? nil : $0 }, variable.source)
-                    }
+            var pieces = tokens.map { token -> (text: String?, source: FileNameSegment.Source) in
+                switch token {
+                case .text(let text): (FileNamer.withoutAccents(format.separator == .space ? text : text.replacing(/\s+/, with: format.separator.character)), .text)
+                case .variable(let variable): (values[variable].flatMap { $0.isEmpty ? nil : $0 }, variable.source)
                 }
-                for index in pieces.indices where pieces[index].text == nil {
-                    if index > 0, let previous = pieces[index - 1].text, Self.endsWithSeparator(previous) {
-                        pieces[index - 1].text = previous.replacing(/[\s\-_.]+$/, with: "")
-                    } else if index + 1 < pieces.count, let next = pieces[index + 1].text {
-                        pieces[index + 1].text = next.replacing(/^[\s\-_.]+/, with: "")
-                    }
-                }
-                let segments = pieces.compactMap { piece -> FileNameSegment? in
-                    guard let text = piece.text, !text.isEmpty else { return piece.source == .name ? FileNameSegment("", .name) : nil }
-                    return FileNameSegment(text, piece.source)
-                }
-                return FileNameSegment.finalized(segments, fallback: "")
             }
-            var file = rendered.last ?? []
-            if file.allSatisfy(\.text.isEmpty) { file = [FileNameSegment(iso, .date)] + file.filter { $0.source == .name } }
-            let folders = rendered.dropLast().filter { !$0.allSatisfy(\.text.isEmpty) }
-            return (folders + [file]).flatMap { $0 + [FileNameSegment("/", .folderSeparator)] }.dropLast()
+            for index in pieces.indices where pieces[index].text == nil {
+                if index > 0, let previous = pieces[index - 1].text, Self.endsWithSeparator(previous) {
+                    pieces[index - 1].text = previous.replacing(/[\s\-_.]+$/, with: "")
+                } else if index + 1 < pieces.count, let next = pieces[index + 1].text {
+                    pieces[index + 1].text = next.replacing(/^[\s\-_.]+/, with: "")
+                }
+            }
+            let segments = pieces.compactMap { piece -> FileNameSegment? in
+                guard let text = piece.text, !text.isEmpty else { return piece.source == .name ? FileNameSegment("", .name) : nil }
+                return FileNameSegment(text, piece.source)
+            }
+            let file = FileNameSegment.finalized(segments, fallback: "")
+            return file.allSatisfy(\.text.isEmpty) ? [FileNameSegment(iso, .date)] + file.filter { $0.source == .name } : file
         }
 
         private static func endsWithSeparator(_ text: String) -> Bool {
@@ -285,7 +273,7 @@ extension FileNameFormat {
 /// A part of a file name and where it comes from.
 public struct FileNameSegment: Equatable, Sendable {
     public enum Source: Equatable, Sendable {
-        case text, folderSeparator, name, date, category, issuer, number
+        case text, name, date, category, issuer, number
     }
 
     public var text: String
