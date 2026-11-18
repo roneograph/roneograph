@@ -155,13 +155,4 @@ struct WordingTests {
     @Test func namesPageLooks() {
         #expect(PageLook.allCases.map(\.title) == ["Gray", "Color"])
     }
-
-    @Test func warnsAboutScansAlreadySent() {
-        var payslip = Scan(name: "payslip", title: "Payslip")
-        let bill = Scan(name: "bill", title: "Water bill")
-        #expect([bill].alreadySent == nil)
-        payslip.sent = Sent(date: Date(), method: .share)
-        #expect([bill, payslip].alreadySent == "“Payslip” was already shared")
-        #expect([payslip, payslip].alreadySent == "2 were already sent")
-    }
 }

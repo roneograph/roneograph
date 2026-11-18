@@ -2,8 +2,8 @@ import ScannerKit
 import ScannerModels
 import SwiftUI
 
-/// Archive when every owner of the scans has a Paperless server, Share, and Delete, for the scan under review or the scans selected on Home.
-/// Archive is filled with the accent color and shows its name.
+/// The way to send shown with its name, the other one as a round button, and Delete, for the scan under review or the scans selected on Home:
+/// Archive, filled with the accent color, then Share when every owner of the scans has a Paperless server; Share alone otherwise, or once the scan is archived.
 /// A button tapped before the PDFs are made shows a spinner, and sends once they are.
 struct SendBar: View {
     let app: AppModel
@@ -11,13 +11,13 @@ struct SendBar: View {
     /// The scans that went out or were deleted.
     var finished: (Set<UUID>) -> Void = { _ in }
     let summary: String
-    var warning: String?
     @State private var showingShare = false
     @State private var confirmingDelete = false
     @State private var sending = SendBarModel()
     @State private var archivingFailed = false
     /// Set when the PDFs went out, acted on once the share sheet is gone.
     @State private var sentBy: SendMethod?
+    @State private var connecting: Owner?
 
     private func pdfs(of scans: [ScanModel]) -> [URL] {
         scans.compactMap { scan in
@@ -27,40 +27,27 @@ struct SendBar: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            let named = app.namedSendMethod(for: scans)
-            HStack(spacing: named == nil ? 10 : 8) {
-                ForEach(app.sendMethods(for: scans), id: \.self) { method in
-                    sendButton(method, isNamed: method == named, isRound: named != nil && method != named)
+            if scans.count == 1, let status = app.sendStatus(of: scans[0]) {
+                StatusLine(status: status)
+            }
+            let buttons = app.sendButtons(for: scans)
+            HStack(spacing: 8) {
+                sendButton(buttons.named, title: buttons.title, isNamed: true, isProminent: buttons.isProminent)
+                if let round = buttons.round {
+                    sendButton(round, title: round.title, isNamed: false, isProminent: false)
                 }
                 Button(scans.count > 1 ? "Delete Scans" : "Delete Scan", systemImage: "trash", role: .destructive) { confirmingDelete = true }
                     .buttonStyle(.glass)
                     .foregroundStyle(.red.opacity(scans.isEmpty ? 0.4 : 1))
                     .disabled(scans.isEmpty)
-                    .labelStyle(SendButtonLabelStyle(shape: named != nil ? .round : .wide))
-                    .buttonBorderShape(named == nil ? .automatic : .circle)
+                    .labelStyle(SendButtonLabelStyle(isNamed: false))
+                    .buttonBorderShape(.circle)
             }
-            .labelStyle(SendButtonLabelStyle())
             .controlSize(.large)
             .font(.title3)
-            VStack(spacing: 2) {
-                let footer = app.sendFooter(for: scans, waiting: sending.waiting, summary: summary)
-                Group {
-                    if let lead = footer.lead {
-                        Text("\(Text(lead).bold()) · \(footer.text)")
-                    } else {
-                        Text(footer.text)
-                    }
-                }
-                .truncationMode(.middle)
-                .lineLimitUnlessAccessibilitySize(1)
-                if let warning {
-                    Label(warning, systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(Color(.warning))
-                        .lineLimitUnlessAccessibilitySize(1)
-                }
-            }
-            .font(.footnote)
-            .foregroundStyle(.secondary)
+            footer
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         }
         .padding(.horizontal)
         .padding(.top, 8)
@@ -76,11 +63,38 @@ struct SendBar: View {
             .presentationDetents([.medium, .large])
             .ignoresSafeArea()
         }
+        .sheet(item: $connecting) { owner in
+            if let archiver = app.archiver {
+                PaperlessSetupView(ownerID: owner.id, settings: app.settings, archiver: archiver)
+            }
+        }
         .alert("The PDFs could not be archived", isPresented: $archivingFailed) {
             Button("OK") {}
         } message: {
             Text("Try to archive them again.")
         }
+    }
+
+    private var footer: some View {
+        let footer = app.sendFooter(for: scans, waiting: sending.waiting, summary: summary)
+        return HStack(spacing: 0) {
+            Group {
+                if let lead = footer.lead {
+                    Text("\(Text(lead).bold()) · \(footer.text)")
+                } else {
+                    Text(footer.connectsPaperless ? "\(footer.text) · " : footer.text)
+                }
+            }
+            .truncationMode(.middle)
+            if footer.lead == nil, footer.connectsPaperless {
+                Button("Connect Paperless") { connecting = app.ownerToConnect(for: scans) }
+                    .buttonStyle(.plain)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.tint)
+                    .fixedSize()
+            }
+        }
+        .lineLimitUnlessAccessibilitySize(1)
     }
 
     private func finishSharing() {
@@ -90,17 +104,17 @@ struct SendBar: View {
         finished(Set(scans.map(\.id)))
     }
 
-    /// The button shown with its name takes the room the round ones leave; VoiceOver still reads its title.
-    private func sendButton(_ method: SendMethod, isNamed: Bool, isRound: Bool) -> some View {
+    /// The button shown with its name takes the room the round ones leave; VoiceOver reads the name of a round one too.
+    private func sendButton(_ method: SendMethod, title: String, isNamed: Bool, isProminent: Bool) -> some View {
         let isWaiting = sending.waiting == method
         return Button {
             switch method {
             case .paperless: sending.tap(.paperless, scans: scans, send: archive)
-            case .share: share()
+            case .share: sending.tap(.share, scans: scans) { showingShare = true }
             }
         } label: {
             Label {
-                Text(method.title)
+                Text(title)
                     .font(.body.weight(.semibold))
                     .lineLimit(1)
             } icon: {
@@ -110,17 +124,17 @@ struct SendBar: View {
                         if isWaiting {
                             ProgressView()
                                 .controlSize(.regular)
-                                .tint(method == .paperless ? .white : nil)
+                                .tint(isProminent ? .white : nil)
                                 .accessibilityHidden(true)
                         }
                     }
             }
         }
-        .labelStyle(SendButtonLabelStyle(shape: isNamed ? .named : isRound ? .round : .wide))
-        .sendButtonStyle(isSet: method == .paperless)
-        .buttonBorderShape(isRound ? .circle : .automatic)
+        .labelStyle(SendButtonLabelStyle(isNamed: isNamed))
+        .sendButtonStyle(isProminent: isProminent)
+        .buttonBorderShape(isNamed ? .automatic : .circle)
         .disabled(scans.isEmpty || sending.isSending)
-        .accessibilityLabel(method.title)
+        .accessibilityLabel(title)
         .accessibilityValue(isWaiting ? (scans.count > 1 ? "Waiting for the PDFs" : "Waiting for the PDF") : "")
     }
 
@@ -134,10 +148,6 @@ struct SendBar: View {
         }
     }
 
-    private func share() {
-        sending.tap(.share, scans: scans) { showingShare = true }
-    }
-
     private func delete() {
         let ids = Set(scans.map(\.id))
         withAnimation {
@@ -149,8 +159,8 @@ struct SendBar: View {
 
 private extension View {
     @ViewBuilder
-    func sendButtonStyle(isSet: Bool) -> some View {
-        if isSet {
+    func sendButtonStyle(isProminent: Bool) -> some View {
+        if isProminent {
             buttonStyle(.glassProminent)
         } else {
             buttonStyle(.glass)
@@ -158,37 +168,43 @@ private extension View {
     }
 }
 
-/// The label of a button of the send bar: its icon as wide as the row lets it, its icon in a round button next to a named one, or its name.
+/// The label of a button of the send bar: its icon and name taking the room left, or its icon in a round button.
 private struct SendButtonLabelStyle: LabelStyle {
-    enum Shape {
-        case wide, round, named
-    }
-
-    var shape = Shape.wide
+    let isNamed: Bool
 
     func makeBody(configuration: Configuration) -> some View {
-        switch shape {
-        case .wide:
-            icon(configuration).frame(maxWidth: .infinity)
-        case .round:
-            // Less than the padding of a large button, so five buttons fit on the narrowest iPhone.
-            icon(configuration).frame(width: 26).padding(.horizontal, -8)
-        case .named:
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 8) {
-                    configuration.icon
-                    configuration.title
-                }
-                configuration.title
+        if isNamed {
+            HStack(spacing: 8) {
                 configuration.icon
+                configuration.title
             }
             .frame(maxWidth: .infinity)
-            .padding(.horizontal, -6)
+        } else {
+            // A large glass button keeps its padding even when round; this keeps it a circle.
+            Label { configuration.title } icon: { configuration.icon }
+                .labelStyle(.iconOnly)
+                .frame(width: 26)
+                .padding(.horizontal, -8)
         }
     }
+}
 
-    private func icon(_ configuration: Configuration) -> some View {
-        Label { configuration.title } icon: { configuration.icon }
-            .labelStyle(.iconOnly)
+/// Where the scan went: archived or shared and when, on its way to Paperless, or why it could not be archived.
+private struct StatusLine: View {
+    let status: SendStatus
+
+    var body: some View {
+        Label {
+            Text(status.text)
+                .foregroundStyle(status.kind == .failed ? AnyShapeStyle(Color(.warning)) : AnyShapeStyle(.secondary))
+        } icon: {
+            switch status.kind {
+            case .sent: Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+            case .uploading: Image(systemName: "arrow.up.circle").foregroundStyle(.tint)
+            case .failed: Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Color(.warning))
+            }
+        }
+        .font(.footnote)
+        .lineLimitUnlessAccessibilitySize(1)
     }
 }

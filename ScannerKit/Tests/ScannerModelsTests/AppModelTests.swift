@@ -342,14 +342,14 @@ struct AppModelTests {
         let fixture = try Fixture()
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)
         let scan = await fixture.capturedScan(in: app)
-        #expect(app.sendMethods(for: [scan]) == [.share])
-        #expect(app.namedSendMethod(for: [scan]) == nil)
+        #expect(app.sendButtons(for: [scan]) == SendButtons(named: .share, title: "Share", isProminent: false))
+        #expect(!app.archives([scan]), "Not connected without an archiver")
+        #expect(app.ownerToConnect(for: [scan]) == nil, "Nothing to connect without an archiver")
 
         let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
         let theirs = await fixture.capturedScan(in: app)
         theirs.setOwner(holding.id)
-        #expect(app.sendMethods(for: [scan, theirs]) == [.share])
-        #expect(app.sendMethods(for: []) == [.share], "Every owner when none is selected")
+        #expect(app.sendButtons(for: [scan, theirs]).named == .share)
         #expect(app.sendingOwners(for: [theirs, scan, theirs]).map(\.id) == [holding.id, scan.owner.id])
         #expect(app.sendingOwners(for: []).count == 2)
     }
@@ -373,21 +373,6 @@ struct AppModelTests {
         #expect(connected.isConnected(owner))
         #expect(connected.archivesTo(owner) == "paperless.example.com")
         #expect(connected.summary(of: owner) == "Me, default, archives to paperless.example.com")
-    }
-
-    @Test func suggestsSettingUpSendingUntilAnOwnerHasAServer() throws {
-        let fixture = try Fixture()
-        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
-        #expect(app.suggestsSendSetup)
-        let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
-        var owner = holding
-        owner.paperless = PaperlessServer(url: URL(string: "https://paperless.example.com/")!)
-        fixture.settings.value.updateOwner(owner)
-        #expect(!app.suggestsSendSetup)
-        fixture.settings.value.updateOwner(holding)
-        #expect(app.suggestsSendSetup)
-        fixture.settings.value.dismissedSendSetup = true
-        #expect(!app.suggestsSendSetup)
     }
 
     @Test func namesTheOwnersOfTheScansOnlyWhenThereAreSeveral() async throws {

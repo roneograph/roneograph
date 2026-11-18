@@ -196,33 +196,90 @@ extension Collection<ScanModel> {
     }
 }
 
-extension Collection<Scan> {
-    /// Warns before sending again what already went out: "“Payslip” was already archived", "2 were already sent".
-    public var alreadySent: String? {
-        let sent = filter { $0.sent != nil }
-        guard let first = sent.first, let method = first.sent?.method else { return nil }
-        if sent.count > 1 { return "\(sent.count) were already sent" }
-        return "“\(first.title)” was already \(method.pastTense.lowercased())"
-    }
-}
-
-/// The line under the send buttons; `lead`, in bold before `text`, says what a button waiting for the PDFs will do.
+/// The line under the send buttons; `lead`, in bold before `text`, says what a button waiting for the PDFs will do, and Connect Paperless follows `text` when `connectsPaperless`.
 public struct SendFooter: Equatable {
     public var lead: String?
+    public var text: String
+    public var connectsPaperless = false
+}
+
+/// The buttons of the send bar before Delete: the one shown with its name, then the other way as a round button.
+public struct SendButtons: Equatable {
+    public var named: SendMethod
+    /// "Archive", "Try Again", "Try Now", "Share".
+    public var title: String
+    /// Filled with the accent color, as it sends in a single tap; Share only opens the share sheet.
+    public var isProminent: Bool
+    public var round: SendMethod?
+}
+
+/// The line above the send buttons once a scan went out, or while it goes to Paperless.
+public struct SendStatus: Equatable {
+    public enum Kind: Equatable {
+        case sent, uploading, failed
+    }
+
+    public var kind: Kind
     public var text: String
 }
 
 extension AppModel {
-    /// Under the send buttons: "**Share opens when the PDF is ready** · 2 pages" while a button waits for the PDFs, otherwise where the button shown with its name sends, or the owner of the scans with several owners, then the summary.
-    public func sendFooter(for models: [ScanModel], waiting: SendMethod?, summary: String) -> SendFooter {
+    /// Archive, named, then Share when every owner of the scans has a Paperless server; Share alone otherwise, and once a scan is archived, as Paperless refuses a file it already has.
+    /// Archive reads "Try Again" once the uploads failed and "Try Now" while they wait.
+    public func sendButtons(for models: [ScanModel]) -> SendButtons {
+        let scans = models.map(\.scan)
+        guard archives(models), !scans.contains(where: \.isArchived) else {
+            return SendButtons(named: .share, title: SendMethod.share.title, isProminent: false)
+        }
+        let archivings = scans.compactMap(\.archiving)
+        var title = SendMethod.paperless.title
+        if !scans.isEmpty, archivings.count == scans.count {
+            if archivings.allSatisfy(\.isInProgress) { title = "Try Now" } else if !archivings.contains(where: \.isInProgress) { title = "Try Again" }
+        }
+        return SendButtons(named: .paperless, title: title, isProminent: true, round: .share)
+    }
+
+    /// Above the send buttons: "Archived to paperless.example.com · 10:42", "Shared · yesterday 18:02", "Waiting for paperless.example.com", "Not archived: <reason>"; nil until the scan goes out.
+    public func sendStatus(of model: ScanModel, calendar: Calendar = .current, locale: Locale = .current) -> SendStatus? {
+        let scan = model.scan
+        let host = model.owner.paperlessHost ?? "Paperless"
+        switch scan.archiving?.state {
+        case .uploading: return SendStatus(kind: .uploading, text: "Archiving to \(host)…")
+        case .waiting: return SendStatus(kind: .uploading, text: "Waiting for \(host)")
+        case .failed(let reason): return SendStatus(kind: .failed, text: "Not archived: \(reason)")
+        case nil: break
+        }
+        guard let sent = scan.sent else { return nil }
+        let time = sent.date.shortTime(now: now(), calendar: calendar, locale: locale)
+        return SendStatus(kind: .sent, text: sent.method == .paperless ? "Archived to \(host) · \(time)" : "Shared · \(time)")
+    }
+
+    /// Under the send buttons: "**Share opens when the PDF is ready** · 2 pages" while a button waits for the PDFs, when the scans leave this iPhone once they all went out,
+    /// otherwise where Archive sends them, or the owner of the scans with several owners, then the summary, followed by Connect Paperless when an owner has no server.
+    public func sendFooter(for models: [ScanModel], waiting: SendMethod?, summary: String, calendar: Calendar = .current, locale: Locale = .current) -> SendFooter {
         if let waiting { return SendFooter(lead: waiting.whenReady(pdfs: models.count), text: models.pageCount) }
-        return SendFooter(text: [destination(of: models) ?? ownerLabel(of: models), summary].compactMap(\.self).joined(separator: " · "))
+        let sent = models.compactMap { $0.scan.archiving?.isInProgress == true ? nil : $0.scan.sent?.date }
+        if !models.isEmpty, sent.count == models.count, let first = sent.min() {
+            return SendFooter(text: "Leaves this iPhone \(leaving(first.addingTimeInterval(Self.sentScanLifetime), calendar: calendar, locale: locale))")
+        }
+        let text = [destination(of: models) ?? ownerLabel(of: models), summary].compactMap(\.self).joined(separator: " · ")
+        return SendFooter(text: text, connectsPaperless: ownerToConnect(for: models) != nil)
+    }
+
+    /// "today at 10:42", "tomorrow at 10:42", "soon" once the time is past.
+    private func leaving(_ date: Date, calendar: Calendar, locale: Locale) -> String {
+        let now = now()
+        guard date > now else { return "soon" }
+        let time = date.formatted(Date.FormatStyle(date: .omitted, time: .shortened, locale: locale, calendar: calendar, timeZone: calendar.timeZone))
+        if calendar.isDate(date, inSameDayAs: now) { return "today at \(time)" }
+        if let tomorrow = calendar.date(byAdding: .day, value: 1, to: now), calendar.isDate(date, inSameDayAs: tomorrow) { return "tomorrow at \(time)" }
+        return "\(date.formatted(Date.FormatStyle(locale: locale, calendar: calendar, timeZone: calendar.timeZone).month(.abbreviated).day())) at \(time)"
     }
 
     /// Where Archive sends the scans when they all have one owner: "To paperless.example.com".
     public func destination(of models: [ScanModel]) -> String? {
         let owners = Self.owners(of: models)
-        guard owners.count == 1, namedSendMethod(for: models) == .paperless, let host = owners[0].paperlessHost else { return nil }
+        guard owners.count == 1, archives(models), let host = owners[0].paperlessHost else { return nil }
         return "To \(host)"
     }
 
@@ -239,6 +296,16 @@ extension AppModel {
     /// The host of the owner's Paperless server once it is connected.
     public func archivesTo(_ owner: Owner) -> String? {
         isConnected(owner) ? owner.paperlessHost : nil
+    }
+}
+
+extension Date {
+    /// "10:42" today, "yesterday 18:02", "Nov 12 18:02" before.
+    func shortTime(now: Date, calendar: Calendar, locale: Locale) -> String {
+        let time = formatted(Date.FormatStyle(date: .omitted, time: .shortened, locale: locale, calendar: calendar, timeZone: calendar.timeZone))
+        if calendar.isDate(self, inSameDayAs: now) { return time }
+        if let yesterday = calendar.date(byAdding: .day, value: -1, to: now), calendar.isDate(self, inSameDayAs: yesterday) { return "yesterday \(time)" }
+        return "\(formatted(Date.FormatStyle(locale: locale, calendar: calendar, timeZone: calendar.timeZone).month(.abbreviated).day())) \(time)"
     }
 }
 

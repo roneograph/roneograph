@@ -14,8 +14,6 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
     public var categories: [DocumentCategory] = []
     /// The issuer, category, name and owner the user gave to documents from an issuer, most recent first.
     public var learnedIssuers: [LearnedIssuer] = []
-    /// Set once the Home card pointing to Settings for Paperless was closed.
-    public var dismissedSendSetup = false
 
     public init() {
         let me = Owner(name: Owner.placeholderName, symbol: .person)
@@ -35,7 +33,6 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
         autoCapture = try container.decode(.autoCapture, or: autoCapture)
         categories = try container.decode(.categories, or: categories)
         learnedIssuers = try container.decode(.learnedIssuers, or: learnedIssuers)
-        dismissedSendSetup = try container.decode(.dismissedSendSetup, or: dismissedSendSetup)
     }
 
     public var hasSeveralOwners: Bool { owners.count > 1 }

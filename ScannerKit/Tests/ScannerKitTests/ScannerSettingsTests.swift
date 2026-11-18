@@ -14,13 +14,13 @@ struct ScannerSettingsTests {
 
     @Test func ignoresTheSettingsOlderBuildsHad() throws {
         let json = #"""
-            {"owners":[{"id":"3F2504E0-4F89-11D3-9A0C-0305E82C3301","name":"Fernwood Holding","email":"accounting@fernwood.example","archiveFolder":{"bookmark":"AAAA","name":"Paperwork"},"showsSaveToFiles":false,"showsShare":false,"paperless":{"url":"https://paperless.example.com/"}}],"showsSaveToFiles":false,"showsShare":false,"keepScans":"forever"}
+            {"owners":[{"id":"3F2504E0-4F89-11D3-9A0C-0305E82C3301","name":"Fernwood Holding","email":"accounting@fernwood.example","archiveFolder":{"bookmark":"AAAA","name":"Paperwork"},"showsSaveToFiles":false,"showsShare":false,"paperless":{"url":"https://paperless.example.com/"}}],"showsSaveToFiles":false,"showsShare":false,"keepScans":"forever","dismissedSendSetup":true}
             """#
         let settings = try JSONDecoder().decode(ScannerSettings.self, from: Data(json.utf8))
         #expect(settings.defaultOwner.name == "Fernwood Holding")
         #expect(settings.defaultOwner.paperless?.url == URL(string: "https://paperless.example.com/"))
         let saved = String(decoding: try JSONEncoder().encode(settings), as: UTF8.self)
-        for key in ["email", "archiveFolder", "showsSaveToFiles", "showsShare", "keepScans"] { #expect(!saved.contains(key)) }
+        for key in ["email", "archiveFolder", "showsSaveToFiles", "showsShare", "keepScans", "dismissedSendSetup"] { #expect(!saved.contains(key)) }
     }
 
     @Test func keepsOnlyTheFileNameOfACustomFormatSavedWithFolders() throws {
@@ -61,7 +61,6 @@ struct ScannerSettingsTests {
         settings.autoCapture = false
         settings.categories = [DocumentCategory("Car")]
         settings.learnedIssuers = [LearnedIssuer(keys: ["lumen"], issuer: "Lumen Energy")]
-        settings.dismissedSendSetup = true
 
         expectEveryPropertyChanged(settings, from: ScannerSettings())
         expectEveryPropertyChanged(owner, from: Owner(id: owner.id, name: owner.name))

@@ -15,7 +15,7 @@ public final class AppModel {
     /// Nil when Paperless cannot be used, as in most tests.
     public let archiver: Archiver?
     private let processor: ScanProcessor
-    private let now: @Sendable () -> Date
+    let now: @Sendable () -> Date
     @ObservationIgnored private var models: [UUID: ScanModel] = [:]
     @ObservationIgnored private var toastTask: Task<Void, Never>?
     public init(processor: ScanProcessor, settings: SettingsStore, archiver: Archiver? = nil, now: @escaping @Sendable () -> Date = Date.init) {
@@ -144,24 +144,19 @@ public final class AppModel {
         models.isEmpty ? settings.value.owners : Self.owners(of: models)
     }
 
-    /// The send buttons for these scans, in the order of the bar: Archive when every owner of the scans has a Paperless server, and Share.
-    public func sendMethods(for models: [ScanModel]) -> [SendMethod] {
-        sendingOwners(for: models).allSatisfy(isConnected) ? [.paperless, .share] : [.share]
+    /// Whether Archive sends these scans in a single tap: every owner of the scans has a Paperless server.
+    public func archives(_ models: [ScanModel]) -> Bool {
+        archiver != nil && sendingOwners(for: models).allSatisfy(isConnected)
     }
 
-    /// The send button shown with its name: Archive when it is there, as Share only opens the share sheet.
-    public func namedSendMethod(for models: [ScanModel]) -> SendMethod? {
-        sendMethods(for: models).first { $0 != .share }
+    /// The first owner of these scans without a Paperless server, for the send bar to offer to connect it.
+    public func ownerToConnect(for models: [ScanModel]) -> Owner? {
+        archiver == nil ? nil : sendingOwners(for: models).first { !isConnected($0) }
     }
 
     /// Whether the owner's documents go out to its Paperless server in a single tap.
     public func isConnected(_ owner: Owner) -> Bool {
         archiver?.isConnected(owner) == true
-    }
-
-    /// Home offers to connect Paperless until an owner has a server, or the card is closed.
-    public var suggestsSendSetup: Bool {
-        !settings.value.dismissedSendSetup && !settings.value.owners.contains { $0.paperless != nil }
     }
 
     /// Starts sending each scan to the Paperless server of its owner; Home tells when they are archived.

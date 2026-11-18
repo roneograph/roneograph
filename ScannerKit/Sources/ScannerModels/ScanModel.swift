@@ -462,7 +462,9 @@ public final class ScanModel: Identifiable {
         save()
     }
 
+    /// An archived scan stays archived, and keeps its date, when it is shared afterwards.
     public func markSent(_ method: SendMethod) {
+        guard method == .paperless || !scan.isArchived else { return }
         scan.sent = Sent(date: now(), method: method)
         save()
     }

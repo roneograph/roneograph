@@ -6,7 +6,6 @@ struct HomeView: View {
     let app: AppModel
     @State private var isSelecting = false
     @State private var selection = Set<UUID>()
-    @State private var settingUpSending = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -29,7 +28,7 @@ struct HomeView: View {
                         .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
                 }
                 if isSelecting {
-                    SendBar(app: app, scans: selected, finished: sent, summary: selected.selectionSummary, warning: selected.map(\.scan).alreadySent)
+                    SendBar(app: app, scans: selected, finished: sent, summary: selected.selectionSummary)
                 } else {
                     Button { app.startScan() } label: {
                         Label("Scan", systemImage: "doc.viewfinder").frame(maxWidth: .infinity)
@@ -97,15 +96,6 @@ struct HomeView: View {
                         .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 4, trailing: 0))
                 }
                 .listSectionSpacing(.compact)
-                if app.suggestsSendSetup {
-                    Section {
-                        SendSetupCard {
-                            settingUpSending = true
-                        } close: {
-                            withAnimation { app.settings.value.dismissedSendSetup = true }
-                        }
-                    }
-                }
                 let notSent = app.notSent
                 if notSent.count > 1 {
                     Section {
@@ -141,12 +131,6 @@ struct HomeView: View {
         }
         .environment(\.editMode, .constant(isSelecting ? .active : .inactive))
         .contentMargins(.top, 0, for: .scrollContent)
-        // Not on the card, which goes as soon as a server is set.
-        .sheet(isPresented: $settingUpSending) {
-            if let archiver = app.archiver {
-                PaperlessSetupView(ownerID: app.settings.value.defaultOwnerID, settings: app.settings, archiver: archiver)
-            }
-        }
     }
 
     /// Scans in progress have no PDF to send yet.
@@ -209,44 +193,6 @@ private struct NotSentCard: View {
                 .fontWeight(.semibold)
         }
         .accessibilityElement(children: .combine)
-    }
-}
-
-/// Offers to connect Paperless until scans can be archived in one tap.
-private struct SendSetupCard: View {
-    let setUp: () -> Void
-    let close: () -> Void
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "paperplane")
-                .font(.title2)
-                .foregroundStyle(.tint)
-                .frame(width: 44)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Archive in one tap").font(.headline)
-                Text("Connect your Paperless server.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer(minLength: 0)
-            Button("Set Up", action: setUp)
-                .buttonStyle(.borderedProminent)
-                .buttonBorderShape(.capsule)
-                .fontWeight(.semibold)
-            Button(action: close) {
-                Label("Close", systemImage: "xmark")
-                    .labelStyle(.iconOnly)
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.borderless)
-            .padding(.vertical, -12)
-            .padding(.horizontal, -16)
-        }
     }
 }
 

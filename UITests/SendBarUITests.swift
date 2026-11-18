@@ -40,10 +40,12 @@ final class SendBarUITests: XCTestCase {
         XCTAssertTrue(app.otherElements["ActivityListView"].waitForExistence(timeout: Roneograph.timeout), "The share sheet did not open once the PDF was made")
     }
 
-    func testConnectsPaperlessFromHome() throws {
-        let roneograph = Roneograph(photos: try photos(), screen: "home")
+    func testConnectsPaperlessFromTheFooter() throws {
+        let roneograph = Roneograph(photos: try photos())
         let app = roneograph.app
-        roneograph.tap(app.buttons["Set Up"])
+        XCTAssertTrue(app.buttons["Share"].waitForExistence(timeout: Roneograph.timeout))
+        XCTAssertFalse(app.buttons["Archive"].exists, "Archive needs a Paperless server")
+        roneograph.tap(app.buttons["Connect Paperless"])
         let sheet = app.navigationBars["Paperless for Me"]
         XCTAssertTrue(sheet.waitForExistence(timeout: Roneograph.timeout), "Paperless for Me did not open")
         roneograph.tap(sheet.buttons["Cancel"])

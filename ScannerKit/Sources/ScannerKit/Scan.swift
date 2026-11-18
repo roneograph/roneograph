@@ -157,6 +157,9 @@ public struct Scan: Identifiable, Equatable, Sendable, Codable {
     /// Set while the scan goes to Paperless, or when it could not.
     public var archiving: Archiving?
 
+    /// Whether the owner's Paperless server took the scan, which it would refuse again.
+    public var isArchived: Bool { sent?.method == .paperless }
+
     public init(id: UUID = UUID(), created: Date = .now, name: String, title: String? = nil) {
         self.id = id
         self.created = created
