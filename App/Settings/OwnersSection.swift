@@ -53,18 +53,17 @@ private struct OwnerRow: View {
                 .background(Color.accentColor.opacity(0.15), in: .circle)
             VStack(alignment: .leading, spacing: 2) {
                 Text(owner.name)
-                if let caption {
-                    Text(caption).font(.footnote).foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    ForEach(SendMethod.inBarOrder, id: \.self) { method in
+                        Image(systemName: method.systemImage)
+                            .foregroundStyle(app.isSet(method, for: owner) ? Color.accentColor : Color(.systemGray3))
+                    }
+                    if let caption {
+                        Text(caption).foregroundStyle(.secondary)
+                    }
                 }
+                .font(.footnote)
             }
-            Spacer(minLength: 8)
-            HStack(spacing: 8) {
-                ForEach(SendMethod.inBarOrder, id: \.self) { method in
-                    Image(systemName: method.systemImage)
-                        .foregroundStyle(app.isSet(method, for: owner) ? Color.accentColor : Color(.systemGray3))
-                }
-            }
-            .font(.footnote)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(app.summary(of: owner))
