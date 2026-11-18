@@ -92,6 +92,7 @@ struct OwnerView: View {
         Form {
             Section {
                 TextField("Name", text: $name, prompt: owner.wrappedValue.hasPlaceholderName ? Text("Your name, as on your mail") : nil)
+                    .textContentType(.name)
                     .onSubmit(rename)
                 Picker("Symbol", selection: owner.symbol) {
                     ForEach(Owner.Symbol.allCases, id: \.self) { symbol in
