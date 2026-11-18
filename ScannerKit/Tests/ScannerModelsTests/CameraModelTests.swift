@@ -123,6 +123,27 @@ final class CameraModelTests {
         #expect(scan.scan.pages.count == 3)
     }
 
+    @Test func showsTheLastPageOnlyOnceEveryPageCapturedIsProcessed() async throws {
+        #expect(!camera.canShowLastPage)
+        camera.shutter()
+        await camera.waitUntilIdle()
+        #expect(!camera.hasPageInProgress)
+        #expect(camera.canShowLastPage)
+
+        let release = await fixture.holdGate()
+        camera.shutter()
+        #expect(camera.hasPageInProgress)
+        #expect(!camera.canShowLastPage)
+        try await fixture.waitUntilGateHasWaiting(1)
+        #expect(scan.processing == 1)
+        #expect(!camera.canShowLastPage)
+
+        await release()
+        await camera.waitUntilIdle()
+        #expect(scan.scan.pages.count == 2)
+        #expect(camera.canShowLastPage)
+    }
+
     @Test func retakeCapturesThePageInViewAgain() async {
         holdStill(camera, from: 0)
         await camera.waitUntilIdle()

@@ -158,6 +158,12 @@ public final class CameraModel {
         (scan?.scan.pages.count ?? 0) + (scan?.processing ?? 0) + photoTasks.count
     }
 
+    /// A page is still being taken or processed.
+    public var hasPageInProgress: Bool { !photoTasks.isEmpty || (scan?.processing ?? 0) > 0 }
+
+    /// The last page sheet can open: it would show the last page captured, not one before it.
+    public var canShowLastPage: Bool { !(scan?.scan.pages.isEmpty ?? true) && !hasPageInProgress }
+
     public var progress: Double {
         if case .steadying(let progress) = state, autoCapture { progress } else { 0 }
     }

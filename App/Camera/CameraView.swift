@@ -133,11 +133,12 @@ struct CameraView: View {
             Button {
                 showingLastPage = true
             } label: {
-                PageStack(scan: scan, count: camera.pageCount)
+                PageStack(scan: scan, count: camera.pageCount, isWaiting: camera.hasPageInProgress)
             }
-            .disabled(scan.scan.pages.isEmpty)
+            .disabled(!camera.canShowLastPage)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityLabel(camera.pageCount.counted("page"))
+            .accessibilityValue(camera.hasPageInProgress ? "Processing" : "")
 
             Button(action: camera.shutter) {
                 ZStack {
@@ -189,6 +190,7 @@ struct CameraView: View {
 private struct PageStack: View {
     let scan: ScanModel
     let count: Int
+    let isWaiting: Bool
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -199,7 +201,7 @@ private struct PageStack: View {
             } else {
                 RoundedRectangle(cornerRadius: 4).fill(.white.opacity(count > 0 ? 0.3 : 0.12)).frame(width: 48, height: 60)
             }
-            if scan.processing > 0 {
+            if isWaiting {
                 ProgressView().tint(.white).frame(width: 48, height: 60)
             }
             if count > 0 {
