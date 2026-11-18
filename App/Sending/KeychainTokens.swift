@@ -15,14 +15,23 @@ struct KeychainTokens: PaperlessTokens {
         return String(data: data, encoding: .utf8)
     }
 
+    /// Updates the token in place, so the one before stays when the new one cannot be saved.
     func setToken(_ token: String?, for ownerID: UUID) throws {
-        let deleted = SecItemDelete(query(ownerID) as CFDictionary)
-        guard deleted == errSecSuccess || deleted == errSecItemNotFound else { throw KeychainError(status: deleted) }
-        guard let token else { return }
-        var item = query(ownerID)
-        item[kSecValueData as String] = Data(token.utf8)
-        item[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-        let added = SecItemAdd(item as CFDictionary, nil)
+        guard let token else {
+            let deleted = SecItemDelete(query(ownerID) as CFDictionary)
+            guard deleted == errSecSuccess || deleted == errSecItemNotFound else { throw KeychainError(status: deleted) }
+            return
+        }
+        let attributes: [String: Any] = [
+            kSecValueData as String: Data(token.utf8),
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+        ]
+        let updated = SecItemUpdate(query(ownerID) as CFDictionary, attributes as CFDictionary)
+        guard updated == errSecItemNotFound else {
+            guard updated == errSecSuccess else { throw KeychainError(status: updated) }
+            return
+        }
+        let added = SecItemAdd(query(ownerID).merging(attributes) { $1 } as CFDictionary, nil)
         guard added == errSecSuccess else { throw KeychainError(status: added) }
     }
 
