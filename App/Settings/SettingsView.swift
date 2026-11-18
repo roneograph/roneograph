@@ -15,12 +15,6 @@ struct SettingsView: View {
                 OwnersSection(app: app, settings: settings)
 
                 Section {
-                    Toggle("Ask for a name", isOn: $settings.value.askForName)
-                } footer: {
-                    Text("The name is found in the text, and a name you correct is reused for the next documents from the same issuer, with their own date and number where yours had them.")
-                }
-
-                Section {
                     NavigationLink("Categories") { CategoriesView(settings: settings) }
                 } header: {
                     Text("Advanced")

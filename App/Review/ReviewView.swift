@@ -7,9 +7,6 @@ struct ReviewView: View {
     let scan: ScanModel
     @State private var editing: DocumentField?
     @State private var viewedPage: ScanPage?
-    @State private var askedForName = false
-
-    private var settings: ScannerSettings { app.settings.value }
 
     var body: some View {
         ScrollView {
@@ -42,12 +39,6 @@ struct ReviewView: View {
             }
         }
         .task(id: scan.pdfRequest) { await scan.buildPDF() }
-        .task(id: isReadyToAskForName) {
-            if isReadyToAskForName, settings.askForName, !scan.scan.isNamedByUser, !askedForName {
-                askedForName = true
-                editing = .name
-            }
-        }
         .sheet(item: $editing) { field in
             switch field {
             case .name: NameView(scan: scan)
@@ -63,9 +54,6 @@ struct ReviewView: View {
             if pagesFailed { app.delete(scan.id) }
         }
     }
-
-    /// The name is asked for once the page is read, so it does not change under the sheet, and when nothing else is on screen.
-    private var isReadyToAskForName: Bool { !scan.isReading && viewedPage == nil && app.camera == nil }
 
     private func open(_ page: ScanPage) {
         app.settings.dismissPageTip()

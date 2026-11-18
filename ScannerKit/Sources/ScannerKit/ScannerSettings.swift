@@ -10,8 +10,6 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
     /// Set once the review screen tip about tapping pages was closed, or a page was opened.
     public var dismissedPageTip = false
     public var autoCapture = true
-    /// Opens the rename sheet when the review screen first shows.
-    public var askForName = false
     /// Categories the user added to the built-in ones.
     public var categories: [DocumentCategory] = []
     /// The issuer, category, name and owner the user gave to documents from an issuer, most recent first.
@@ -36,7 +34,6 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
         self.defaultOwnerID = hasOwner(defaultOwnerID) ? defaultOwnerID : self.owners[0].id
         dismissedPageTip = try container.decode(.dismissedPageTip, or: dismissedPageTip)
         autoCapture = try container.decode(.autoCapture, or: autoCapture)
-        askForName = try container.decode(.askForName, or: askForName)
         categories = try container.decode(.categories, or: categories)
         learnedIssuers = try container.decode(.learnedIssuers, or: learnedIssuers)
         keepScans = try container.decode(.keepScans, or: keepScans)

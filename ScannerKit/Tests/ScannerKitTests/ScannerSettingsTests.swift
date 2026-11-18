@@ -13,12 +13,11 @@ struct ScannerSettingsTests {
     }
 
     @Test func readsSettingsSavedBeforeKeysWereAdded() throws {
-        let json = #"{"owners":[{"id":"3F2504E0-4F89-11D3-9A0C-0305E82C3301","name":"Fernwood Holding","email":"accounting@fernwood.example"}],"askForName":true}"#
+        let json = #"{"owners":[{"id":"3F2504E0-4F89-11D3-9A0C-0305E82C3301","name":"Fernwood Holding","email":"accounting@fernwood.example"}]}"#
         let settings = try JSONDecoder().decode(ScannerSettings.self, from: Data(json.utf8))
         #expect(settings.defaultOwner.name == "Fernwood Holding")
         #expect(settings.defaultOwner.email == "accounting@fernwood.example")
         #expect(settings.defaultOwner.fileNameFormat == FileNameFormat())
-        #expect(settings.askForName)
         #expect(settings.defaultOwner.showsSaveToFiles)
         #expect(settings.defaultOwner.showsShare)
         #expect(settings.defaultOwner.names.isEmpty)
@@ -40,9 +39,9 @@ struct ScannerSettingsTests {
     }
 
     @Test func ignoresTheHeaderLinesOfOlderBuilds() throws {
-        let json = #"{"askForName":true,"headerLines":[{"fingerprint":"0a1b2c3d4e5f6071","scans":3,"issuers":["lumen"],"owners":[]}]}"#
+        let json = #"{"autoCapture":false,"headerLines":[{"fingerprint":"0a1b2c3d4e5f6071","scans":3,"issuers":["lumen"],"owners":[]}]}"#
         let settings = try JSONDecoder().decode(ScannerSettings.self, from: Data(json.utf8))
-        #expect(settings.askForName)
+        #expect(!settings.autoCapture)
         #expect(!String(decoding: try JSONEncoder().encode(settings), as: UTF8.self).contains("headerLines"))
     }
 
@@ -77,7 +76,6 @@ struct ScannerSettingsTests {
         settings.defaultOwnerID = owner.id
         settings.dismissedPageTip = true
         settings.autoCapture = false
-        settings.askForName = true
         settings.categories = [DocumentCategory("Car")]
         settings.learnedIssuers = [LearnedIssuer(keys: ["lumen"], issuer: "Lumen Energy")]
         settings.keepScans = .forever

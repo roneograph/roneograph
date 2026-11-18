@@ -43,7 +43,7 @@ struct SettingsStoreTests {
         fixture.defaults.set(unreadable, forKey: "settings")
         let settings = SettingsStore(defaults: fixture.defaults)
         #expect(settings.value.keepScans == .week)
-        settings.value.askForName = true
+        settings.value.autoCapture = false
         settings.save()
         #expect(fixture.defaults.data(forKey: SettingsStore.unreadableKey) == unreadable)
     }
