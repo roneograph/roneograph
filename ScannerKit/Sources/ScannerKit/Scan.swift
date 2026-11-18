@@ -151,8 +151,6 @@ public struct Scan: Identifiable, Equatable, Sendable, Codable {
     public var pages: [ScanPage] = []
     /// Captured after the pages, in order, and not made into pages yet.
     public var pending: [PendingPage] = []
-    /// False while pages are being captured.
-    public var isFinished = false
     public var sent: Sent?
     /// Set while the scan goes to Paperless, or when it could not.
     public var archiving: Archiving?

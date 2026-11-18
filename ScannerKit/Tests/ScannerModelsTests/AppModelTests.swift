@@ -26,7 +26,7 @@ struct AppModelTests {
         #expect(app.scans.isEmpty)
     }
 
-    @Test func closingTheCameraKeepsAScanInProgress() async throws {
+    @Test func closingTheCameraWithPagesOpensReviewAsDoneDoes() async throws {
         let fixture = try Fixture()
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)
         let scan = app.startScan()
@@ -34,9 +34,10 @@ struct AppModelTests {
         await scan.waitUntilIdle()
         app.closeCamera()
 
+        #expect(app.camera == nil)
         #expect(app.scans.map(\.id) == [scan.id])
-        #expect(app.scans.first?.isFinished == false)
-        #expect(app.path.isEmpty)
+        #expect(app.path == [scan.id])
+        #expect(!scan.canDeleteCapturedPage)
     }
 
     @Test func closingTheCameraWhileAPageIsProcessedKeepsTheScan() async throws {
@@ -46,6 +47,7 @@ struct AppModelTests {
         scan.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
         app.closeCamera()
         #expect(app.model(for: scan.id) === scan)
+        #expect(app.path == [scan.id])
 
         await scan.waitUntilIdle()
         #expect(app.scans.map(\.id) == [scan.id])
@@ -232,7 +234,6 @@ struct AppModelTests {
 
         #expect(app.camera == nil)
         #expect(app.path == [scan.id])
-        #expect(app.scans.first?.isFinished == true)
     }
 
     @Test func aNewScanFromReviewReplacesItWhenDone() async throws {
@@ -244,7 +245,7 @@ struct AppModelTests {
         #expect(second.id != first.id)
         #expect(app.path == [second.id])
         #expect(Set(app.scans.map(\.id)) == [first.id, second.id])
-        #expect(app.scans.allSatisfy { $0.isFinished && $0.sent == nil })
+        #expect(app.scans.allSatisfy { $0.sent == nil })
     }
 
     @Test func closingANewScanWithoutPagesStaysOnTheReview() async throws {
@@ -258,14 +259,18 @@ struct AppModelTests {
         #expect(app.scans.map(\.id) == [first.id])
     }
 
-    @Test func continueAddsPagesToTheSameScan() async throws {
+    @Test func addPagesAddsThemToTheSameScanWithoutEmptyingIt() async throws {
         let fixture = try Fixture()
         let scan = await fixture.capturedScan(in: AppModel(processor: fixture.processor, settings: fixture.settings))
 
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)
-        app.continueScan(scan.id)
+        app.open(scan.id)
+        app.camera = app.model(for: scan.id)
         let camera = try #require(app.camera)
         #expect(camera.id == scan.id)
+        #expect(!camera.canDeleteCapturedPage)
+        camera.deleteCapturedPage(camera.scan.pages[0].id)
+        #expect(camera.scan.pages.count == 1)
         camera.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
         await camera.waitUntilIdle()
         app.finishCapture(camera)
@@ -275,7 +280,7 @@ struct AppModelTests {
         #expect(app.model(for: scan.id) === camera)
     }
 
-    @Test func openingAFinishedScanOpensReview() async throws {
+    @Test func openingAScanOpensReview() async throws {
         let fixture = try Fixture()
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)
         let scan = await fixture.capturedScan(in: app)
@@ -284,19 +289,6 @@ struct AppModelTests {
 
         #expect(app.path == [scan.id])
         #expect(app.camera == nil)
-    }
-
-    @Test func openingAScanInProgressOpensTheCameraOnIt() async throws {
-        let fixture = try Fixture()
-        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
-        let scan = app.startScan()
-        scan.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
-        await scan.waitUntilIdle()
-        app.closeCamera()
-        app.open(scan.id)
-
-        #expect(app.camera === scan)
-        #expect(app.path.isEmpty)
     }
 
     @Test(arguments: [(SendMethod.share, "Shared"), (.paperless, "Archived")])
@@ -324,18 +316,18 @@ struct AppModelTests {
         #expect(app.scans.map(\.sent?.method) == [.share, .share])
     }
 
-    @Test func listsTheFinishedScansNotSent() async throws {
+    @Test func listsTheScansNotSent() async throws {
         let fixture = try Fixture()
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)
         let sent = await fixture.capturedScan(in: app)
         let waiting = await fixture.capturedScan(in: app)
-        let inProgress = app.startScan()
-        inProgress.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
-        await inProgress.waitUntilIdle()
+        let closed = app.startScan()
+        closed.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
+        await closed.waitUntilIdle()
         app.closeCamera()
         app.didSend([sent], by: .share)
 
-        #expect(app.notSent.map(\.id) == [waiting.id])
+        #expect(app.notSent.map(\.id) == [closed.id, waiting.id])
     }
 
     @Test func alwaysShowsShareForEveryOwner() async throws {
@@ -537,16 +529,12 @@ struct AppModelTests {
     @Test func neverDeletesAScanThatWasNotSent() throws {
         let fixture = try Fixture()
         let now = Date()
-        var finished = Scan(created: now.addingTimeInterval(-400 * 86400), name: "Finished")
-        finished.pages = [ScanPage(quad: nil, analysis: .sample)]
-        finished.isFinished = true
-        var inProgress = Scan(created: now.addingTimeInterval(-400 * 86400), name: "In progress")
-        inProgress.pages = [ScanPage(quad: nil, analysis: .sample)]
-        try fixture.store.save(finished)
-        try fixture.store.save(inProgress)
+        var old = Scan(created: now.addingTimeInterval(-400 * 86400), name: "Old")
+        old.pages = [ScanPage(quad: nil, analysis: .sample)]
+        try fixture.store.save(old)
 
         let app = AppModel(processor: fixture.processor, settings: fixture.settings, now: { now })
-        #expect(Set(app.scans.map(\.name)) == ["Finished", "In progress"])
+        #expect(app.scans.map(\.name) == ["Old"])
     }
 
     @Test func keepsAnExpiredScanWhileItIsOpen() throws {
@@ -563,7 +551,7 @@ struct AppModelTests {
         let app = AppModel(processor: fixture.processor, settings: fixture.settings, now: clock.now)
         app.path = [reviewed.id]
         let review = try #require(app.model(for: reviewed.id))
-        app.continueScan(scanned.id)
+        app.camera = app.model(for: scanned.id)
 
         clock.advance(days: 2)
         app.refresh()

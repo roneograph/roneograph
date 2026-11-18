@@ -95,22 +95,21 @@ public final class AppModel {
         return model
     }
 
-    public func continueScan(_ id: UUID) {
-        camera = model(for: id)
-    }
-
-    /// Opens a scan from Home: Review once it is finished, the camera to add pages while it is in progress, which has nothing to send yet.
+    /// Opens a scan from Home in Review.
     public func open(_ id: UUID) {
-        guard let scan = scans.first(where: { $0.id == id }) else { return }
-        if scan.isFinished { path = [id] } else { continueScan(id) }
+        guard scans.contains(where: { $0.id == id }) else { return }
+        path = [id]
     }
 
-    /// The pages stay: an unfinished scan shows as in progress on Home.
+    /// Closing the camera on pages, even ones still being made, is the same as Done; a new scan without any is dropped.
     public func closeCamera() {
-        if let camera, camera.scan.pages.isEmpty, camera.processing == 0 {
+        guard let camera else { return }
+        if camera.isEmpty {
             models[camera.id] = nil
+            self.camera = nil
+        } else {
+            finishCapture(camera)
         }
-        camera = nil
     }
 
     public func finishCapture(_ model: ScanModel) {
@@ -119,9 +118,9 @@ public final class AppModel {
         if path.last != model.id { path = [model.id] }
     }
 
-    /// The finished scans not sent yet nor on their way to Paperless, which Home offers to send at once.
+    /// The scans not sent yet nor on their way to Paperless, which Home offers to send at once.
     public var notSent: [Scan] {
-        scans.filter { $0.isFinished && $0.sent == nil && $0.archiving?.isInProgress != true }
+        scans.filter { $0.sent == nil && $0.archiving?.isInProgress != true }
     }
 
     /// Confirms the scans that went out; Paperless confirms its own once the server took them.

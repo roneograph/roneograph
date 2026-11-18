@@ -155,7 +155,19 @@ struct ScanModelTests {
         #expect(fixture.store.all().first?.pages == model.scan.pages)
     }
 
-    @Test func theCameraCannotTakeTheLastPageOfAFinishedScan() async throws {
+    @Test func theCameraCannotTakeTheLastPageOfAStoredScan() async throws {
+        let fixture = try Fixture()
+        let captured = await fixture.scanModel(pages: 1)
+        let stored = try #require(fixture.store.all().first)
+        captured.finishCapture()
+
+        let model = ScanModel(scan: stored, processor: fixture.processor, settings: fixture.settings)
+        #expect(!model.canDeleteCapturedPage)
+        model.deleteCapturedPage(model.scan.pages[0].id)
+        #expect(model.scan.pages.count == 1)
+    }
+
+    @Test func theCameraCannotTakeTheLastPageOnceItsCaptureIsDone() async throws {
         let fixture = try Fixture()
         let model = await fixture.scanModel(pages: 1)
         #expect(model.canDeleteCapturedPage)

@@ -17,7 +17,7 @@ struct ScanKeepingTests {
         app.didSend([scan], by: .share)
         clock.advance(days: 8)
 
-        app.continueScan(scan.id)
+        app.camera = scan
         scan.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
         await scan.waitUntilIdle()
         app.finishCapture(scan)
@@ -43,7 +43,7 @@ struct ScanKeepingTests {
         try await app.archive([scan])
         try #require(uploader.uploads.map(\.scanID) == [scan.id])
 
-        app.continueScan(scan.id)
+        app.camera = scan
         scan.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
         #expect(uploader.cancelled == [scan.id])
         #expect(scan.scan.archiving == nil)

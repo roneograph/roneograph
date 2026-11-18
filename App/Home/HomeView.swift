@@ -175,7 +175,7 @@ private struct NotSentCard: View {
     }
 }
 
-/// A finished scan opens Review; a scan in progress opens the camera, and says so.
+/// Opens the scan in Review.
 private struct ScanRow: View {
     let scan: Scan
     let store: ScanStore
@@ -186,48 +186,28 @@ private struct ScanRow: View {
     var body: some View {
         Button(action: open) {
             HStack(spacing: 12) {
-                summary
-                if !scan.isFinished { continueCapsule }
+                ScanThumbnail(scan: scan, store: store, width: 36)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(scan.title).font(.headline).lineLimitUnlessAccessibilitySize(1)
+                    status.font(.subheadline)
+                    if let owner {
+                        Label(owner.name, systemImage: owner.symbol.systemImage)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .labelStyle(OwnerLabelStyle())
+                            .lineLimitUnlessAccessibilitySize(1)
+                    }
+                }
+                Spacer(minLength: 0)
             }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityHint(scan.isFinished ? "" : "Opens the camera to add pages to this scan")
-    }
-
-    private var summary: some View {
-        HStack(spacing: 12) {
-            ScanThumbnail(scan: scan, store: store, width: 36)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(scan.title).font(.headline).lineLimitUnlessAccessibilitySize(1)
-                status.font(.subheadline)
-                if let owner {
-                    Label(owner.name, systemImage: owner.symbol.systemImage)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .labelStyle(OwnerLabelStyle())
-                        .lineLimitUnlessAccessibilitySize(1)
-                }
-            }
-            Spacer(minLength: 0)
-        }
-    }
-
-    private var continueCapsule: some View {
-        Text("Continue")
-            .fontWeight(.semibold)
-            .foregroundStyle(.white)
-            .fixedSize()
-            .padding(.horizontal, 14)
-            .padding(.vertical, 7)
-            .background(.tint, in: Capsule())
     }
 
     @ViewBuilder
     private var status: some View {
-        if !scan.isFinished {
-            Text(scan.status).foregroundStyle(.tint)
-        } else if let archiving = scan.archiving {
+        if let archiving = scan.archiving {
             HStack(spacing: 4) {
                 Image(systemName: archiving.isInProgress ? "arrow.up.circle" : "exclamationmark.triangle.fill")
                 Text(scan.status)

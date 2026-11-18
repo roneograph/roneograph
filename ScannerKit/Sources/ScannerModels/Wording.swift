@@ -124,10 +124,9 @@ extension Collection<RememberedValue> {
 }
 
 extension Scan {
-    /// Under the scan's name on Home: "In progress · 2 pages", "Shared yesterday · 1 page", "Archiving… · 1 page", "Not sent · now · 3 pages".
+    /// Under the scan's name on Home: "Shared yesterday · 1 page", "Archiving… · 1 page", "Not sent · now · 3 pages".
     public var status: String {
         let pages = (pages.count + pending.count).counted("page")
-        if !isFinished { return "In progress · \(pages)" }
         switch archiving?.state {
         case .uploading: return "Archiving… · \(pages)"
         case .waiting: return "Waiting for Paperless · \(pages)"
@@ -287,7 +286,7 @@ public enum RowAction: Equatable, Sendable {
     }
 }
 
-/// The card on Home that sends every finished scan not sent in one tap: to Paperless when every owner of the scans has a server, to the share sheet otherwise.
+/// The card on Home that sends every scan not sent in one tap: to Paperless when every owner of the scans has a server, to the share sheet otherwise.
 public struct NotSentOffer: Equatable {
     public var scans: [Scan]
     public var archives: Bool
@@ -301,15 +300,15 @@ public struct NotSentOffer: Equatable {
 
 extension AppModel {
     /// The swipe actions of a scan on Home, in order: Archive when its owner has a Paperless server, even once sent, or Try Again once its upload failed, then Share.
-    /// None while it is in progress, which has no PDF yet, or on its way to Paperless.
+    /// None while it is on its way to Paperless.
     public func swipeActions(for scan: Scan) -> [RowAction] {
-        guard scan.isFinished, scan.archiving?.isInProgress != true else { return [] }
+        guard scan.archiving?.isInProgress != true else { return [] }
         let connected = isConnected(settings.value.owner(scan.owner?.id))
         if scan.archiving != nil { return connected ? [.tryAgain, .share] : [.share] }
         return connected ? [.archive, .share] : [.share]
     }
 
-    /// Offered once more than one finished scan was not sent.
+    /// Offered once more than one scan was not sent.
     public var notSentOffer: NotSentOffer? {
         let scans = notSent
         guard scans.count > 1 else { return nil }

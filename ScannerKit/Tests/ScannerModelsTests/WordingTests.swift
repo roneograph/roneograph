@@ -93,8 +93,6 @@ struct WordingTests {
     @Test func saysWhereEachScanIsOnHome() {
         var scan = Scan(name: "bill", title: "Water bill")
         scan.pages = [ScanPage(quad: nil, analysis: .sample)]
-        #expect(scan.status == "In progress · 1 page")
-        scan.isFinished = true
         #expect(scan.status == "Not sent · now · 1 page")
         scan.sent = Sent(date: Date(), method: .share)
         #expect(scan.status == "Shared now · 1 page")

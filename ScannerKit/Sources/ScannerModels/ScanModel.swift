@@ -53,6 +53,8 @@ public final class ScanModel: Identifiable {
     @ObservationIgnored var otherScans: () -> [Scan] = { [] }
     @ObservationIgnored private var queue: Task<Void, Never>?
     @ObservationIgnored private var isDeleted = false
+    /// True from the camera starting the scan until its capture is done: until then, the camera can take its last page, leaving no scan.
+    public private(set) var isNew: Bool
     private let now: @Sendable () -> Date
 
     public init(scan: Scan, processor: ScanProcessor, settings: SettingsStore, now: @escaping @Sendable () -> Date = Date.init) {
@@ -60,6 +62,7 @@ public final class ScanModel: Identifiable {
         var scan = scan
         if scan.owner == nil { scan.owner = ScanOwner(id: settings.value.defaultOwnerID, isDefault: true) }
         self.scan = scan
+        isNew = scan.pages.isEmpty && scan.pending.isEmpty
         self.processor = processor
         self.settings = settings
         self.now = now
@@ -200,8 +203,7 @@ public final class ScanModel: Identifiable {
     }
 
     public func finishCapture() {
-        scan.isFinished = true
-        save()
+        isNew = false
     }
 
     /// Keeps `readsPage` set while the page is to be read again, as reading it failed while the app was not active.
@@ -269,16 +271,16 @@ public final class ScanModel: Identifiable {
 
     // MARK: Pages
 
-    /// A scan always keeps a page: only the camera can take the last one, from a scan not finished yet.
+    /// A scan always keeps a page: only the camera can take the last one, from the new scan it is capturing.
     public var canDeletePage: Bool { scan.pages.count > 1 }
-    public var canDeleteCapturedPage: Bool { canDeletePage || !scan.isFinished }
+    public var canDeleteCapturedPage: Bool { canDeletePage || isNew }
 
     public func deletePage(_ id: UUID) {
         guard canDeletePage else { return }
         removePage(id)
     }
 
-    /// Deleting the last page of a scan not finished yet deletes the stored scan.
+    /// Deleting the last page of a new scan deletes the stored scan.
     public func deleteCapturedPage(_ id: UUID) {
         guard canDeleteCapturedPage else { return }
         removePage(id)

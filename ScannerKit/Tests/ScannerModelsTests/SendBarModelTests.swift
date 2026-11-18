@@ -320,9 +320,6 @@ struct SendBarModelTests {
         #expect(app.swipeActions(for: theirs.scan) == [.share])
         theirs.setArchiving(Archiving(state: .failed("Paperless is no longer connected.")))
         #expect(app.swipeActions(for: theirs.scan) == [.share])
-
-        let inProgress = app.startScan()
-        #expect(app.swipeActions(for: inProgress.scan).isEmpty)
     }
 
     @Test func homeSendsEveryScanNotSentInOneTap() async throws {
