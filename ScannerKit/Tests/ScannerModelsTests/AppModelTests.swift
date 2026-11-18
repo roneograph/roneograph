@@ -111,6 +111,30 @@ struct AppModelTests {
         #expect(built.hasCurrentPDF)
     }
 
+    @Test func asksForAFailedPDFAgainOnceTheAppIsActiveAgain() async throws {
+        let fixture = try Fixture()
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+        let scan = await fixture.capturedScan(in: app)
+        let makePDFData = scan.makePDFData
+        scan.makePDFData = { _ in throw POSIXError(.ENOSPC) }
+        await scan.buildPDF(delay: .zero)
+        try #require(scan.pdf == .storageFull)
+        let failed = scan.pdfRequest
+
+        app.setActive(false)
+        #expect(scan.pdfRequest == failed)
+        scan.makePDFData = makePDFData
+        app.setActive(true)
+        #expect(scan.pdfRequest != failed)
+        await scan.buildPDF(delay: .zero)
+        #expect(scan.hasCurrentPDF)
+
+        let built = scan.pdfRequest
+        app.setActive(false)
+        app.setActive(true)
+        #expect(scan.pdfRequest == built)
+    }
+
     @Test func keepsTheListCurrentFromSavesWithoutReadingTheStoreAgain() async throws {
         let fixture = try Fixture()
         var old = Scan(created: Date().addingTimeInterval(-3600), name: "Old")

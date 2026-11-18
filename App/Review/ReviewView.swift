@@ -41,7 +41,7 @@ struct ReviewView: View {
                 .accessibilityHint("Opens the camera for another document. This one stays ready to send.")
             }
         }
-        .task(id: scan.pdfInputs) { await scan.buildPDF() }
+        .task(id: scan.pdfRequest) { await scan.buildPDF() }
         .task(id: isReadyToAskForName) {
             if isReadyToAskForName, settings.askForName, !scan.scan.isNamedByUser, !askedForName {
                 askedForName = true

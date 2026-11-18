@@ -39,11 +39,16 @@ public final class AppModel {
 
     public var store: ScanStore { processor.store }
 
-    /// Page work and PDFs wait while the app is not active, as the GPU cannot be used in the background; when it is active again, they go on, the list is refreshed and the results of uploads are applied.
+    /// Page work and PDFs wait while the app is not active, as the GPU cannot be used in the background; when it is active again, they go on, the PDFs that could not be made are asked for again, the list is refreshed and the results of uploads are applied.
     /// Settings changed meanwhile are saved before the app can be stopped.
     public func setActive(_ isActive: Bool) {
         processor.gate.isPaused = !isActive
-        if isActive { refresh() } else { settings.save() }
+        if isActive {
+            for model in models.values { model.retryFailedPDF() }
+            refresh()
+        } else {
+            settings.save()
+        }
         archiver?.isActive = isActive
     }
 

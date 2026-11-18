@@ -17,6 +17,12 @@ public final class ScanModel: Identifiable {
         var pages: [ScanPage]
     }
 
+    /// What Review makes the PDF for: its inputs, and another try once a build failed.
+    public struct PDFRequest: Equatable {
+        var inputs: PDFInputs
+        var attempt: Int
+    }
+
     public let id: UUID
     public private(set) var scan: Scan
     /// Page edits not applied yet.
@@ -24,6 +30,7 @@ public final class ScanModel: Identifiable {
     public private(set) var pdf = PDFState.idle
     /// What the ready PDF was made from, to tell whether it is still current.
     private var pdfMadeFrom: PDFInputs?
+    private var pdfAttempt = 0
     /// The PDF being made; another build waits for it, so two never run at once.
     @ObservationIgnored private var pdfBuild: Task<Void, Never>?
     /// Replaced in tests, to hold or count builds.
@@ -63,6 +70,7 @@ public final class ScanModel: Identifiable {
 
     private var store: ScanStore { processor.store }
     public var pdfInputs: PDFInputs { PDFInputs(name: scan.fileName, title: scan.title, pages: scan.pages) }
+    public var pdfRequest: PDFRequest { PDFRequest(inputs: pdfInputs, attempt: pdfAttempt) }
     public var fallbackTitle: String { FileNamer.fallback(for: scan.created) }
     /// The name a typed name becomes: trimmed, with single spaces, the first suggestion or the date when empty.
     public func finalName(_ name: String) -> String { FileNamer.finalName(name, fallback: scan.suggestions.first ?? fallbackTitle) }
@@ -515,6 +523,14 @@ public final class ScanModel: Identifiable {
     @concurrent
     private static func write(_ data: Data, to url: URL) async throws {
         try data.write(to: url, options: .atomic)
+    }
+
+    /// Asks for another try of a PDF that could not be made, as when the app is active again, maybe with space freed meanwhile.
+    func retryFailedPDF() {
+        switch pdf {
+        case .failed, .storageFull: pdfAttempt += 1
+        default: break
+        }
     }
 
     /// Whether the PDF is made, from the pages and name as they are now.
