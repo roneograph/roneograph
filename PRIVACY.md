@@ -7,7 +7,7 @@ Roneograph collects no data: nothing you scan or type is ever sent to us or to a
 ## What stays on your iPhone
 
 - **Scans.** The photos you take, the cleaned pages, the text read on them, the details found in that text (category, issuer, date, reference number, owner) and the comment you add are kept in the app's private storage. The PDFs are kept in the app's folder, which the Files app shows under On My iPhone › Roneograph.
-- **Settings.** Your email addresses, owners with the names and addresses their mail is sent to (kept as text, to recognize the owner of a page and never take these lines for the issuer), file name formats, your own categories, how long scans are kept, the folder picked for Save to Files (a reference to it, not a copy), and the address and storage path of the Paperless-ngx server connected for Archive. Its API token is kept in the iPhone's Keychain, for this iPhone only.
+- **Settings.** Owners with the names and addresses their mail is sent to (kept as text, to recognize the owner of a page and never take these lines for the issuer), file name formats, your own categories, and the address and storage path of the Paperless-ngx server connected for Archive. Its API token is kept in the iPhone's Keychain, for this iPhone only.
 - **Corrections.** The names, issuers, categories and owners you correct are kept to be reused for the next documents from the same issuer, with what identifies the issuer on the page, such as its web or email domain or its company number.
 
 Like any app data, all of this except the Paperless token is part of your iPhone's iCloud or computer backup, if you make one.
@@ -21,13 +21,13 @@ Like any app data, all of this except the Paperless token is part of your iPhone
 
 ## Sharing
 
-A PDF leaves your iPhone only when you send it: with Email or Share, to the recipient or app you pick, with Save to Files, to the folder you picked, or with Archive, to the Paperless-ngx server you connected, with its title, the date of the document, its issuer, its category, the name of its owner and its comment. The comment is also written in the PDF, as its subject, and Email puts it in the text of the message. An upload that cannot reach the server is tried again later, until it is delivered or you delete the scan. From then on, that app or service handles it under its own privacy policy. Roneograph shares nothing with anyone else.
+A PDF leaves your iPhone only when you send it: with Share, to the app or recipient you pick, or with Archive, to the Paperless-ngx server you connected, with its title, the date of the document, its issuer, its category, the name of its owner and its comment. The comment is also written in the PDF, as its subject. An upload that cannot reach the server is tried again later, until it is delivered or you delete the scan. From then on, that app or service handles it under its own privacy policy. Roneograph shares nothing with anyone else.
 
 ## How long it is kept, and deleting it
 
-- Scans you sent or saved with Save to Files are deleted after the time chosen in Settings › Keep sent scans for (7 days by default, or 1 day, 30 days or Forever), counted from when they were sent, the next time the app is opened. Scans never sent stay until you delete them. Delete a scan at any time from the app, or all of them with Settings › Delete All Scans. PDFs you sent or saved with Save to Files are not affected.
+- Scans you sent are deleted from your iPhone 24 hours after they were sent, when the app next comes back to the front. A scan is sent once the Paperless-ngx server took it (an upload waiting or failed is kept) or once the share sheet completed, whatever the destination. Scans never sent stay until you delete them. Delete a scan at any time from the app. PDFs you archived or shared are not affected.
 - Corrections are kept until you forget them: Settings › Memory shows what is remembered for each issuer, and forgets one issuer or everything.
-- Settings are kept until you change them: clear an email address, delete a name or an address, forget the folder, disconnect Paperless, or delete an owner.
+- Settings are kept until you change them: delete a name or an address, disconnect Paperless, or delete an owner.
 - Deleting the app deletes everything it kept, except a Paperless token, which iOS keeps in the Keychain: disconnect Paperless before deleting the app to delete it, otherwise it is deleted when the app is installed again.
 
 As we hold no data about you, there is nothing to ask us to delete.

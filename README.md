@@ -40,21 +40,21 @@ Naming:
 - Reads the details of the document: its category (invoice, payslip, tax notice, or one of your own), its issuer, the date printed on it and its reference number; you can change any of them.
 - Remembers a corrected name, issuer and category and reuses them for the next documents from the same issuer; a month, date or number in your name follows the next document. Remembered values are marked on the review screen and can be forgotten there or in Settings.
 - Follows your file name format: date first or last, in three formats, from the document or the scan day, with spaces, dashes or underscores, lowercase or not.
-- Or a custom format built from variables, such as `{CATEGORY}/{YYYY}-{MM} {ISSUER}`, which can file scans into folders; the format editor shows what each part gives for a sample invoice.
+- Or a custom format built from variables, such as `{YYYY}-{MM} {CATEGORY} {ISSUER}`; the format editor shows what each part gives for a sample invoice.
+- The file name is the name of the shared PDF and its original file name in Paperless.
 
 Sending:
 
-- A comment on a scan, such as who was at a lunch, is written in the PDF as its subject, and sent along: as the text of the email, or in a Comment custom field on Paperless.
-- Email fills in your default address, the name as the subject, the comment as the text and the PDF; you only tap Send.
-- Save to Files puts the PDF in a folder picked once, or in the folders of a custom format inside it, without replacing a file already there.
-- Share reaches any other app.
-- The send bar shows Email and Archive once the owner has an address or a Paperless server; Save to Files and Share can be turned off for each owner; with nothing to send with, Set Up Sending opens the owner's ways to send.
-- The button that sends in a single tap shows its name, with where it sends under the buttons; a button tapped while the PDF is still being made sends as soon as it is ready.
+- Two ways out: Archive, the main one, sends the PDF to the owner's Paperless-ngx server in one tap once it is connected; Share opens the iOS share sheet for everything else, such as Mail or Files.
+- A comment on a scan, such as who was at a lunch, is written in the PDF as its subject, and sent along in a Comment custom field on Paperless.
+- The review screen shows at most three buttons: Archive by name (or Share until the owner is connected), the other one, and Delete; a Connect Paperless link sits under the buttons until an owner is connected. A button tapped while the PDF is still being made sends as soon as it is ready.
+- Once a scan is sent, a status line on the review screen says how and when, and when it leaves the iPhone.
 - New Scan on the review screen starts the next document of a pile right away.
-- Selecting several scans on Home sends them at once, all PDFs in one email per owner; a shortcut selects the scans not sent yet.
-- Owners keep your own paper apart from a company's you scan for: each owner has its names, addresses, email address, folder and file name format, and a document gets the owner whose name or address is printed at the top of the page (with or without civility, initials or legal form), or the one remembered for its issuer, or the default one.
+- On Home, swipe a scan from the left to send it: Archive first, which a full swipe does, then Share; a scan already sent only offers Share. Swipe from the right to delete it.
+- When more than one scan is not sent, a card at the top of Home archives them all in one tap with Archive All, or offers Share All when the owners are not all connected to Paperless.
+- Owners keep your own paper apart from a company's you scan for: each owner has its names, addresses, Paperless server and file name format, and a document gets the owner whose name or address is printed at the top of the page (with or without civility, initials or legal form), or the one remembered for its issuer, or the default one.
 - Archive uploads PDFs to a Paperless-ngx server, one per owner, into the storage path picked for the owner, with their title, date, issuer as correspondent, category as document type, owner's name in an Owner custom field and comment in a Comment one (each created when missing, the fields from Paperless-ngx 2.19), so a single storage path such as `{{ custom_fields|get_cf_value('Owner', 'unsorted') }}/{{ document_type }}/{{ original_name }}` can sort documents by owner; uploads go on in the background and are tried again until the server takes them. The Paperless setup lists the placeholders that read each field and storage paths to copy.
-- Keeps sent scans 1, 7 or 30 days, or forever, visible in Files; never deletes a scan that was not sent.
+- Keeps a scan that was not sent until you delete it, visible in Files; a sent scan is deleted from the iPhone 24 hours after it was sent. Sent means archived, once the Paperless server took it (a waiting or failed upload is kept), or shared, once the share sheet completed, whatever the destination.
 
 ## Requirements
 
