@@ -104,22 +104,19 @@ struct WordingTests {
     }
 
     @MainActor
-    @Test func summarizesThePDFsToSend() async throws {
+    @Test func summarizesThePDFToSend() async throws {
         let fixture = try Fixture()
         let first = await fixture.scanModel(pages: 1)
         let second = await fixture.scanModel(pages: 2)
-        #expect([ScanModel]().selectionSummary == "Select the scans to send")
         #expect(second.summary == "2 pages · preparing the PDF…")
-        #expect([first, second].selectionSummary == "2 documents · 3 pages · preparing the PDFs…")
 
         await first.preparePDF()
         await second.preparePDF()
-        guard case .ready(_, let firstSize) = first.pdf, case .ready(_, let secondSize) = second.pdf else {
+        guard case .ready = first.pdf, case .ready(_, let secondSize) = second.pdf else {
             Issue.record("PDFs not ready")
             return
         }
         #expect(second.summary == "2 pages · \(ByteCountFormatter.string(fromByteCount: Int64(secondSize), countStyle: .file))")
-        #expect([first, second].selectionSummary == "2 documents · 3 pages · \(ByteCountFormatter.string(fromByteCount: Int64(firstSize + secondSize), countStyle: .file))")
 
         second.rename("Water bill")
         #expect(second.summary == "2 pages · preparing the PDF…")
@@ -145,11 +142,6 @@ struct WordingTests {
         }
         await second.preparePDF()
         #expect(second.summary == "1 page · the PDF could not be made")
-        #expect([second].selectionSummary == "1 document · 1 page · the PDF could not be made")
-        #expect([first, second].selectionSummary == "2 documents · 2 pages · a PDF could not be made")
-        first.rename("Gas bill")
-        await first.buildPDF(delay: .zero)
-        #expect([first, second].selectionSummary == "2 documents · 2 pages · 2 PDFs could not be made")
     }
 
     @Test func namesPageLooks() {

@@ -168,20 +168,6 @@ extension ScanModel {
 
 @MainActor
 extension Collection<ScanModel> {
-    /// Under the send buttons on Home: "2 documents · 5 pages · 1.2 MB", or where the PDFs are at.
-    public var selectionSummary: String {
-        guard !isEmpty else { return "Select the scans to send" }
-        let pages = reduce(0) { $0 + $1.scan.pages.count }.counted("page")
-        let failed = filter { $0.pdf == .failed || $0.pdf == .storageFull }.count
-        let state = switch failed {
-        case 0: currentPDFSize?.fileSize ?? "preparing the PDFs…"
-        case _ where contains(where: { $0.pdf == .storageFull }): "the iPhone storage is full"
-        case 1: count == 1 ? "the PDF could not be made" : "a PDF could not be made"
-        default: "\(failed) PDFs could not be made"
-        }
-        return "\(count.counted("document")) · \(pages) · \(state)"
-    }
-
     /// "2 pages", counting the pages still processed.
     var pageCount: String {
         reduce(0) { $0 + $1.scan.pages.count + $1.processing }.counted("page")
@@ -296,6 +282,62 @@ extension AppModel {
     /// The host of the owner's Paperless server once it is connected.
     public func archivesTo(_ owner: Owner) -> String? {
         isConnected(owner) ? owner.paperlessHost : nil
+    }
+}
+
+/// A swipe action of a scan on Home.
+public enum RowAction: Equatable, Sendable {
+    /// Archive again after a failed upload.
+    case archive, tryAgain, share
+
+    public var title: String {
+        switch self {
+        case .archive: "Archive"
+        case .tryAgain: "Try Again"
+        case .share: "Share"
+        }
+    }
+
+    public var method: SendMethod {
+        self == .share ? .share : .paperless
+    }
+}
+
+/// The card on Home that sends every finished scan not sent in one tap: to Paperless when every owner of the scans has a server, to the share sheet otherwise.
+public struct NotSentOffer: Equatable {
+    public var scans: [Scan]
+    public var archives: Bool
+    /// "6 scans not sent"
+    public var title: String
+    /// "6 pages · to Paperless", or the names of the scans.
+    public var subtitle: String
+    /// "Archive All", "Share All".
+    public var button: String
+}
+
+extension AppModel {
+    /// The swipe actions of a scan on Home, in order: Archive when its owner has a Paperless server, or Try Again once its upload failed, then Share; Share alone once it was sent, as Paperless refuses a file it already has.
+    /// None while it is in progress, which has no PDF yet, or on its way to Paperless.
+    public func swipeActions(for scan: Scan) -> [RowAction] {
+        guard scan.isFinished, scan.archiving?.isInProgress != true else { return [] }
+        let connected = isConnected(settings.value.owner(scan.owner?.id))
+        if scan.archiving != nil { return connected ? [.tryAgain, .share] : [.share] }
+        return connected && scan.sent == nil ? [.archive, .share] : [.share]
+    }
+
+    /// Offered once more than one finished scan was not sent.
+    public var notSentOffer: NotSentOffer? {
+        let scans = notSent
+        guard scans.count > 1 else { return nil }
+        let archives = scans.allSatisfy { isConnected(settings.value.owner($0.owner?.id)) }
+        let pages = scans.reduce(0) { $0 + $1.pages.count }.counted("page")
+        return NotSentOffer(
+            scans: scans,
+            archives: archives,
+            title: "\(scans.count) scans not sent",
+            subtitle: archives ? "\(pages) · to Paperless" : scans.map(\.title).joined(separator: ", "),
+            button: archives ? "Archive All" : "Share All"
+        )
     }
 }
 

@@ -4,8 +4,13 @@ import SwiftUI
 
 struct HomeView: View {
     let app: AppModel
-    @State private var isSelecting = false
-    @State private var selection = Set<UUID>()
+    @State private var sending = SendBarModel()
+    /// The scans the last swipe or card tap sends, once their PDFs are made.
+    @State private var sendingIDs: [UUID] = []
+    @State private var sharing: SharedScans?
+    /// Set when the share sheet sent the PDFs, acted on once it is gone.
+    @State private var shared: [ScanModel]?
+    @State private var archivingFailed = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -13,10 +18,14 @@ struct HomeView: View {
             if app.scans.isEmpty {
                 WelcomeView()
             } else {
-                recent
+                list
             }
         }
-        .toolbar { toolbar }
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Settings", systemImage: "gearshape") { app.showingSettings = true }
+            }
+        }
         .safeAreaBar(edge: .bottom) {
             VStack(spacing: 12) {
                 if let toast = app.toast {
@@ -27,17 +36,13 @@ struct HomeView: View {
                         .background(.regularMaterial, in: Capsule())
                         .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
                 }
-                if isSelecting {
-                    SendBar(app: app, scans: selected, finished: sent, summary: selected.selectionSummary)
-                } else {
-                    Button { app.startScan() } label: {
-                        Label("Scan", systemImage: "doc.viewfinder").frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.glassProminent)
-                    .controlSize(.large)
-                    .fontWeight(.semibold)
-                    .padding(.horizontal)
+                Button { app.startScan() } label: {
+                    Label("Scan", systemImage: "doc.viewfinder").frame(maxWidth: .infinity)
                 }
+                .buttonStyle(.glassProminent)
+                .controlSize(.large)
+                .fontWeight(.semibold)
+                .padding(.horizontal)
             }
             .padding(.bottom, 8)
             .animation(.default, value: app.toast)
@@ -46,133 +51,102 @@ struct HomeView: View {
         .onChange(of: app.toast) { _, toast in
             if let toast { AccessibilityNotification.Announcement(toast).post() }
         }
-        .task(id: selection) {
-            for model in selected { await model.preparePDF() }
+        .sheet(item: $sharing, onDismiss: finishSharing) { sharing in
+            ShareSheet(items: sharing.urls) { completed in
+                if completed { shared = sharing.scans }
+            }
+            .presentationDetents([.medium, .large])
+            .ignoresSafeArea()
         }
-        .onChange(of: app.scans) {
-            selection.formIntersection(selectable.map(\.id))
-            if selectable.isEmpty { isSelecting = false }
-        }
-    }
-
-    @ToolbarContentBuilder
-    private var toolbar: some ToolbarContent {
-        if isSelecting {
-            ToolbarItem(placement: .topBarLeading) {
-                if selection.isEmpty {
-                    Menu("Select") {
-                        Button("Select All", systemImage: "checkmark.circle") { selection = Set(selectable.map(\.id)) }
-                        Button("Select Not Sent", systemImage: "envelope") { selection = Set(app.notSent.map(\.id)) }
-                    }
-                } else {
-                    Button("Deselect All") { selection = [] }
-                }
-            }
-            ToolbarItem(placement: .principal) {
-                Text(selection.isEmpty ? "Select Scans" : "\(selection.count) Selected").font(.headline)
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("Done") { endSelecting() }
-            }
-        } else {
-            if canSelect {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Select") { startSelecting([]) }
-                }
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("Settings", systemImage: "gearshape") { app.showingSettings = true }
-            }
+        .alert("The PDFs could not be archived", isPresented: $archivingFailed) {
+            Button("OK") {}
+        } message: {
+            Text("Try to archive them again.")
         }
     }
 
-    private var recent: some View {
-        List(selection: isSelecting ? $selection : nil) {
-            if !isSelecting {
+    private var list: some View {
+        List {
+            Section {
+                AppIcon(size: 112)
+                    .frame(maxWidth: .infinity)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 4, trailing: 0))
+            }
+            .listSectionSpacing(.compact)
+            if let offer = app.notSentOffer {
                 Section {
-                    AppIcon(size: 112)
-                        .frame(maxWidth: .infinity)
-                        .listRowBackground(Color.clear)
-                        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 4, trailing: 0))
-                }
-                .listSectionSpacing(.compact)
-                let notSent = app.notSent
-                if notSent.count > 1 {
-                    Section {
-                        NotSentCard(scans: notSent, store: app.store) { startSelecting(Set(notSent.map(\.id))) }
+                    NotSentCard(offer: offer, store: app.store, isWaiting: sending.waiting != nil && sendingIDs == offer.scans.map(\.id)) {
+                        send(offer.archives ? .paperless : .share, offer.scans.map(\.id))
                     }
                 }
             }
             Section {
                 ForEach(app.scans) { scan in
-                    ScanRow(scan: scan, store: app.store, owner: app.settings.value.hasSeveralOwners ? app.settings.value.owner(scan.owner?.id) : nil, isSelecting: isSelecting) { app.open(scan.id) }
-                        .selectionDisabled(!scan.isFinished)
-                        .swipeActions {
-                            if !isSelecting {
-                                Button("Delete", systemImage: "trash", role: .destructive) { withAnimation { app.delete(scan.id) } }
+                    ScanRow(scan: scan, store: app.store, owner: app.settings.value.hasSeveralOwners ? app.settings.value.owner(scan.owner?.id) : nil) { app.open(scan.id) }
+                        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                            ForEach(app.swipeActions(for: scan), id: \.self) { action in
+                                Button(action.title, systemImage: action.method.systemImage) { send(action.method, [scan.id]) }
+                                    .tint(action == .share ? .gray : .accentColor)
                             }
                         }
-                        .contextMenu {
-                            if !isSelecting {
-                                if canSelect, scan.isFinished {
-                                    Button("Select", systemImage: "checkmark.circle") { startSelecting([scan.id]) }
-                                }
-                                Button("Continue Scanning", systemImage: "doc.viewfinder") { app.continueScan(scan.id) }
-                                Button("Delete", systemImage: "trash", role: .destructive) { withAnimation { app.delete(scan.id) } }
-                            }
+                        .swipeActions(edge: .trailing) {
+                            Button("Delete", systemImage: "trash", role: .destructive) { withAnimation { app.delete(scan.id) } }
                         }
                 }
-            } header: {
-                Text("Recent")
             } footer: {
                 Text("Sent scans leave this iPhone after 24 hours.")
                     .frame(maxWidth: .infinity)
             }
         }
-        .environment(\.editMode, .constant(isSelecting ? .active : .inactive))
         .contentMargins(.top, 0, for: .scrollContent)
     }
 
-    /// Scans in progress have no PDF to send yet.
-    private var selectable: [Scan] { app.scans.filter(\.isFinished) }
-
-    private var canSelect: Bool { selectable.count > 1 }
-
-    /// In the order of the list, which is the order of the attachments.
-    private var selected: [ScanModel] {
-        app.scans.filter { selection.contains($0.id) }.compactMap { app.model(for: $0.id) }
-    }
-
-    private func startSelecting(_ ids: Set<UUID>) {
-        withAnimation {
-            selection = ids
-            isSelecting = true
+    /// Archives the scans, or opens the share sheet with their PDFs, once the PDFs are made.
+    private func send(_ method: SendMethod, _ ids: [UUID]) {
+        let models = ids.compactMap(app.model(for:))
+        sendingIDs = ids
+        sending.tap(method, scans: models) {
+            switch method {
+            case .paperless:
+                do { try await app.archive(models) } catch { archivingFailed = true }
+            case .share:
+                sharing = SharedScans(scans: models)
+            }
         }
     }
 
-    private func endSelecting() {
-        withAnimation {
-            isSelecting = false
-            selection = []
-        }
-    }
-
-    private func sent(_ ids: Set<UUID>) {
-        selection.subtract(ids)
-        if selection.isEmpty { endSelecting() }
+    private func finishSharing() {
+        guard let shared else { return }
+        self.shared = nil
+        app.didSend(shared, by: .share)
     }
 }
 
-/// Offers to select at once the scans waiting to be sent, as after scanning a pile of mail.
+/// The scans in the share sheet, kept while it is open.
+@MainActor
+private struct SharedScans: Identifiable {
+    let id = UUID()
+    let scans: [ScanModel]
+
+    var urls: [URL] {
+        scans.compactMap { scan in
+            if case .ready(let url, _) = scan.pdf { url } else { nil }
+        }
+    }
+}
+
+/// Sends at once the scans waiting to be sent, as after scanning a pile of mail.
 private struct NotSentCard: View {
-    let scans: [Scan]
+    let offer: NotSentOffer
     let store: ScanStore
-    let select: () -> Void
+    let isWaiting: Bool
+    let send: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
             ZStack {
-                ForEach(Array(scans.prefix(3).enumerated().reversed()), id: \.element.id) { index, scan in
+                ForEach(Array(offer.scans.prefix(3).enumerated().reversed()), id: \.element.id) { index, scan in
                     ScanThumbnail(scan: scan, store: store, width: 28)
                         .rotationEffect(.degrees([0, -9, 7][index]))
                         .offset(x: [0, -4, 4][index])
@@ -180,17 +154,22 @@ private struct NotSentCard: View {
             }
             .frame(width: 44, height: 48)
             VStack(alignment: .leading, spacing: 2) {
-                Text("\(scans.count) scans not sent").font(.headline)
-                Text(scans.map(\.title).joined(separator: ", "))
+                Text(offer.title).font(.headline)
+                Text(offer.subtitle)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
             Spacer(minLength: 0)
-            Button("Select", action: select)
-                .buttonStyle(.borderedProminent)
-                .buttonBorderShape(.capsule)
-                .fontWeight(.semibold)
+            Button(action: send) {
+                Text(offer.button)
+                    .opacity(isWaiting ? 0 : 1)
+                    .overlay { if isWaiting { ProgressView().tint(.white) } }
+            }
+            .buttonStyle(.borderedProminent)
+            .buttonBorderShape(.capsule)
+            .fontWeight(.semibold)
+            .accessibilityValue(isWaiting ? "Waiting for the PDFs" : "")
         }
         .accessibilityElement(children: .combine)
     }
@@ -202,23 +181,18 @@ private struct ScanRow: View {
     let store: ScanStore
     /// Shown only when there are several owners.
     let owner: Owner?
-    let isSelecting: Bool
     let open: () -> Void
 
     var body: some View {
-        if isSelecting {
-            summary.opacity(scan.isFinished ? 1 : 0.45)
-        } else {
-            Button(action: open) {
-                HStack(spacing: 12) {
-                    summary
-                    if !scan.isFinished { continueCapsule }
-                }
-                .contentShape(Rectangle())
+        Button(action: open) {
+            HStack(spacing: 12) {
+                summary
+                if !scan.isFinished { continueCapsule }
             }
-            .buttonStyle(.plain)
-            .accessibilityHint(scan.isFinished ? "" : "Opens the camera to add pages to this scan")
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .accessibilityHint(scan.isFinished ? "" : "Opens the camera to add pages to this scan")
     }
 
     private var summary: some View {

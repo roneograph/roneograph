@@ -160,7 +160,7 @@ struct SendBarModelTests {
         await other.waitUntilIdle()
         #expect(app.sendFooter(for: [scan], waiting: nil, summary: scan.summary) == SendFooter(text: "1 page · preparing the PDF…"))
         #expect(app.sendFooter(for: [scan], waiting: .share, summary: scan.summary) == SendFooter(lead: "Share opens when the PDF is ready", text: "1 page"))
-        #expect(app.sendFooter(for: [scan, other], waiting: .paperless, summary: [scan, other].selectionSummary) == SendFooter(lead: "Archives when the PDFs are ready", text: "3 pages"))
+        #expect(app.sendFooter(for: [scan, other], waiting: .paperless, summary: "3 pages") == SendFooter(lead: "Archives when the PDFs are ready", text: "3 pages"))
 
         _ = fixture.settings.addOwner("Fernwood Holding")
         #expect(app.sendFooter(for: [scan], waiting: nil, summary: scan.summary) == SendFooter(text: "Me · 1 page · preparing the PDF…"))
@@ -300,5 +300,53 @@ struct SendBarModelTests {
         scan.setOwner(holding.id)
         #expect(app.ownerToConnect(for: [scan])?.id == holding.id)
         #expect(app.sendFooter(for: [scan], waiting: nil, summary: "2 pages · 240 KB") == SendFooter(text: "Fernwood Holding · 2 pages · 240 KB", connectsPaperless: true))
+    }
+
+    @Test func homeOffersToArchiveOrShareEachScan() async throws {
+        let app = try connectedApp()
+        let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
+        let scan = await fixture.capturedScan(in: app)
+        #expect(app.swipeActions(for: scan.scan) == [.archive, .share])
+        #expect([RowAction.archive, .tryAgain, .share].map(\.title) == ["Archive", "Try Again", "Share"])
+
+        scan.setArchiving(Archiving(state: .waiting("The server is not ready (error 503).")))
+        #expect(app.swipeActions(for: scan.scan).isEmpty, "Nothing while it is on its way to Paperless")
+        scan.setArchiving(Archiving(state: .failed("The token was refused.")))
+        #expect(app.swipeActions(for: scan.scan) == [.tryAgain, .share])
+        scan.setArchiving(nil)
+        scan.markSent(.paperless)
+        #expect(app.swipeActions(for: scan.scan) == [.share])
+
+        let shared = await fixture.capturedScan(in: app)
+        app.didSend([shared], by: .share)
+        #expect(app.swipeActions(for: shared.scan) == [.share], "A sent scan is only shared again")
+
+        let theirs = await fixture.capturedScan(in: app)
+        theirs.setOwner(holding.id)
+        #expect(app.swipeActions(for: theirs.scan) == [.share])
+        theirs.setArchiving(Archiving(state: .failed("Paperless is no longer connected.")))
+        #expect(app.swipeActions(for: theirs.scan) == [.share])
+
+        let inProgress = app.startScan()
+        #expect(app.swipeActions(for: inProgress.scan).isEmpty)
+    }
+
+    @Test func homeSendsEveryScanNotSentInOneTap() async throws {
+        let app = try connectedApp()
+        let first = await fixture.capturedScan(in: app)
+        first.rename("Water bill")
+        #expect(app.notSentOffer == nil, "Only with more than one scan")
+        let second = await fixture.capturedScan(in: app)
+        second.rename("Gas bill")
+        second.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
+        await second.waitUntilIdle()
+        #expect(app.notSentOffer == NotSentOffer(scans: [first.scan, second.scan], archives: true, title: "2 scans not sent", subtitle: "3 pages · to Paperless", button: "Archive All"))
+
+        let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
+        second.setOwner(holding.id)
+        #expect(app.notSentOffer == NotSentOffer(scans: [first.scan, second.scan], archives: false, title: "2 scans not sent", subtitle: "Water bill, Gas bill", button: "Share All"))
+
+        app.didSend([first], by: .share)
+        #expect(app.notSentOffer == nil)
     }
 }

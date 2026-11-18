@@ -119,7 +119,7 @@ public final class AppModel {
         if path.last != model.id { path = [model.id] }
     }
 
-    /// The finished scans not sent yet nor on their way to Paperless, which Home offers to select at once.
+    /// The finished scans not sent yet nor on their way to Paperless, which Home offers to send at once.
     public var notSent: [Scan] {
         scans.filter { $0.isFinished && $0.sent == nil && $0.archiving?.isInProgress != true }
     }

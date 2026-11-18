@@ -195,7 +195,6 @@ struct ScanModelTests {
         await model.buildPDF(delay: .zero)
         #expect(model.pdf == .storageFull)
         #expect(model.summary == "1 page · the iPhone storage is full")
-        #expect([model].selectionSummary == "1 document · 1 page · the iPhone storage is full")
     }
 
     @Test func deletingTheLastPageLeavesNothingBehind() async throws {
