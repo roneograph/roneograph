@@ -56,6 +56,28 @@ struct ScanModelTests {
         #expect(model.scan.pages.map(\.id) == [pending.id])
     }
 
+    @Test(.timeLimit(.minutes(1)))
+    func aPageMadeAgainOnceTheAppIsActiveKeepsItsPlace() async throws {
+        let background = RecordingBackground()
+        let fixture = try Fixture(background: background)
+        let model = fixture.scanModel()
+        let (started, release) = background.holdNext()
+        model.addPhoto(Data("not a photo".utf8), liveQuad: nil)
+        model.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
+        model.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
+        let captured = model.scan.pending.map(\.id)
+        for await _ in started {}
+        fixture.processor.gate.isPaused = true
+        release()
+        try await fixture.waitUntilGateHasWaiting(1)
+
+        try SyntheticPhoto.jpeg().write(to: fixture.store.photoURL(scanID: model.id, pageID: captured[0]))
+        fixture.processor.gate.isPaused = false
+        await model.waitUntilIdle()
+        #expect(model.failure == nil)
+        #expect(model.scan.pages.map(\.id) == captured)
+    }
+
     @Test func emptyScansAreNeverSaved() throws {
         let fixture = try Fixture()
         _ = fixture.scanModel()

@@ -153,35 +153,40 @@ public final class ScanModel: Identifiable {
         return true
     }
 
-    /// A page that fails while the app is not active, where the GPU cannot be used, is made again once the app is active.
+    /// A page that fails while the app is not active, where the GPU cannot be used, is made again once the app is active, before the pages captured after it.
     private func process(_ pending: PendingPage) {
-        let processor = processor, scanID = scan.id
-        enqueuePageWork { [self] in
-            do {
-                let page = try await Task.detached(priority: .userInitiated) {
-                    try await processor.addPage(pending, scanID: scanID)
-                }.value
-                guard !isDeleted else { return }
-                scan.pending.removeAll { $0.id == pending.id }
-                scan.pages.append(page)
-                save()
-                if scan.pages.count == 1 || scan.read == nil, let first = scan.pages.first { await suggestNames(from: first) }
-            } catch {
-                guard !isDeleted else { return }
-                if processor.gate.isPaused {
-                    process(pending)
-                    return
-                }
-                scan.pending.removeAll { $0.id == pending.id }
-                store.deletePageFiles(scanID: scanID, pageID: pending.id)
-                if isEmpty {
-                    deleteStoredScan()
-                } else {
-                    save()
-                }
-                fail("A page could not be processed", because: error)
-            }
+        let gate = processor.gate
+        enqueue { [self] in
+            while await gate.run({ await make(pending) }) {}
         }
+    }
+
+    /// Returns true when the page failed while the app was not active, to be made again.
+    private func make(_ pending: PendingPage) async -> Bool {
+        guard !isDeleted else { return false }
+        let processor = processor, scanID = scan.id
+        do {
+            let page = try await Task.detached(priority: .userInitiated) {
+                try await processor.addPage(pending, scanID: scanID)
+            }.value
+            guard !isDeleted else { return false }
+            scan.pending.removeAll { $0.id == pending.id }
+            scan.pages.append(page)
+            save()
+            if scan.pages.count == 1 || scan.read == nil, let first = scan.pages.first { await suggestNames(from: first) }
+        } catch {
+            guard !isDeleted else { return false }
+            if processor.gate.isPaused { return true }
+            scan.pending.removeAll { $0.id == pending.id }
+            store.deletePageFiles(scanID: scanID, pageID: pending.id)
+            if isEmpty {
+                deleteStoredScan()
+            } else {
+                save()
+            }
+            fail("A page could not be processed", because: error)
+        }
+        return false
     }
 
     public func finishCapture() {
