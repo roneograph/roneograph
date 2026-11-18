@@ -1,11 +1,11 @@
 import Foundation
 
-/// Suggests file names from what was read on a page and keeps names valid for file systems and mail apps.
+/// Suggests file names from what was read on a page and keeps names valid for file systems and the apps PDFs are shared to.
 public enum FileNamer {
     public static let forbidden = Set("/\\:*?\"<>|")
     public static let maximumLength = 80
 
-    /// Replaces the characters file systems or mail apps reject by a dash, as the user types.
+    /// Replaces the characters file systems or other apps reject by a dash, as the user types.
     public static func sanitize(_ name: String) -> String {
         var result = String(name.map { Self.forbidden.contains($0) || $0.isNewline ? "-" : $0 }.filter { !$0.unicodeScalars.allSatisfy(\.properties.isDefaultIgnorableCodePoint) })
         while let first = result.first, first == "." || first.isWhitespace { result.removeFirst() }

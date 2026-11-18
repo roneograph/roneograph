@@ -88,7 +88,7 @@ struct PaperlessGuideView: View {
         let name = owner.name.trimmingCharacters(in: .whitespacesAndNewlines)
         let ownerExample = name.isEmpty ? "Unsorted" : name
         let year = String(Calendar(identifier: .gregorian).component(.year, from: .now))
-        let originalName = owner.fileNameFormat.sampleFileName.split(separator: "/").last.map(String.init) ?? ""
+        let originalName = owner.fileNameFormat.sampleFileName
         return [
             ("{{ created_year }}/{{ correspondent }}/{{ title }}", "\(year)/\(SampleDocument.issuer)/\(SampleDocument.name)"),
             ("\(ownerValue)/{{ document_type }}/{{ original_name }}", "\(ownerExample)/\(SampleDocument.category.rawValue)/\(originalName)"),

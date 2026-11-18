@@ -132,7 +132,7 @@ struct OwnerView: View {
             let count = app.scans(of: ownerID).count
             Text(count == 0
                 ? "Its Paperless server and file name format are forgotten."
-                : "\(count.counted("scan")) on this iPhone belong to it: move them to another owner, or delete them. PDFs already sent or saved stay where they are.")
+                : "\(count.counted("scan")) on this iPhone belong to it: move them to another owner, or delete them. PDFs already archived or shared stay where they are.")
         }
     }
 
