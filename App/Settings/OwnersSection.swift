@@ -46,7 +46,7 @@ private struct OwnerRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: owner.symbol.badgeImage)
+            Image(systemName: owner.kind.badgeImage)
                 .font(.system(size: size * 0.5, weight: .medium))
                 .foregroundStyle(.tint)
                 .frame(width: size, height: size)
@@ -93,12 +93,12 @@ struct OwnerView: View {
                 TextField("Name", text: $name, prompt: owner.wrappedValue.hasPlaceholderName ? Text("Your name, as on your mail") : nil)
                     .textContentType(.name)
                     .onSubmit(rename)
-                Picker("Symbol", selection: owner.symbol) {
-                    ForEach(Owner.Symbol.allCases, id: \.self) { symbol in
-                        Image(systemName: symbol.systemImage).accessibilityLabel(symbol.name).tag(symbol)
-                    }
+                Picker("Kind", selection: owner.kind) {
+                    ForEach(Owner.Kind.allCases, id: \.self) { Text($0.title).tag($0) }
                 }
                 .pickerStyle(.segmented)
+            } footer: {
+                Text("A company is recognized on mail with its legal form, such as SAS or LLC; a person with a title or initials, such as Mme or C.")
             }
 
             PaperlessSection(app: app, ownerID: ownerID)
@@ -159,13 +159,11 @@ extension SettingsStore {
     }
 }
 
-extension Owner.Symbol {
+extension Owner.Kind {
     var systemImage: String {
         switch self {
         case .person: "person.crop.circle"
-        case .house: "house"
-        case .building: "building.2"
-        case .briefcase: "briefcase"
+        case .company: "building.2"
         }
     }
 
@@ -174,12 +172,10 @@ extension Owner.Symbol {
         self == .person ? "person" : systemImage
     }
 
-    var name: String {
+    var title: String {
         switch self {
         case .person: "Person"
-        case .house: "House"
-        case .building: "Building"
-        case .briefcase: "Briefcase"
+        case .company: "Company"
         }
     }
 }

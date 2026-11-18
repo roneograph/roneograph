@@ -4,8 +4,8 @@ import ScannerKit
 import Testing
 
 struct OwnerMatcherTests {
-    let camille = Owner(name: "Camille Rouvière", symbol: .person)
-    let holding = Owner(name: "Fernwood Holding", symbol: .building)
+    let camille = Owner(name: "Camille Rouvière", kind: .person)
+    let holding = Owner(name: "Fernwood Holding", kind: .company)
 
     private func line(_ text: String, x: CGFloat = 0.55, y: CGFloat) -> TextLine {
         TextLine(text: text, frame: CGRect(x: x, y: y, width: 0.3, height: 0.011))
@@ -36,7 +36,7 @@ struct OwnerMatcherTests {
     }
 
     @Test func takesEveryWordAfterTheFirstNameAsAFamilyName() {
-        let lucia = Owner(name: "Lucía Ferrándiz Soler", symbol: .person)
+        let lucia = Owner(name: "Lucía Ferrándiz Soler", kind: .person)
         for text in ["Sra. Lucía Ferrándiz Soler", "L. Ferrándiz Soler", "Sra. Ferrándiz Soler", "Sra. Ferrándiz", "Familia Soler"] {
             #expect(matches(text, lucia), "\(text)")
         }
@@ -44,26 +44,26 @@ struct OwnerMatcherTests {
     }
 
     @Test func recognizesAHouseholdByItsFamilyName() {
-        let household = Owner(name: "Famille Rouvière", symbol: .house)
+        let household = Owner(name: "Famille Rouvière", kind: .person)
         #expect(matches("M. et Mme Rouvière", household))
         #expect(matches("Mme Rouvière", household))
         #expect(!matches("Rouvière", household))
     }
 
     @Test func aSingleWordTellsNoPerson() {
-        let personal = Owner(name: "Personal", symbol: .house)
+        let personal = Owner(name: "Personal", kind: .person)
         #expect(!matches("Personal", personal))
         #expect(!matches("Mme Personal", personal))
     }
 
     @Test func thePlaceholderNameTellsNothing() {
-        let me = Owner(name: Owner.placeholderName, symbol: .person)
+        let me = Owner(name: Owner.placeholderName, kind: .person)
         #expect(!matches("Me", me))
         #expect(!matches("M. Me", me))
     }
 
     @Test func recognizesTheOtherNames() {
-        var me = Owner(name: Owner.placeholderName, symbol: .person)
+        var me = Owner(name: Owner.placeholderName, kind: .person)
         me.names = ["Camille Delmas", "Delmas Conseil SARL"]
         #expect(matches("Mme C. Delmas", me))
         #expect(matches("DELMAS CONSEIL", me))
@@ -82,14 +82,14 @@ struct OwnerMatcherTests {
         #expect(!matches(text, holding))
     }
 
-    @Test func aLegalFormMakesACompanyWhateverTheSymbol() {
-        let company = Owner(name: "Rouvière Conseil SARL", symbol: .person)
+    @Test func aLegalFormMakesACompanyWhateverTheKind() {
+        let company = Owner(name: "Rouvière Conseil SARL", kind: .person)
         #expect(matches("ROUVIÈRE CONSEIL", company))
         #expect(!matches("Mme Conseil", company))
     }
 
     @Test func aCompanyNamedOnlyWithGenericWordsKeepsThem() {
-        let group = Owner(name: "Holding Group", symbol: .building)
+        let group = Owner(name: "Holding Group", kind: .company)
         #expect(matches("Holding Group SA", group))
         #expect(!matches("Group", group))
     }
@@ -142,19 +142,29 @@ struct OwnerMatcherTests {
     @Test func listsTheOtherFormsOfTheCompanyNames() {
         #expect(holding.otherForms(region: "FR", language: "fr") == ["Fernwood Holding SAS", "Fernwood SAS", "Fernwood"])
         #expect(Owner(name: "Fernwood Holding GmbH").otherForms(region: "FR", language: "fr") == ["Fernwood GmbH", "Fernwood", "Fernwood Holding"])
-        #expect(Owner(name: "Halcyon Labs", symbol: .briefcase).otherForms(region: "US", language: "en") == ["Halcyon Labs LLC"])
+        #expect(Owner(name: "Halcyon Labs", kind: .company).otherForms(region: "US", language: "en") == ["Halcyon Labs LLC"])
+    }
+
+    @Test(arguments: [("person", false), ("house", false), ("building", true), ("briefcase", true)])
+    func recognizesAnOwnerSavedByOlderBuildsAsBefore(symbol: String, isCompany: Bool) throws {
+        let json = #"{"id":"3F2504E0-4F89-11D3-9A0C-0305E82C3301","name":"Fernwood Holding","symbol":"\#(symbol)"}"#
+        let owner = try JSONDecoder().decode(Owner.self, from: Data(json.utf8))
+        let forms = isCompany ? ["Fernwood Holding SAS", "Fernwood SAS", "Fernwood"] : ["F. Holding", "Mme Holding", "M. et Mme Holding", "Famille Holding"]
+        #expect(owner.otherForms(region: "FR", language: "fr") == forms)
+        #expect(matches("Fernwood SAS", owner) == isCompany)
+        #expect(matches("Mme Holding", owner) == !isCompany)
     }
 
     @Test func listsNoOtherFormOfANameThatTellsNothing() {
-        #expect(Owner(name: Owner.placeholderName, symbol: .person).otherForms(region: "FR", language: "fr").isEmpty)
-        #expect(Owner(name: "Personal", symbol: .house).otherForms(region: "FR", language: "fr").isEmpty)
+        #expect(Owner(name: Owner.placeholderName, kind: .person).otherForms(region: "FR", language: "fr").isEmpty)
+        #expect(Owner(name: "Personal", kind: .person).otherForms(region: "FR", language: "fr").isEmpty)
     }
 
     @Test(arguments: ["FR", "DE", "ES", "IT", "GB", "US"])
     func recognizesEveryOtherForm(region: String) {
-        var person = Owner(name: "Lucía Ferrándiz Soler", symbol: .person)
+        var person = Owner(name: "Lucía Ferrándiz Soler", kind: .person)
         person.names = ["Lucía Ferrándiz", "Famille Rouvière"]
-        for owner in [person, holding, Owner(name: "Fernwood Holding SAS", symbol: .person)] {
+        for owner in [person, holding, Owner(name: "Fernwood Holding SAS", kind: .person)] {
             let forms = owner.otherForms(region: region, language: nil)
             #expect(!forms.isEmpty)
             for form in forms {
@@ -183,12 +193,12 @@ struct OwnerMatcherTests {
         let lines = ["Fernwood Holding", "Mme Camille Rouvière"]
         #expect(owner(of: lines, among: [camille, holding]) == RecognizedOwner(id: holding.id, clue: .name))
         #expect(owner(of: lines, among: [camille, holding], defaultOwner: holding) == RecognizedOwner(id: camille.id, clue: .name))
-        let employer = Owner(name: "Halcyon Labs", symbol: .briefcase)
+        let employer = Owner(name: "Halcyon Labs", kind: .company)
         #expect(owner(of: lines + ["Halcyon Labs"], among: [camille, holding, employer]) == nil)
     }
 
     @Test func twoOwnersWithTheSameFamilyNameTellNothingButTheirAddress() {
-        var noe = Owner(name: "Noé Rouvière", symbol: .person)
+        var noe = Owner(name: "Noé Rouvière", kind: .person)
         noe.addresses = ["3 impasse des Tilleuls 38000 Grenoble"]
         var me = camille
         me.addresses = ["8 rue des Glycines 69007 Lyon"]
@@ -211,7 +221,7 @@ struct OwnerMatcherTests {
     @Test func marksTheNameAndAddressOfEveryOwnerAsTheirOwnLines() {
         var me = camille
         me.addresses = ["8 rue des Glycines 69007 Lyon"]
-        var noe = Owner(name: "Noé Rouvière", symbol: .person)
+        var noe = Owner(name: "Noé Rouvière", kind: .person)
         noe.addresses = ["8 rue des Glycines 69007 Lyon"]
         let lines = [line("Lumen Énergie", x: 0.08, y: 0.04), line("Famille Rouvière", y: 0.15), line("8 rue des Glycines", y: 0.17), line("69007 Lyon", y: 0.19)]
         let match = OwnerMatcher(owners: [me, noe], defaultOwnerID: me.id).match(lines)

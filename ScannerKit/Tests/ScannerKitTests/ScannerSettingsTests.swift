@@ -35,6 +35,17 @@ struct ScannerSettingsTests {
         for old in ["categories", "category", "CATEGORY"] { #expect(!saved.contains(old)) }
     }
 
+    @Test func readsTheOwnerSymbolsOfOlderBuildsAsKinds() throws {
+        let saved: [(String, Owner.Kind)] = [
+            (#""symbol":"person""#, .person), (#""symbol":"house""#, .person), (#""symbol":"building""#, .company), (#""symbol":"briefcase""#, .company),
+            (#""symbol":"rocket""#, .company), (#""symbol":3"#, .company), (#""kind":"person","symbol":"building""#, .person), (#""kind":"company""#, .company),
+        ]
+        let owners = saved.enumerated().map { #"{"id":"3F2504E0-4F89-11D3-9A0C-0305E82C330\#($0.offset)","name":"Owner \#($0.offset)",\#($0.element.0)}"# }
+        let settings = try JSONDecoder().decode(ScannerSettings.self, from: Data(#"{"owners":[\#(owners.joined(separator: ","))]}"#.utf8))
+        #expect(settings.owners.map(\.kind) == saved.map(\.1))
+        #expect(!String(decoding: try JSONEncoder().encode(settings), as: UTF8.self).contains("symbol"))
+    }
+
     @Test func keepsOnlyTheFileNameOfACustomFormatSavedWithFolders() throws {
         let json = #"{"owners":[{"id":"3F2504E0-4F89-11D3-9A0C-0305E82C3301","name":"Personal","fileNameFormat":{"isCustom":true,"template":"{CATEGORY}/{YYYY}-{MM} {ISSUER}"}}]}"#
         let settings = try JSONDecoder().decode(ScannerSettings.self, from: Data(json.utf8))
@@ -62,7 +73,7 @@ struct ScannerSettingsTests {
     /// Guards the hand-written decoders: a setting added without being decoded would be lost at each launch.
     @Test func readsBackEverySetting() throws {
         let format = FileNameFormat(datePosition: .start, dateStyle: .month, dateSource: .scan, separator: .dash, lowercase: true, isCustom: true, template: "{ISSUER}")
-        var owner = Owner(name: "Fernwood Holding", symbol: .briefcase, fileNameFormat: format)
+        var owner = Owner(name: "Fernwood Holding", kind: .person, fileNameFormat: format)
         owner.paperless = PaperlessServer(url: URL(string: "https://paperless.example.com/")!, storagePath: PaperlessStoragePath(id: 7, name: "Fernwood"))
         owner.names = ["Fernwood"]
         owner.addresses = ["8 rue des Glycines\n69007 Lyon"]

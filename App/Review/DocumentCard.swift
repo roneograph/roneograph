@@ -109,14 +109,14 @@ struct DocumentCard: View {
             Section(scan.ownerCaption ?? "") {
                 Picker("Owner", selection: Binding(get: { scan.hasDefaultOwner ? nil : owner.id }, set: { id in if let id { scan.setOwner(id) } })) {
                     ForEach(settings.value.owners) { owner in
-                        Label(owner.name, systemImage: owner.symbol.systemImage).tag(Optional(owner.id))
+                        Label(owner.name, systemImage: owner.kind.systemImage).tag(Optional(owner.id))
                     }
                 }
             }
             Divider()
             Button("New Owner…", systemImage: "plus") { addingOwner = true }
         } label: {
-            Chip(text: owner.name, systemImage: owner.symbol.systemImage, isRemembered: remembered.contains(.owner), opensMenu: true)
+            Chip(text: owner.name, systemImage: owner.kind.systemImage, isRemembered: remembered.contains(.owner), opensMenu: true)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(["Owner", owner.name, scan.ownerCaption, remembered.contains(.owner) ? "remembered" : nil].compactMap(\.self).joined(separator: ", "))

@@ -135,7 +135,7 @@ struct DocumentDetectorTests {
     @Test func neverTakesTheNameOfAnOwnerAsTheIssuer() {
         let lines = [line("Jordan Ellery", y: 0.04, height: 0.03), line("Northwind Analytics", y: 0.1, height: 0.012), line("Lorem ipsum", y: 0.5)]
         #expect(detector.detect(lines: lines).details.issuer == "Jordan Ellery")
-        let owner = Owner(name: "Jordan Ellery", symbol: .person)
+        let owner = Owner(name: "Jordan Ellery", kind: .person)
         let detected = detector.detect(lines: lines, owners: OwnerMatcher(owners: [owner], defaultOwnerID: owner.id))
         #expect(detected.details.issuer == "Northwind Analytics")
         #expect(detected.owner == RecognizedOwner(id: owner.id, clue: .name))
@@ -144,7 +144,7 @@ struct DocumentDetectorTests {
     @Test func neverTakesTheAddressOfAnOwnerAsTheIssuer() {
         let lines = [line("Glycines Résidence", y: 0.04, height: 0.03), line("Lumen Énergie", y: 0.1, height: 0.012), line("Lorem ipsum", y: 0.5)]
         #expect(detector.detect(lines: lines).details.issuer == "Glycines Résidence")
-        var owner = Owner(name: "Camille Rouvière", symbol: .person)
+        var owner = Owner(name: "Camille Rouvière", kind: .person)
         owner.addresses = ["Glycines Résidence"]
         let holding = Owner(name: "Fernwood Holding")
         let detected = detector.detect(lines: lines, owners: OwnerMatcher(owners: [holding, owner], defaultOwnerID: holding.id))

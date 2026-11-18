@@ -191,7 +191,7 @@ private struct ScanRow: View {
                     Text(scan.title).font(.headline).lineLimitUnlessAccessibilitySize(1)
                     status.font(.subheadline)
                     if let owner {
-                        Label(owner.name, systemImage: owner.symbol.systemImage)
+                        Label(owner.name, systemImage: owner.kind.systemImage)
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                             .labelStyle(OwnerLabelStyle())

@@ -48,7 +48,7 @@ public enum DocumentCorpus {
         ("Lucía Ferrándiz Soler", "Calle del Olmo 23, 3º B\n28014 Madrid"),
         ("Giulia Fabbretti", "Via dei Gelsomini 9\n40125 Bologna"),
     ].map { name, address in
-        var owner = Owner(name: name, symbol: .person)
+        var owner = Owner(name: name, kind: .person)
         owner.addresses = [address]
         return owner
     }

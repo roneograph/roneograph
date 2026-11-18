@@ -14,7 +14,7 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
     public var learnedIssuers: [LearnedIssuer] = []
 
     public init() {
-        let me = Owner(name: Owner.placeholderName, symbol: .person)
+        let me = Owner(name: Owner.placeholderName, kind: .person)
         owners = [me]
         defaultOwnerID = me.id
     }

@@ -43,7 +43,7 @@ public struct OwnerMatcher: Sendable {
         entries = owners.map { owner in
             Entry(
                 id: owner.id,
-                names: owner.allNames.compactMap { OwnerName($0, isCompany: owner.hasCompanySymbol) },
+                names: owner.allNames.compactMap { OwnerName($0, isCompany: owner.isCompany) },
                 addresses: owner.addresses.map(Self.words).filter { $0.count >= 2 }
             )
         }
@@ -234,8 +234,8 @@ extension Owner {
     }
 
     /// Its names are company names, as are the names with a legal form.
-    var hasCompanySymbol: Bool {
-        symbol == .building || symbol == .briefcase
+    var isCompany: Bool {
+        kind == .company
     }
 
     /// Whether the two addresses are the same, whatever their case, accents, punctuation and word order.
@@ -253,7 +253,7 @@ extension Owner {
         var seen = Set(typed)
         var forms: [String] = []
         for (index, name) in allNames.enumerated() {
-            for form in Self.forms(of: name, isCompany: hasCompanySymbol, style: style, isMain: index == 0 && !hasPlaceholderName) {
+            for form in Self.forms(of: name, isCompany: isCompany, style: style, isMain: index == 0 && !hasPlaceholderName) {
                 if seen.insert(OwnerMatcher.multiset(OwnerMatcher.words(form))).inserted { forms.append(form) }
             }
         }

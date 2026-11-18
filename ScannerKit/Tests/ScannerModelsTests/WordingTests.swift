@@ -49,7 +49,7 @@ struct WordingTests {
         holding.addresses.append("8, rue des Glycines 69007 LYON")
         settings.updateOwner(holding)
         #expect(settings.sharedAddressWarning(of: holding.id) == "Camille Rouvière has this address too: only the names tell them apart.")
-        var noe = Owner(name: "Noé Rouvière", symbol: .person)
+        var noe = Owner(name: "Noé Rouvière", kind: .person)
         noe.addresses = ["8 rue des Glycines 69007 Lyon"]
         settings.addOwner(noe)
         #expect(settings.sharedAddressWarning(of: holding.id) == "Camille Rouvière and Noé Rouvière have this address too: only the names tell them apart.")
