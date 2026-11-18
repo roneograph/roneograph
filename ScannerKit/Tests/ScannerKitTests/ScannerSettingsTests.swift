@@ -3,15 +3,6 @@ import ScannerKit
 import Testing
 
 struct ScannerSettingsTests {
-    @Test(arguments: [(ScanRetention.day, "day"), (.week, "week"), (.month, "month"), (.forever, "forever")])
-    func keepsTheRetentionAcrossARestart(retention: ScanRetention, stored: String) throws {
-        var settings = ScannerSettings()
-        settings.keepScans = retention
-        let json = try JSONEncoder().encode(settings)
-        #expect(String(decoding: json, as: UTF8.self).contains(#""keepScans":"\#(stored)""#))
-        #expect(try JSONDecoder().decode(ScannerSettings.self, from: json).keepScans == retention)
-    }
-
     @Test func readsSettingsSavedBeforeKeysWereAdded() throws {
         let json = #"{"owners":[{"id":"3F2504E0-4F89-11D3-9A0C-0305E82C3301","name":"Fernwood Holding"}]}"#
         let settings = try JSONDecoder().decode(ScannerSettings.self, from: Data(json.utf8))
@@ -19,18 +10,17 @@ struct ScannerSettingsTests {
         #expect(settings.defaultOwner.fileNameFormat == FileNameFormat())
         #expect(settings.defaultOwner.names.isEmpty)
         #expect(settings.defaultOwner.addresses.isEmpty)
-        #expect(settings.keepScans == .week)
     }
 
-    @Test func ignoresTheWaysToSendOfOlderBuilds() throws {
+    @Test func ignoresTheSettingsOlderBuildsHad() throws {
         let json = #"""
-            {"owners":[{"id":"3F2504E0-4F89-11D3-9A0C-0305E82C3301","name":"Fernwood Holding","email":"accounting@fernwood.example","archiveFolder":{"bookmark":"AAAA","name":"Paperwork"},"showsSaveToFiles":false,"showsShare":false,"paperless":{"url":"https://paperless.example.com/"}}],"showsSaveToFiles":false,"showsShare":false}
+            {"owners":[{"id":"3F2504E0-4F89-11D3-9A0C-0305E82C3301","name":"Fernwood Holding","email":"accounting@fernwood.example","archiveFolder":{"bookmark":"AAAA","name":"Paperwork"},"showsSaveToFiles":false,"showsShare":false,"paperless":{"url":"https://paperless.example.com/"}}],"showsSaveToFiles":false,"showsShare":false,"keepScans":"forever"}
             """#
         let settings = try JSONDecoder().decode(ScannerSettings.self, from: Data(json.utf8))
         #expect(settings.defaultOwner.name == "Fernwood Holding")
         #expect(settings.defaultOwner.paperless?.url == URL(string: "https://paperless.example.com/"))
         let saved = String(decoding: try JSONEncoder().encode(settings), as: UTF8.self)
-        for key in ["email", "archiveFolder", "showsSaveToFiles", "showsShare"] { #expect(!saved.contains(key)) }
+        for key in ["email", "archiveFolder", "showsSaveToFiles", "showsShare", "keepScans"] { #expect(!saved.contains(key)) }
     }
 
     @Test func keepsOnlyTheFileNameOfACustomFormatSavedWithFolders() throws {
@@ -54,7 +44,7 @@ struct ScannerSettingsTests {
     }
 
     @Test func refusesAValueItCannotRead() {
-        #expect(throws: DecodingError.self) { try JSONDecoder().decode(ScannerSettings.self, from: Data(#"{"keepScans":"year"}"#.utf8)) }
+        #expect(throws: DecodingError.self) { try JSONDecoder().decode(ScannerSettings.self, from: Data(#"{"autoCapture":"sometimes"}"#.utf8)) }
     }
 
     /// Guards the hand-written decoders: a setting added without being decoded would be lost at each launch.
@@ -71,7 +61,6 @@ struct ScannerSettingsTests {
         settings.autoCapture = false
         settings.categories = [DocumentCategory("Car")]
         settings.learnedIssuers = [LearnedIssuer(keys: ["lumen"], issuer: "Lumen Energy")]
-        settings.keepScans = .forever
         settings.dismissedSendSetup = true
 
         expectEveryPropertyChanged(settings, from: ScannerSettings())

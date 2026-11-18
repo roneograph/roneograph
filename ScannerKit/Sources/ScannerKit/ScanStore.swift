@@ -59,16 +59,7 @@ public struct ScanStore: Sendable {
     /// Deletes the scan folders without a scan.json, as left when the app quits before a scan is first saved, except the kept ones.
     /// A scan.json that cannot be decoded, as one written by another version of the app, or read for now, as while the iPhone is locked, is kept.
     public func deleteUnsavedScans(keeping kept: Set<UUID>) {
-        deleteFolders(keeping: kept) { !FileManager.default.fileExists(atPath: $0.appending(path: "scan.json").path(percentEncoded: false)) }
-    }
-
-    /// Deletes every scan folder, the ones that cannot be decoded too, except the kept ones.
-    public func deleteAllScanFolders(keeping kept: Set<UUID>) {
-        deleteFolders(keeping: kept) { _ in true }
-    }
-
-    private func deleteFolders(keeping kept: Set<UUID>, where shouldDelete: (URL) -> Bool) {
-        for folder in folders() where shouldDelete(folder) {
+        for folder in folders() where !FileManager.default.fileExists(atPath: folder.appending(path: "scan.json").path(percentEncoded: false)) {
             guard let id = UUID(uuidString: folder.lastPathComponent), !kept.contains(id) else { continue }
             try? FileManager.default.removeItem(at: folder)
         }

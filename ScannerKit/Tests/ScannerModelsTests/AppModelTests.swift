@@ -521,34 +521,37 @@ struct AppModelTests {
         #expect(fixture.store.all().isEmpty)
     }
 
-    @Test func deletesAllScans() async throws {
+    @Test func listsScansNewestFirstAndDropsTheOnesSentMoreThanADayAgo() throws {
         let fixture = try Fixture()
-        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
-        let first = await fixture.capturedScan(in: app)
-        _ = await fixture.capturedScan(in: app)
-        await first.buildPDF(delay: .zero)
-        app.deleteAllScans()
-        #expect(app.scans.isEmpty)
-        #expect(fixture.store.all().isEmpty)
-        #expect(!fixture.pdfExists(first.scan.name))
-        #expect(await fixture.store.byteCount() == 0)
-    }
-
-    @Test func listsScansNewestFirstAndDropsTheOnesSentLongerAgoThanTheRetention() throws {
-        let fixture = try Fixture()
-        let now = Date()
-        for (name, age) in [("Old", 8.0), ("Week", 6.0), ("Today", 0.0)] {
-            var scan = Scan(created: now.addingTimeInterval(-(age + 20) * 86400), name: name)
+        let clock = TestClock()
+        for (name, hours, method) in [("Archived", 25.0, SendMethod.paperless), ("Shared", 24.5, .share), ("Morning", 23.0, .paperless), ("Now", 0.0, .share)] {
+            var scan = Scan(created: clock.now().addingTimeInterval(-(hours + 1) * 3600), name: name)
             scan.pages = [ScanPage(quad: nil, analysis: .sample)]
-            scan.sent = Sent(date: now.addingTimeInterval(-age * 86400), method: .share)
+            scan.sent = Sent(date: clock.now().addingTimeInterval(-hours * 3600), method: method)
             try fixture.store.save(scan)
         }
-        let app = AppModel(processor: fixture.processor, settings: fixture.settings, now: { now })
-        #expect(app.scans.map(\.name) == ["Today", "Week"])
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings, now: clock.now)
+        #expect(app.scans.map(\.name) == ["Now", "Morning"])
 
-        fixture.settings.value.keepScans = .day
+        clock.advance(days: 1)
         app.refresh()
-        #expect(app.scans.map(\.name) == ["Today"])
+        #expect(app.scans.isEmpty)
+        #expect(fixture.store.all().isEmpty)
+    }
+
+    @Test func aSharedScanLeavesADayLater() async throws {
+        let fixture = try Fixture()
+        let clock = TestClock()
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings, now: clock.now)
+        let scan = await fixture.capturedScan(in: app)
+        app.didSend([scan], by: .share)
+        clock.advance(hours: 23)
+        app.refresh()
+        #expect(app.scans.map(\.id) == [scan.id])
+
+        clock.advance(hours: 2)
+        app.refresh()
+        #expect(app.scans.isEmpty)
     }
 
     @Test func neverDeletesAScanThatWasNotSent() throws {
@@ -561,7 +564,6 @@ struct AppModelTests {
         inProgress.pages = [ScanPage(quad: nil, analysis: .sample)]
         try fixture.store.save(finished)
         try fixture.store.save(inProgress)
-        fixture.settings.value.keepScans = .day
 
         let app = AppModel(processor: fixture.processor, settings: fixture.settings, now: { now })
         #expect(Set(app.scans.map(\.name)) == ["Finished", "In progress"])
@@ -569,22 +571,21 @@ struct AppModelTests {
 
     @Test func keepsAnExpiredScanWhileItIsOpen() throws {
         let fixture = try Fixture()
-        let now = Date()
-        var reviewed = Scan(created: now.addingTimeInterval(-8 * 86400), name: "Reviewed")
-        var scanned = Scan(created: now.addingTimeInterval(-9 * 86400), name: "Scanned")
+        let clock = TestClock()
+        var reviewed = Scan(created: clock.now().addingTimeInterval(-3600), name: "Reviewed")
+        var scanned = Scan(created: clock.now().addingTimeInterval(-7200), name: "Scanned")
         reviewed.pages = [ScanPage(quad: nil, analysis: .sample)]
         scanned.pages = [ScanPage(quad: nil, analysis: .sample)]
-        reviewed.sent = Sent(date: now.addingTimeInterval(-8 * 86400), method: .share)
-        scanned.sent = Sent(date: now.addingTimeInterval(-9 * 86400), method: .share)
+        reviewed.sent = Sent(date: clock.now(), method: .share)
+        scanned.sent = Sent(date: clock.now(), method: .paperless)
         try fixture.store.save(reviewed)
         try fixture.store.save(scanned)
-        fixture.settings.value.keepScans = .forever
-        let app = AppModel(processor: fixture.processor, settings: fixture.settings, now: { now })
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings, now: clock.now)
         app.path = [reviewed.id]
         let review = try #require(app.model(for: reviewed.id))
         app.continueScan(scanned.id)
 
-        fixture.settings.value.keepScans = .week
+        clock.advance(days: 2)
         app.refresh()
         #expect(app.scans.map(\.id) == [reviewed.id, scanned.id])
         #expect(app.model(for: reviewed.id) === review)
@@ -598,8 +599,12 @@ struct AppModelTests {
         #expect(app.model(for: reviewed.id) == nil)
     }
 
-    @Test func retentionDeletesOnlyTheFoldersOfScansNeverSaved() throws {
+    /// The folders of scans never saved used to stay when sent scans were kept forever.
+    @Test func everyRefreshDeletesOnlyTheFoldersOfScansNeverSaved() throws {
         let fixture = try Fixture()
+        var notSent = Scan(name: "Bill")
+        notSent.pages = [ScanPage(quad: nil, analysis: .sample)]
+        try fixture.store.save(notSent)
         let app = AppModel(processor: fixture.processor, settings: fixture.settings)
         let capturing = app.startScan()
         let unsaved = try unreadableScanFolder(in: fixture.store)
@@ -612,22 +617,7 @@ struct AppModelTests {
         #expect(exists(olderFormat))
         #expect(exists(corrupt))
         #expect(exists(processing))
-        #expect(app.scans.isEmpty)
-    }
-
-    @Test func deletingAllScansDeletesScanFoldersWithoutAReadableScan() async throws {
-        let fixture = try Fixture()
-        fixture.settings.value.keepScans = .forever
-        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
-        let unsaved = try unreadableScanFolder(in: fixture.store)
-        let olderFormat = try unreadableScanFolder(in: fixture.store, json: olderFormatJSON())
-        app.refresh()
-        #expect(exists(unsaved))
-
-        app.deleteAllScans()
-        #expect(!exists(unsaved))
-        #expect(!exists(olderFormat))
-        #expect(await fixture.store.byteCount() == 0)
+        #expect(app.scans.map(\.id) == [notSent.id])
     }
 
     private func olderFormatJSON() throws -> Data {
@@ -648,18 +638,6 @@ struct AppModelTests {
 
     private func exists(_ url: URL) -> Bool {
         FileManager.default.fileExists(atPath: url.path(percentEncoded: false))
-    }
-
-    @Test func keepsScansForeverWhenAsked() throws {
-        let fixture = try Fixture()
-        let now = Date()
-        var scan = Scan(created: now.addingTimeInterval(-400 * 86400), name: "Old")
-        scan.pages = [ScanPage(quad: nil, analysis: .sample)]
-        scan.sent = Sent(date: now.addingTimeInterval(-400 * 86400), method: .share)
-        try fixture.store.save(scan)
-        fixture.settings.value.keepScans = .forever
-        let app = AppModel(processor: fixture.processor, settings: fixture.settings, now: { now })
-        #expect(app.scans.map(\.name) == ["Old"])
     }
 }
 

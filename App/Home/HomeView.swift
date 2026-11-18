@@ -135,10 +135,8 @@ struct HomeView: View {
             } header: {
                 Text("Recent")
             } footer: {
-                if let days = app.settings.value.keepScans.days {
-                    Text("Sent scans are deleted after \(days.counted("day")).")
-                        .frame(maxWidth: .infinity)
-                }
+                Text("Sent scans leave this iPhone after 24 hours.")
+                    .frame(maxWidth: .infinity)
             }
         }
         .environment(\.editMode, .constant(isSelecting ? .active : .inactive))

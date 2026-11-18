@@ -81,12 +81,20 @@ struct ScanKeepingTests {
 
 /// A clock the tests move forward.
 final class TestClock: Sendable {
-    private let date = Mutex(Date())
+    private let date: Mutex<Date>
+
+    init(_ date: Date = Date()) {
+        self.date = Mutex(date)
+    }
 
     var now: @Sendable () -> Date { { self.date.withLock { $0 } } }
 
     func advance(days: Double) {
-        date.withLock { $0.addTimeInterval(days * 86400) }
+        advance(hours: days * 24)
+    }
+
+    func advance(hours: Double) {
+        date.withLock { $0.addTimeInterval(hours * 3600) }
     }
 }
 

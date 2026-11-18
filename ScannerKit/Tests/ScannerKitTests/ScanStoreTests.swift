@@ -53,10 +53,6 @@ final class ScanStoreTests {
         #expect(FileManager.default.fileExists(atPath: json.path(percentEncoded: false)))
         #expect(!FileManager.default.fileExists(atPath: store.directory(of: unsaved).path(percentEncoded: false)))
         #expect(FileManager.default.fileExists(atPath: store.directory(of: kept).path(percentEncoded: false)))
-
-        store.deleteAllScanFolders(keeping: [kept])
-        #expect(!FileManager.default.fileExists(atPath: json.path(percentEncoded: false)))
-        #expect(FileManager.default.fileExists(atPath: store.directory(of: kept).path(percentEncoded: false)))
     }
 
     @Test func countsTheBytesOfScansAndTheirPDFs() async throws {

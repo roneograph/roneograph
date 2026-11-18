@@ -22,10 +22,10 @@ struct SettingsStoreTests {
 
     @Test func keepsSettingsItCannotReadInsteadOfLosingThem() throws {
         let fixture = try Fixture()
-        let unreadable = Data(#"{"keepScans":"year"}"#.utf8)
+        let unreadable = Data(#"{"autoCapture":"sometimes"}"#.utf8)
         fixture.defaults.set(unreadable, forKey: "settings")
         let settings = SettingsStore(defaults: fixture.defaults)
-        #expect(settings.value.keepScans == .week)
+        #expect(settings.value.autoCapture)
         settings.value.autoCapture = false
         settings.save()
         #expect(fixture.defaults.data(forKey: SettingsStore.unreadableKey) == unreadable)

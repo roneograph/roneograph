@@ -5,7 +5,6 @@ import SwiftUI
 struct SettingsView: View {
     let app: AppModel
     @Bindable var settings: SettingsStore
-    @State private var deletingScans = false
     @State private var storedBytes = 0
     @Environment(\.dismiss) private var dismiss
 
@@ -37,26 +36,11 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Picker("Keep sent scans for", selection: $settings.value.keepScans) {
-                        ForEach(ScanRetention.allCases, id: \.self) { Text($0.label).tag($0) }
-                    }
                     LabeledContent("Stored", value: stored)
-                    Button("Delete All Scans…", role: .destructive) { deletingScans = true }
-                        .disabled(app.scans.isEmpty)
                 } header: {
                     Text("Scans on this iPhone")
                 } footer: {
-                    Text(settings.value.keepScans == .forever
-                        ? "Scans stay until you delete them. PDFs sent stay where they are."
-                        : "Scans are deleted this long after they were sent; scans never sent stay until you delete them. PDFs sent stay where they are.")
-                }
-                .confirmationDialog("Delete \(app.scans.count == 1 ? "the scan" : "all \(app.scans.count) scans")?", isPresented: $deletingScans, titleVisibility: .visible) {
-                    Button("Delete All Scans", role: .destructive) {
-                        app.deleteAllScans()
-                        Task { storedBytes = await app.store.byteCount() }
-                    }
-                } message: {
-                    Text("Their pages and PDFs are deleted from this iPhone. PDFs sent are not affected.")
+                    Text("Scans not sent stay until you delete them. Sent scans leave this iPhone 24 hours after they were archived or shared.")
                 }
 
                 Section {

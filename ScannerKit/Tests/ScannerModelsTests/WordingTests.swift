@@ -17,10 +17,6 @@ struct WordingTests {
         #expect(30.counted("day") == "30 days")
     }
 
-    @Test func labelsRetentions() {
-        #expect(ScanRetention.allCases.map(\.label) == ["1 day", "7 days", "30 days", "Forever"])
-    }
-
     @Test func mentionsOwnersOnlyWhenThereAreSeveral() {
         var settings = ScannerSettings()
         #expect(settings.nothingRemembered == "Correct the name, issuer or category of a scan, and it is reused for the next documents from the same issuer.")

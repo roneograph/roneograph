@@ -14,7 +14,6 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
     public var categories: [DocumentCategory] = []
     /// The issuer, category, name and owner the user gave to documents from an issuer, most recent first.
     public var learnedIssuers: [LearnedIssuer] = []
-    public var keepScans = ScanRetention.week
     /// Set once the Home card pointing to Settings for Paperless was closed.
     public var dismissedSendSetup = false
 
@@ -36,7 +35,6 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
         autoCapture = try container.decode(.autoCapture, or: autoCapture)
         categories = try container.decode(.categories, or: categories)
         learnedIssuers = try container.decode(.learnedIssuers, or: learnedIssuers)
-        keepScans = try container.decode(.keepScans, or: keepScans)
         dismissedSendSetup = try container.decode(.dismissedSendSetup, or: dismissedSendSetup)
     }
 
@@ -84,21 +82,6 @@ public struct ScannerSettings: Equatable, Sendable, Codable {
     public func categories(keeping current: DocumentCategory) -> [DocumentCategory] {
         let all = allCategories
         return all.contains(current) ? all : DocumentCategory.alphabetical(all + [current])
-    }
-}
-
-/// How long sent scans stay on the device before they are deleted; scans never sent stay.
-public enum ScanRetention: String, CaseIterable, Sendable, Codable {
-    case day, week, month, forever
-
-    /// Nil when scans are never deleted.
-    public var days: Int? {
-        switch self {
-        case .day: 1
-        case .week: 7
-        case .month: 30
-        case .forever: nil
-        }
     }
 }
 

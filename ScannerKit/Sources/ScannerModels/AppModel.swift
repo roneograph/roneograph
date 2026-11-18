@@ -54,13 +54,15 @@ public final class AppModel {
         archiver?.isActive = isActive
     }
 
-    /// Deletes the scans sent longer ago than the retention, except the one open in Review or in the camera, and the folders of scans never saved, then reloads the list.
+    /// How long a scan stays on this iPhone once it was archived or shared.
+    public static let sentScanLifetime: TimeInterval = 24 * 60 * 60
+
+    /// Deletes the folders of scans never saved and the scans sent longer ago than `sentScanLifetime`, except the one open in Review or in the camera, then reloads the list.
     /// A scan never sent is never deleted: it is the only copy of the document; nor is one on its way to Paperless, whatever sent it before.
     public func refresh() {
         reload()
-        guard let days = settings.value.keepScans.days else { return }
         store.deleteUnsavedScans(keeping: Set(models.keys))
-        let cutoff = now().addingTimeInterval(-Double(days) * 86400)
+        let cutoff = now().addingTimeInterval(-Self.sentScanLifetime)
         delete(Set(scans.filter { scan in
             guard let sent = scan.sent, scan.archiving?.isInProgress != true else { return false }
             return sent.date < cutoff && camera?.id != scan.id && path.last != scan.id
@@ -221,13 +223,6 @@ public final class AppModel {
         scans.removeAll { ids.contains($0.id) }
         path.removeAll(where: ids.contains)
         if let camera, ids.contains(camera.id) { self.camera = nil }
-    }
-
-    /// Deletes every scan and its PDF from this device; what was sent or saved elsewhere stays.
-    public func deleteAllScans() {
-        reload()
-        delete(Set(scans.map(\.id)))
-        store.deleteAllScanFolders(keeping: Set(models.keys))
     }
 
     /// A model let go without a page, as when the camera closes, is handed out again once it saves its scan, as when the photo being taken comes in.

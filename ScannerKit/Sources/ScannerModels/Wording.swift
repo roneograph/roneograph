@@ -8,13 +8,6 @@ extension Int {
     }
 }
 
-extension ScanRetention {
-    /// The choice in Settings: "7 days", "Forever".
-    public var label: String {
-        days.map { $0.counted("day") } ?? "Forever"
-    }
-}
-
 extension ScannerSettings {
     /// Under the names and addresses of an owner in Settings: how else its names are recognized, or what to type for them to be.
     public func addressedToFooter(of ownerID: UUID, region: String?, language: String?) -> String {

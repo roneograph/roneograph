@@ -50,7 +50,7 @@ struct ArchiverTests {
     @Test func keepsTheTokensWhileSettingsItCouldNotReadAreSetAside() throws {
         let ownerID = UUID()
         try tokens.setToken("secret", for: ownerID)
-        fixture.defaults.set(Data(#"{"keepScans":"decade"}"#.utf8), forKey: "settings")
+        fixture.defaults.set(Data(#"{"autoCapture":"sometimes"}"#.utf8), forKey: "settings")
         let settings = SettingsStore(defaults: fixture.defaults)
         let archiver = Archiver(uploader: uploader, tokens: tokens, directory: fixture.root.appending(path: "Uploads"), fetch: server.fetch)
 
@@ -679,7 +679,6 @@ struct ArchiverTests {
         scan.markSent(.share)
         try await app.archive([scan])
         #expect(scan.scan.archiving?.state == .waiting("The server is not ready (error 503)."))
-        fixture.settings.value.keepScans = .day
         app.path = []
 
         let later = AppModel(processor: fixture.processor, settings: fixture.settings, now: { .now.addingTimeInterval(2 * 86400) })
