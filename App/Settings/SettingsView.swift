@@ -5,7 +5,6 @@ import SwiftUI
 struct SettingsView: View {
     let app: AppModel
     @Bindable var settings: SettingsStore
-    @State private var storedBytes = 0
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -36,14 +35,6 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    LabeledContent("Stored", value: stored)
-                } header: {
-                    Text("Scans on this iPhone")
-                } footer: {
-                    Text("Scans not sent stay until you delete them. Sent scans leave this iPhone 24 hours after they were archived or shared.")
-                }
-
-                Section {
                     NavigationLink {
                         AboutView()
                     } label: {
@@ -58,7 +49,6 @@ struct SettingsView: View {
                     }
                 }
             }
-            .task { storedBytes = await app.store.byteCount() }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -67,9 +57,5 @@ struct SettingsView: View {
                 }
             }
         }
-    }
-
-    private var stored: String {
-        app.scans.isEmpty ? "None" : "\(app.scans.count.counted("scan")) · \(storedBytes.formatted(.byteCount(style: .file)))"
     }
 }

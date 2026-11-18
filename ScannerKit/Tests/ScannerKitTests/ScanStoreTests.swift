@@ -55,16 +55,6 @@ final class ScanStoreTests {
         #expect(FileManager.default.fileExists(atPath: store.directory(of: kept).path(percentEncoded: false)))
     }
 
-    @Test func countsTheBytesOfScansAndTheirPDFs() async throws {
-        let scan = Scan(name: "Invoice")
-        try store.save(scan)
-        let json = await store.byteCount()
-        #expect(json > 0)
-        try Data(count: 1000).write(to: store.pdfURL(of: scan))
-        try Data(count: 500).write(to: root.appending(path: "Documents/Other.pdf"))
-        #expect(await store.byteCount() == json + 1000)
-    }
-
     @Test func picksAnAvailableName() throws {
         let scans = [Scan(name: "Invoice")]
         try Data().write(to: root.appending(path: "Documents/Receipt.pdf"))
