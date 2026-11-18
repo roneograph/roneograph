@@ -35,6 +35,15 @@ public final class AppModel {
         if !settings.hasUnreadableSettings { archiver?.forgetTokens(keeping: settings.value.owners) }
         refresh()
         for scan in scans where !scan.pending.isEmpty { _ = model(for: scan.id) }
+        settings.didChangeFileNameFormat = { [weak self] in self?.applyFileNameFormat(of: $0) }
+    }
+
+    /// A new file name format renames the scans of its owner not sent yet, and the one in Review; a scan on its way to Paperless keeps the name its upload reads the PDF by.
+    private func applyFileNameFormat(of owners: Set<UUID>) {
+        for scan in scans {
+            guard let owner = scan.owner?.id, owners.contains(owner), scan.sent == nil || path.last == scan.id, scan.archiving?.isInProgress != true else { continue }
+            model(for: scan.id)?.applyFileName()
+        }
     }
 
     public var store: ScanStore { processor.store }

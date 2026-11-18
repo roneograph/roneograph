@@ -5,8 +5,14 @@ import ScannerKit
 @MainActor @Observable
 public final class SettingsStore {
     public var value: ScannerSettings {
-        didSet { scheduleSave() }
+        didSet {
+            scheduleSave()
+            let changed = value.owners.filter { owner in oldValue.owners.contains { $0.id == owner.id && $0.fileNameFormat != owner.fileNameFormat } }
+            if !changed.isEmpty { didChangeFileNameFormat?(Set(changed.map(\.id))) }
+        }
     }
+    /// Called with the owners whose file name format changed.
+    @ObservationIgnored var didChangeFileNameFormat: ((Set<UUID>) -> Void)?
 
     private let defaults: UserDefaults
     private let saveDelay: Duration

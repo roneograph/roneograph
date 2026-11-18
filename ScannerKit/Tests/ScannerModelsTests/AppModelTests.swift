@@ -182,6 +182,35 @@ struct AppModelTests {
         #expect(second.scan.name == "Receipt 2")
     }
 
+    @Test func aNewFileNameFormatRenamesTheScansOfItsOwnerNotSentYet() async throws {
+        let fixture = try Fixture()
+        let holding = try #require(fixture.settings.addOwner("Fernwood Holding"))
+        let app = AppModel(processor: fixture.processor, settings: fixture.settings)
+        let waiting = await fixture.capturedScan(in: app)
+        waiting.rename("Water bill")
+        await waiting.preparePDF()
+        let sent = await fixture.capturedScan(in: app)
+        sent.rename("Gas bill")
+        app.didSend([sent], by: .share)
+        let other = await fixture.capturedScan(in: app)
+        other.rename("Payslip")
+        other.setOwner(holding.id)
+        let reviewed = await fixture.capturedScan(in: app)
+        reviewed.rename("Rent receipt")
+        app.didSend([reviewed], by: .email)
+        app.path = [reviewed.id]
+
+        fixture.settings.value.defaultOwner.fileNameFormat.separator = .underscore
+        #expect(waiting.scan.name == "Water_bill")
+        #expect(fixture.pdfExists("Water_bill"))
+        #expect(!fixture.pdfExists("Water bill"))
+        #expect(!waiting.hasCurrentPDF)
+        #expect(reviewed.scan.name == "Rent_receipt")
+        #expect(sent.scan.name == "Gas bill")
+        #expect(other.scan.name == "Payslip")
+        #expect(Set(fixture.store.all().map(\.name)) == ["Water_bill", "Rent_receipt", "Gas bill", "Payslip"])
+    }
+
     @Test func leavingTheForegroundSavesTheSettingsAtOnce() throws {
         let fixture = try Fixture()
         let settings = SettingsStore(defaults: fixture.defaults, saveDelay: .seconds(3600))
