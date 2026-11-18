@@ -34,6 +34,17 @@ final class ScanProcessorTests {
         #expect(document.pageCount == 2)
     }
 
+    @Test func takesTheLiveOutlineWhenNoPageIsFoundOnThePhoto() async throws {
+        let scanID = UUID()
+        let pending = PendingPage(liveQuad: .tilted)
+        try store.savePhoto(PageExtractor(context: CIContext()).jpegData(of: SyntheticPhoto.render(page: nil), quality: 0.9)!, scanID: scanID, pageID: pending.id)
+        let page = try await processor.addPage(pending, scanID: scanID)
+        #expect(page.quad == .tilted)
+        #expect(page.detectedQuad == .tilted)
+        let flat = try #require(CIImage(contentsOf: store.flatURL(scanID: scanID, page: page)))
+        #expect(flat.extent.size != SyntheticPhoto.size)
+    }
+
     @Test func recropsFromTheOriginalPhoto() async throws {
         let scanID = UUID()
         let page = try await addPage(scanID: scanID)
@@ -172,6 +183,21 @@ final class ScanProcessorTests {
         _ = try await processor.pdfData(of: scan)
 
         await #expect(throws: CancellationError.self) { try await inCancelledTask { try await processor.pdfData(of: cancelled) } }
+    }
+
+    @Test func stopsMakingThePDFWhenCancelledBetweenTwoPages() async throws {
+        var scan = Scan(name: "Invoice")
+        _ = try addFlatPage(to: &scan)
+        _ = try addFlatPage(to: &scan)
+        let reads = Reads()
+        let processor = ScanProcessor(store: store, paper: .a4) { page in
+            withUnsafeCurrentTask { $0?.cancel() }
+            return try reads.read(page)
+        }
+        let pdf = Task { [scan] in try await processor.pdfData(of: scan) }
+
+        await #expect(throws: CancellationError.self) { try await pdf.value }
+        #expect(reads.count == 1)
     }
 
     @Test func detectsTheDocumentFromTheTextOfThePage() async throws {

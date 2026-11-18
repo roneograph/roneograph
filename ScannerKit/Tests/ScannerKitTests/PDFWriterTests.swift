@@ -21,19 +21,20 @@ struct PDFWriterTests {
         #expect(document.documentAttributes?[PDFDocumentAttribute.creatorAttribute] as? String == "Roneograph")
     }
 
-    @Test func writesPagesOneAtATimeLikeAllAtOnce() throws {
-        let writer = PDFWriter(context: context)
-        let pages = [PDFPageContent(image: SyntheticPage().render(), look: .gray), PDFPageContent(image: SyntheticPage(stamp: true).render(), look: .color)]
-        let document = try writer.document(title: "Invoice", defaultPaper: .a4)
-        for page in pages {
-            try document.add(page)
-        }
-        let streamed = document.close()
-        let whole = try writer.data(pages: pages, title: "Invoice", defaultPaper: .a4)
-        #expect(try #require(PDFDocument(data: streamed)).pageCount == 2)
-        for number in 1...2 {
-            #expect(try pixels(ofPage: number, of: streamed) == pixels(ofPage: number, of: whole))
-        }
+    @Test func writesEachPageInItsOrderAtItsOwnSize() throws {
+        let landscape = CIImage(color: .white).cropped(to: CGRect(x: 0, y: 0, width: 1188, height: 840))
+        let portrait = CIImage(color: .black).cropped(to: CGRect(x: 0, y: 0, width: 840, height: 1188))
+        let document = try PDFWriter(context: context).document(title: "Invoice", defaultPaper: .a4)
+        try document.add(PDFPageContent(image: landscape, look: .gray))
+        try document.add(PDFPageContent(image: portrait, look: .gray))
+        let data = document.close()
+
+        let pdf = try #require(PDFDocument(data: data))
+        #expect(pdf.pageCount == 2)
+        let boxes = try (0..<2).map { try #require(pdf.page(at: $0)).bounds(for: .mediaBox).size }
+        #expect(boxes[0].width > boxes[0].height && boxes[1].width < boxes[1].height)
+        #expect(try pixels(ofPage: 1, of: data).allSatisfy { $0 == 255 })
+        #expect(try pixels(ofPage: 2, of: data).allSatisfy { $0 == 0 })
     }
 
     @Test func declaresPDFAWithAnOutputIntent() throws {
