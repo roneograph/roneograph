@@ -243,11 +243,11 @@ struct SendBarModelTests {
         #expect(app.sendButtons(for: scan).title == "Archive")
     }
 
-    @Test func anArchivedScanOffersOnlyShare() async throws {
+    @Test func anArchivedScanCanBeArchivedAgain() async throws {
         let app = try connectedApp()
         let scan = await fixture.capturedScan(in: app)
         scan.markSent(.paperless)
-        #expect(app.sendButtons(for: scan) == SendButtons(named: .share, title: "Share", isProminent: false))
+        #expect(app.sendButtons(for: scan) == SendButtons(named: .paperless, title: "Archive", isProminent: true, round: .share))
         #expect(status(scan, in: app) == SendStatus(kind: .sent, text: "Archived to paperless.example.com · 10:42"))
 
         scan.markSent(.share)

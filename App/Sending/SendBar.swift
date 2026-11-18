@@ -3,7 +3,7 @@ import ScannerModels
 import SwiftUI
 
 /// The way to send shown with its name, the other one as a round button, and Delete, for the scan under review:
-/// Archive, filled with the accent color, then Share when the owner of the scan has a Paperless server; Share alone otherwise, or once the scan is archived.
+/// Archive, filled with the accent color, then Share when the owner of the scan has a Paperless server; Share alone otherwise.
 /// A button tapped before the PDF is made shows a spinner, and sends once it is.
 struct SendBar: View {
     let app: AppModel

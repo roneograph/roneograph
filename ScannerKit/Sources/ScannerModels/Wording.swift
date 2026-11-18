@@ -197,10 +197,10 @@ public struct SendStatus: Equatable {
 }
 
 extension AppModel {
-    /// Archive, named, then Share when the owner of the scan has a Paperless server; Share alone otherwise, and once the scan is archived, as Paperless refuses a file it already has.
+    /// Archive, named, then Share when the owner of the scan has a Paperless server, even once archived, as the document may have been deleted from Paperless; Share alone otherwise.
     /// Archive reads "Try Again" once the upload failed and "Try Now" while it waits.
     public func sendButtons(for model: ScanModel) -> SendButtons {
-        guard archives(model), !model.scan.isArchived else {
+        guard archives(model) else {
             return SendButtons(named: .share, title: SendMethod.share.title, isProminent: false)
         }
         let title = switch model.scan.archiving?.isInProgress {
