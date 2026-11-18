@@ -116,6 +116,7 @@ struct AddressedToSection: View {
                     isFocused = true
                 }
             }
+            .interactiveDismissDisabled(text != entry.text)
             .presentationDetents([.medium, .large])
         }
 
