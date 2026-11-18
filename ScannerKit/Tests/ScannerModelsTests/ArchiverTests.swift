@@ -393,11 +393,32 @@ struct ArchiverTests {
         let scan = await readyScan()
         try await app.archive([scan])
 
-        app.archiver?.complete(UploadResult(scanID: scan.id, status: 200))
+        app.archiver?.complete(taken(scan))
         #expect(scan.scan.sent?.method == .paperless)
         #expect(scan.scan.archiving == nil)
         #expect(uploadFiles().isEmpty)
         #expect(app.scans.first?.status.hasPrefix("Archived") == true)
+    }
+
+    @Test func aPageThatIsNotPaperlessAnsweringTheUploadDoesNotArchiveTheScan() async throws {
+        try connect()
+        let scan = await readyScan()
+        try await app.archive([scan])
+
+        app.archiver?.complete(UploadResult(scanID: scan.id, status: 200, body: Data("<html><title>Sign in</title></html>".utf8)))
+        #expect(scan.scan.sent == nil)
+        #expect(scan.scan.archiving?.state == .failed("The server did not answer like a Paperless-ngx server."))
+    }
+
+    @Test func aRedirectedUploadDoesNotArchiveTheScan() async throws {
+        try connect()
+        let scan = await readyScan()
+        try await app.archive([scan])
+
+        let sent = try #require(uploader.uploads.first?.request.url)
+        app.archiver?.complete(UploadResult(scanID: scan.id, status: 200, body: taskID, url: sent, responseURL: URL(string: "https://login.example.com/")))
+        #expect(scan.scan.sent == nil)
+        #expect(scan.scan.archiving?.state == .failed("The server redirects to another address."))
     }
 
     @Test func triesAgainLaterWhileTheServerIsNotReady() async throws {
@@ -414,7 +435,7 @@ struct ArchiverTests {
 
         app.archiver?.complete(UploadResult(scanID: scan.id, status: nil, error: .notConnectedToInternet))
         #expect(uploader.uploads[2].delay == .seconds(60))
-        app.archiver?.complete(UploadResult(scanID: scan.id, status: 201))
+        app.archiver?.complete(taken(scan))
         #expect(scan.scan.sent?.method == .paperless)
     }
 
@@ -504,7 +525,7 @@ struct ArchiverTests {
         try await app.archive([scan])
         app.setActive(false)
 
-        app.archiver?.complete(UploadResult(scanID: scan.id, status: 200))
+        app.archiver?.complete(taken(scan))
         #expect(scan.scan.sent == nil)
         app.setActive(true)
         #expect(scan.scan.sent?.method == .paperless)
@@ -515,7 +536,7 @@ struct ArchiverTests {
         let scan = await readyScan()
         try await app.archive([scan])
         app.setActive(false)
-        app.archiver?.complete(UploadResult(scanID: scan.id, status: 200))
+        app.archiver?.complete(taken(scan))
 
         let (later, archiver, uploader) = relaunch()
         await activate(later, archiver)
@@ -623,6 +644,13 @@ struct ArchiverTests {
 
         app.deleteOwner(holding.id, movingScansTo: nil)
         #expect(tokens.token(for: holding.id) == nil)
+    }
+
+    private let taskID = Data(#""5f1c2a3e-0b9d-4c8e-9a61-2f7d3c4b5a6e""#.utf8)
+
+    /// What Paperless-ngx answers to an upload it took: the ID of the task that consumes the document.
+    private func taken(_ scan: ScanModel) -> UploadResult {
+        UploadResult(scanID: scan.id, status: 200, body: taskID, url: uploader.uploads.last?.request.url, responseURL: uploader.uploads.last?.request.url)
     }
 
     /// The app model, archiver and uploader of the next launch, on the same scans, settings and tokens; a new uploader has no upload left.

@@ -178,6 +178,32 @@ struct PaperlessTests {
         #expect(Paperless.outcome(status: status, body: Data(), error: nil) == outcome)
     }
 
+    @Test func anUploadIsTakenOnlyWhenPaperlessAnswersTheIDOfItsTask() {
+        let sent = URL(string: "https://paperless.example.com/api/documents/post_document/")!
+        func outcome(_ status: Int, _ body: String, version: String? = nil) -> Paperless.Outcome {
+            Paperless.uploadOutcome(status: status, body: Data(body.utf8), version: version, error: nil, sentTo: sent, answeredFrom: sent)
+        }
+        #expect(outcome(200, #""5f1c2a3e-0b9d-4c8e-9a61-2f7d3c4b5a6e""#) == .delivered)
+        #expect(outcome(200, "<html><title>Sign in</title></html>") == .failed("The server did not answer like a Paperless-ngx server."))
+        #expect(outcome(200, #"{"detail": "OK"}"#, version: "2.19.0") == .failed("The server did not answer like a Paperless-ngx server."))
+        #expect(outcome(200, "", version: "2.19.0") == .delivered, "A background session can lose the body")
+        #expect(outcome(200, "") == .failed("The server did not answer like a Paperless-ngx server."))
+        #expect(outcome(503, "") == .retry("The server is not ready (error 503)."))
+    }
+
+    @Test func anUploadThatWasRedirectedFailed() {
+        let sent = URL(string: "https://paperless.example.com/api/documents/post_document/")!
+        let taskID = Data(#""5f1c2a3e-0b9d-4c8e-9a61-2f7d3c4b5a6e""#.utf8)
+        func outcome(answeredFrom answered: String, status: Int = 200, error: URLError.Code? = nil) -> Paperless.Outcome {
+            Paperless.uploadOutcome(status: status, body: taskID, version: "2.19.0", error: error, sentTo: sent, answeredFrom: URL(string: answered))
+        }
+        #expect(outcome(answeredFrom: "https://login.example.com/") == .failed("The server redirects to another address."))
+        #expect(outcome(answeredFrom: "https://paperless.example.com/accounts/login/", status: 503) == .failed("The server redirects to another address."))
+        #expect(outcome(answeredFrom: "http://paperless.example.com/api/documents/post_document/") == .failed("The server redirects to another address."))
+        #expect(outcome(answeredFrom: "https://Paperless.Example.com:443/api/documents/post_document/") == .delivered)
+        #expect(Paperless.uploadOutcome(status: nil, body: Data(), version: nil, error: .timedOut, sentTo: sent, answeredFrom: nil) == .retry("The server cannot be reached."))
+    }
+
     @Test func quotesTheReasonTheServerGives() {
         let body = Data(#"{"document": ["The submitted file is empty."]}"#.utf8)
         #expect(Paperless.outcome(status: 400, body: body, error: nil) == .failed("The server refused the document: The submitted file is empty."))

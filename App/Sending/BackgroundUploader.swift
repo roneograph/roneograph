@@ -3,6 +3,7 @@ import ScannerModels
 
 /// Uploads in a background session: the system sends them even once the app is suspended or stopped, and waits for the network.
 /// The app is never launched in the background for their results, as its scans cannot be read while the iPhone is locked; they come once it runs again.
+/// Unlike `PaperlessHTTP`, a background session follows redirects without asking its delegate, so each result tells which address answered.
 @MainActor
 final class BackgroundUploader: NSObject, Uploader {
     weak var archiver: Archiver?
@@ -49,8 +50,11 @@ final class BackgroundUploader: NSObject, Uploader {
         let body = responses.removeValue(forKey: task.taskIdentifier) ?? Data()
         guard cancelled.remove(task.taskIdentifier) == nil, let id = task.taskDescription.flatMap(UUID.init(uuidString:)), tasks[id].map({ $0 === task }) ?? true else { return }
         tasks[id] = nil
-        let status = error == nil ? (task.response as? HTTPURLResponse)?.statusCode : nil
-        archiver?.complete(UploadResult(scanID: id, status: status, body: body, error: error.map { ($0 as? URLError)?.code ?? .unknown }))
+        let response = task.response as? HTTPURLResponse
+        archiver?.complete(UploadResult(
+            scanID: id, status: error == nil ? response?.statusCode : nil, body: body, error: error.map { ($0 as? URLError)?.code ?? .unknown },
+            url: task.originalRequest?.url, responseURL: response?.url, version: response?.value(forHTTPHeaderField: "X-Version")
+        ))
     }
 }
 

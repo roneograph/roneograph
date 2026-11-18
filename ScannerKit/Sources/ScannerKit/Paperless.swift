@@ -228,6 +228,29 @@ public enum Paperless {
         }
     }
 
+    /// What the answer to `uploadRequest` means. An upload that was redirected failed, as the server must be typed as it answers.
+    /// The server took the document only when it answers like Paperless-ngx: the ID of the task that consumes it, a JSON string,
+    /// or no body with the version header Paperless-ngx adds, as a background session can lose the body of an answer that came while the app was not running.
+    public static func uploadOutcome(status: Int?, body: Data, version: String?, error: URLError.Code?, sentTo sent: URL?, answeredFrom answered: URL?) -> Outcome {
+        guard error == nil, status != nil else { return outcome(status: status, body: body, error: error) }
+        if let sent, let answered, !isSameAddress(sent, answered) { return .failed("The server redirects to another address.") }
+        let outcome = outcome(status: status, body: body, error: nil)
+        guard outcome == .delivered else { return outcome }
+        let isTaskID = (try? JSONSerialization.jsonObject(with: body, options: .fragmentsAllowed)) is String
+        return isTaskID || (body.isEmpty && version != nil) ? .delivered : .failed("The server did not answer like a Paperless-ngx server.")
+    }
+
+    /// The scheme and host in any case, and the default port written or not, are the same address.
+    private static func isSameAddress(_ first: URL, _ second: URL) -> Bool {
+        func parts(_ url: URL) -> [String?] {
+            let components = URLComponents(url: url, resolvingAgainstBaseURL: true)
+            let scheme = components?.scheme?.lowercased()
+            let port = components?.port ?? (scheme == "https" ? 443 : scheme == "http" ? 80 : nil)
+            return [scheme, components?.host?.lowercased(), port.map(String.init), components?.percentEncodedPath, components?.percentEncodedQuery]
+        }
+        return parts(first) == parts(second)
+    }
+
     /// The first message of a Django REST Framework error, such as {"document": ["The file is empty."]}.
     static func errorMessage(in body: Data) -> String? {
         func first(_ value: Any) -> String? {

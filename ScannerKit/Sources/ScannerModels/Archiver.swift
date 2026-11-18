@@ -16,12 +16,20 @@ public struct UploadResult: Sendable, Codable {
     public let status: Int?
     public let body: Data
     private let errorCode: Int?
+    /// Where the upload was sent, and the address that answered, another one when the upload was redirected.
+    public let url: URL?
+    public let responseURL: URL?
+    /// The X-Version header of the answer, which Paperless-ngx adds.
+    public let version: String?
 
-    public init(scanID: UUID, status: Int?, body: Data = Data(), error: URLError.Code? = nil) {
+    public init(scanID: UUID, status: Int?, body: Data = Data(), error: URLError.Code? = nil, url: URL? = nil, responseURL: URL? = nil, version: String? = nil) {
         self.scanID = scanID
         self.status = status
         self.body = body
         self.errorCode = error?.rawValue
+        self.url = url
+        self.responseURL = responseURL
+        self.version = version
     }
 
     public var error: URLError.Code? { errorCode.map(URLError.Code.init(rawValue:)) }
@@ -292,7 +300,7 @@ public final class Archiver {
             removeBody(result.scanID)
             return
         }
-        switch Paperless.outcome(status: result.status, body: result.body, error: result.error) {
+        switch Paperless.uploadOutcome(status: result.status, body: result.body, version: result.version, error: result.error, sentTo: result.url, answeredFrom: result.responseURL) {
         case .delivered:
             removeBody(model.id)
             model.setArchiving(nil)
