@@ -277,10 +277,16 @@ public struct PageCleaner: Sendable {
         return (orientation, heights.sorted()[heights.count / 2] / max(extent.width, extent.height))
     }
 
+    /// The angle of the text lines, from the ink away from the sides, where a strip of table or a shadow would outweigh the text.
     private func skew(of normalized: CIImage) -> Double {
         let bitmap = Bitmap(normalized, longSide: skewSize, context: context)
-        let ink = (0..<bitmap.count).map { bitmap.luminance($0) < inkDarkness }
-        return SkewEstimator().skew(ink: ink, width: bitmap.width, height: bitmap.height)
+        let (width, height) = (bitmap.width, bitmap.height)
+        let band = Int(Double(min(width, height)) * edgeBand)
+        let ink = (0..<bitmap.count).map { i in
+            let (x, y) = (i % width, i / width)
+            return min(x, y, width - 1 - x, height - 1 - y) >= band && bitmap.luminance(i) < inkDarkness
+        }
+        return SkewEstimator().skew(ink: ink, width: width, height: height)
     }
 
     // MARK: Geometry

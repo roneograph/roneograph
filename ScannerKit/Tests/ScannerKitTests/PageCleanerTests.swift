@@ -62,6 +62,12 @@ struct PageCleanerTests {
         #expect(abs(try await cleaner.analyze(straight).skewDegrees) < 0.3)
     }
 
+    @Test func measuresTheSkewOfAPageWithADarkStripAlongASide() async throws {
+        let page = SyntheticPage(rotation: 3).render()
+        let strip = CIImage(color: CIColor(red: 0.1, green: 0.1, blue: 0.1)).cropped(to: CGRect(x: 0, y: page.extent.height * 0.99, width: page.extent.width, height: page.extent.height * 0.01))
+        #expect(abs(try await cleaner.analyze(strip.composited(over: page)).skewDegrees - 3) < 0.3)
+    }
+
     @Test func evensOutAShadowAndWhitensYellowPaper() async throws {
         let page = SyntheticPage(paper: (0.86, 0.8, 0.62), shadow: true).render()
         let clean = cleaner.render(page, analysis: try await cleaner.analyze(page), look: .color)
