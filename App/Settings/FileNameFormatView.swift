@@ -6,6 +6,7 @@ import SwiftUI
 struct FileNameFormatView: View {
     @Binding var format: FileNameFormat
     @State private var draft = ""
+    @FocusState private var isEditing: Bool
 
     var body: some View {
         Form {
@@ -14,6 +15,8 @@ struct FileNameFormatView: View {
                     .font(.body.monospaced())
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.never)
+                    .submitLabel(.done)
+                    .focused($isEditing)
                 if let error {
                     Label(error.message, systemImage: "exclamationmark.triangle.fill")
                         .font(.footnote)
@@ -51,7 +54,10 @@ struct FileNameFormatView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { draft = format.template }
         .onChange(of: draft) { _, value in
-            if (try? FileNameFormat.Template(value)) != nil { format.template = value }
+            if value.contains(where: \.isNewline) {
+                draft = value.filter { !$0.isNewline }
+                isEditing = false
+            } else if (try? FileNameFormat.Template(value)) != nil { format.template = value }
         }
     }
 

@@ -165,6 +165,7 @@ extension FileNameFormat {
             case unknownVariable(String)
             case unclosedBrace
             case forbiddenCharacter(Character)
+            case lineBreak
             case emptyFolder
             case relativeFolder
 
@@ -174,6 +175,7 @@ extension FileNameFormat {
                 case .unknownVariable(let name): "{\(name)} is not a variable."
                 case .unclosedBrace: "A { is not closed."
                 case .forbiddenCharacter(let character): "File names cannot contain \(character)."
+                case .lineBreak: "File names cannot contain a line break."
                 case .emptyFolder: "A folder name is empty."
                 case .relativeFolder: "Folders cannot be named . or .."
                 }
@@ -212,6 +214,7 @@ extension FileNameFormat {
                     let end = rest.firstIndex(of: "{") ?? rest.endIndex
                     let text = String(rest[..<end])
                     if let forbidden = text.first(where: { FileNamer.forbidden.contains($0) || $0 == "}" }) { throw .forbiddenCharacter(forbidden) }
+                    if text.contains(where: \.isNewline) { throw .lineBreak }
                     tokens.append(.text(text))
                     rest = rest[end...]
                 }

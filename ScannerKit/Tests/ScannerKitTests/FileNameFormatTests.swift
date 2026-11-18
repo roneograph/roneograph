@@ -123,6 +123,8 @@ struct FileNameFormatTests {
         ("{name}", .unknownVariable("name")),
         ("{NAME", .unclosedBrace),
         ("{NAME}: {YYYY}", .forbiddenCharacter(":")),
+        ("{YYYY}\n{NAME}", .lineBreak),
+        ("{YYYY} {NAME}\r\n", .lineBreak),
         ("/{NAME}", .emptyFolder),
         ("{CATEGORY}//{NAME}", .emptyFolder),
         ("{NAME}/", .emptyFolder),
