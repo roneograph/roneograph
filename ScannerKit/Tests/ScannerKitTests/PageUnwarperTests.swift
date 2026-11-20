@@ -1,6 +1,5 @@
 import CoreGraphics
 import CoreImage
-import Foundation
 @testable import ScannerKit
 import ScannerKitTesting
 import Testing
@@ -26,17 +25,6 @@ struct PageUnwarperTests {
         let inset = 4
         let edges = (inset..<(page.height - inset)).flatMap { [gray(page, inset, $0), gray(page, page.width - 1 - inset, $0)] }
         #expect(Bitmap.percentile(edges, 0.05) > 180, "darkest edges \(Bitmap.percentile(edges, 0.05))")
-    }
-
-    @Test func loadsTheNetworkWithoutHoldingUpItsCreator() async {
-        let loading = DispatchSemaphore(value: 0)
-        let unwarper = PageUnwarper(context: context) {
-            loading.wait()
-            return nil
-        }
-        loading.signal()
-        let photo = SyntheticPhoto.render(page: .tilted)
-        #expect(await unwarper.unwarp(photo, quad: .tilted, size: CGSize(width: 600, height: 800)) == nil)
     }
 
     @Test func cropsAroundTheOutlineWithAMarginInsideThePhoto() {

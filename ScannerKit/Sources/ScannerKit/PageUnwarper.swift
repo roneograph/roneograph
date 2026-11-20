@@ -9,21 +9,11 @@ public struct PageUnwarper: Sendable {
     private static let margin: CGFloat = 0.03
 
     private let context: CIContext
-    private let model: Task<Model?, Never>
+    private let model: Model?
 
-    /// Starts loading the network in the background: the first load takes seconds and must not hold up the launch.
     public init(context: CIContext) {
-        self.init(context: context, model: Model.bundled)
-    }
-
-    /// Loads the network with `load`, in the background.
-    init(context: CIContext, load: @escaping @Sendable () -> MLModel?) {
-        self.init(context: context, model: Model.loading(load))
-    }
-
-    private init(context: CIContext, model: Task<Model?, Never>) {
         self.context = context
-        self.model = model
+        model = Model.bundled
     }
 
     /// The license of the network's code and weights, shown in the app.
@@ -33,7 +23,7 @@ public struct PageUnwarper: Sendable {
 
     /// The page inside `quad` flattened to `size`, nil when the network cannot run.
     public func unwarp(_ photo: CIImage, quad: Quad, size: CGSize) async -> CIImage? {
-        guard size.width >= 2, size.height >= 2, let model = await model.value else { return nil }
+        guard let model, size.width >= 2, size.height >= 2 else { return nil }
         let photo = photo.atOrigin
         let crop = Self.cropRect(of: quad, in: photo.extent.size)
         guard crop.width >= 2, crop.height >= 2 else { return nil }
@@ -69,13 +59,9 @@ public struct PageUnwarper: Sendable {
     }
 
     private final class Model: @unchecked Sendable {
-        static let bundled = loading {
-            Bundle.module.url(forResource: "UVDoc", withExtension: "mlmodelc").flatMap { try? MLModel(contentsOf: $0) }
-        }
-
-        static func loading(_ load: @escaping @Sendable () -> MLModel?) -> Task<Model?, Never> {
-            Task.detached(priority: .utility) { load().map(Model.init) }
-        }
+        static let bundled: Model? = Bundle.module.url(forResource: "UVDoc", withExtension: "mlmodelc")
+            .flatMap { try? MLModel(contentsOf: $0) }
+            .map(Model.init)
 
         private let model: MLModel
 
