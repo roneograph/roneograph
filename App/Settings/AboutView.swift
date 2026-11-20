@@ -1,4 +1,3 @@
-import ScannerKit
 import SwiftUI
 import UIKit
 
@@ -46,7 +45,7 @@ struct AboutView: View {
             } header: {
                 Text("Open source")
             } footer: {
-                Text("MIT license. Apple frameworks, and the UVDoc network to flatten curled pages.")
+                Text("MIT license. No third-party code inside: only Apple frameworks.")
             }
         }
         .navigationTitle("About")
@@ -88,13 +87,8 @@ private struct LicensesView: View {
                 } label: {
                     LabeledContent("Roneograph", value: "MIT")
                 }
-                NavigationLink {
-                    LicenseText(title: "UVDoc", text: PageUnwarper.license)
-                } label: {
-                    LabeledContent("UVDoc", value: "MIT")
-                }
             } footer: {
-                Text("UVDoc flattens curled and folded pages. Apple frameworks are covered by the iOS license.")
+                Text("Roneograph uses no third-party code. Apple frameworks are covered by the iOS license.")
             }
         }
         .navigationTitle("Licenses")
