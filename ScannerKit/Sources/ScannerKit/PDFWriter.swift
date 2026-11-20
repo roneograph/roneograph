@@ -56,6 +56,8 @@ public struct PDFWriter: Sendable {
         private let defaultPaper: Paper
         private let data = NSMutableData()
         private let pdf: CGContext
+        /// One font for the whole document: the PDF embeds a font subset for each font object it is given, and Core Text does not always hand back the same object for each size.
+        private let font = CTFontCreateWithName("Helvetica" as CFString, 12, nil)
 
         fileprivate init(writer: PDFWriter, title: String, subject: String?, defaultPaper: Paper) throws {
             self.writer = writer
@@ -76,7 +78,7 @@ public struct PDFWriter: Sendable {
             let encoded = try writer.encoded(resized, look: page.look)
             pdf.beginPDFPage([kCGPDFContextMediaBox: Data(bytes: &box, count: MemoryLayout<CGRect>.size)] as CFDictionary)
             pdf.draw(encoded, in: box)
-            writer.drawInvisibly(page.text, in: pdf, pageSize: box.size)
+            writer.drawInvisibly(page.text, in: pdf, font: font, pageSize: box.size)
             pdf.endPDFPage()
         }
 
@@ -87,12 +89,11 @@ public struct PDFWriter: Sendable {
     }
 
     /// Stretches each line over the box where it was read, so a selection covers the printed words.
-    private func drawInvisibly(_ lines: [TextLine], in pdf: CGContext, pageSize: CGSize) {
+    private func drawInvisibly(_ lines: [TextLine], in pdf: CGContext, font: CTFont, pageSize: CGSize) {
         pdf.saveGState()
         pdf.setTextDrawingMode(.invisible)
         for line in lines where !line.text.isEmpty {
             let frame = CGRect(x: line.frame.minX * pageSize.width, y: (1 - line.frame.maxY) * pageSize.height, width: line.frame.width * pageSize.width, height: line.frame.height * pageSize.height)
-            let font = CTFontCreateWithName("Helvetica" as CFString, frame.height, nil)
             let text = CTLineCreateWithAttributedString(NSAttributedString(string: line.text, attributes: [NSAttributedString.Key(kCTFontAttributeName as String): font]))
             var ascent: CGFloat = 0, descent: CGFloat = 0
             let width = CTLineGetTypographicBounds(text, &ascent, &descent, nil)

@@ -126,6 +126,13 @@ struct PDFWriterTests {
         #expect(abs(bounds.midY - expected.midY) < expected.height / 2)
     }
 
+    @Test func embedsOneFontForTextOfEverySizeOnEveryPage() throws {
+        let lines = (0..<200).map { TextLine(text: "Line \($0) of the invoice", frame: CGRect(x: 0.1, y: 0.004 * Double($0), width: 0.5, height: 0.002 + 0.0001 * Double($0))) }
+        let page = PDFPageContent(image: SyntheticPage().render(), look: .gray, text: lines)
+        let data = try PDFWriter(context: context).data(pages: [page, page, page], title: "", defaultPaper: .a4)
+        #expect(String(decoding: data, as: UTF8.self).components(separatedBy: "/FontFile").count - 1 == 1)
+    }
+
     @Test(arguments: [(PageLook.gray, 1.0), (.gray, 2.0), (.color, 1.0), (.color, 2.0)])
     func keepsTheEdgesOfAWhitePageWhite(look: PageLook, scale: CGFloat) throws {
         let white = CIImage(color: .white).cropped(to: CGRect(x: 0, y: 0, width: 840 * scale, height: 1188 * scale))
