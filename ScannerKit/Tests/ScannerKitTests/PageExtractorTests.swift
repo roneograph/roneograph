@@ -38,6 +38,19 @@ struct PageExtractorTests {
         #expect(abs(page.extent.height / page.extent.width - 1.4142) < 0.01)
     }
 
+    @Test func correctionKeepsTheEdgesOfAWhitePageWhite() throws {
+        let white = CIImage(color: .white).cropped(to: CGRect(origin: .zero, size: SyntheticPhoto.size))
+        let page = extractor.correct(white, quad: .tilted)
+        let width = Int(page.extent.width), height = Int(page.extent.height)
+        #expect(page.extent == CGRect(x: 0, y: 0, width: width, height: height))
+        var pixels = [UInt8](repeating: 0, count: width * height)
+        CIContext().render(page, toBitmap: &pixels, rowBytes: width, bounds: page.extent, format: .L8, colorSpace: CGColorSpaceCreateDeviceGray())
+        let rows: [UInt8] = (0..<width).flatMap { x in [pixels[x], pixels[(height - 1) * width + x]] }
+        let columns: [UInt8] = (0..<height).flatMap { y in [pixels[y * width], pixels[y * width + width - 1]] }
+        let edges = rows + columns
+        #expect(edges.allSatisfy { $0 == 255 }, "darkest edge pixel \(edges.min() ?? 0)")
+    }
+
     @Test func signatureOfAWhitePageIsEvenUpToItsEdges() throws {
         let white = CIImage(color: .white).cropped(to: CGRect(origin: .zero, size: SyntheticPhoto.size))
         let signature = try #require(extractor.signature(of: white, quad: .rect(x: 0, y: 0, width: 1, height: 1)))

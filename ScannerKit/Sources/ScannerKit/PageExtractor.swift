@@ -34,7 +34,9 @@ public struct PageExtractor: Sendable {
         filter.topRight = point(quad.topRight)
         filter.bottomRight = point(quad.bottomRight)
         filter.bottomLeft = point(quad.bottomLeft)
-        return filter.outputImage?.atOrigin ?? image
+        guard let output = filter.outputImage else { return image }
+        // The last row and column are only partly covered, so their pixels come out partly transparent and turn dark once flattened.
+        return output.unpremultiplyingAlpha().settingAlphaOne(in: output.extent).atOrigin
     }
 
     /// A tiny fingerprint of the page content inside `quad`.
