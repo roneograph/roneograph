@@ -38,8 +38,9 @@ public struct PDFWriter: Sendable {
         self.context = context
     }
 
-    public func data(pages: [PDFPageContent], title: String, subject: String? = nil, defaultPaper: Paper) throws -> Data {
-        let document = try document(title: title, subject: subject, defaultPaper: defaultPaper)
+    /// `details` go into the metadata: the issuer as the author, the document type, issuer and number as keywords, and the document date as the creation date.
+    public func data(pages: [PDFPageContent], title: String, subject: String? = nil, details: DocumentDetails = DocumentDetails(), defaultPaper: Paper) throws -> Data {
+        let document = try document(title: title, subject: subject, details: details, defaultPaper: defaultPaper)
         for page in pages {
             try document.add(page)
         }
@@ -47,8 +48,8 @@ public struct PDFWriter: Sendable {
     }
 
     /// A PDF written one page at a time, so the image of a page can be released once it is added.
-    public func document(title: String, subject: String? = nil, defaultPaper: Paper) throws -> Document {
-        try Document(writer: self, title: title, subject: subject, defaultPaper: defaultPaper)
+    public func document(title: String, subject: String? = nil, details: DocumentDetails = DocumentDetails(), defaultPaper: Paper) throws -> Document {
+        try Document(writer: self, title: title, subject: subject, details: details, defaultPaper: defaultPaper)
     }
 
     public final class Document {
@@ -59,11 +60,17 @@ public struct PDFWriter: Sendable {
         /// One font for the whole document: the PDF embeds a font subset for each font object it is given, and Core Text does not always hand back the same object for each size.
         private let font = CTFontCreateWithName("Helvetica" as CFString, 12, nil)
 
-        fileprivate init(writer: PDFWriter, title: String, subject: String?, defaultPaper: Paper) throws {
+        private let created: Date?
+
+        fileprivate init(writer: PDFWriter, title: String, subject: String?, details: DocumentDetails, defaultPaper: Paper) throws {
             self.writer = writer
             self.defaultPaper = defaultPaper
+            created = details.date
             var info: [CFString: Any] = [kCGPDFContextTitle: title, kCGPDFContextCreator: writer.creator, kCGPDFContextCreatePDFA: true]
             if let subject { info[kCGPDFContextSubject] = subject }
+            if let issuer = details.issuer { info[kCGPDFContextAuthor] = issuer }
+            let keywords = [details.documentType == .other ? nil : details.documentType.rawValue, details.issuer, details.number].compactMap(\.self)
+            if !keywords.isEmpty { info[kCGPDFContextKeywords] = keywords }
             guard let consumer = CGDataConsumer(data: data as CFMutableData),
                   let pdf = CGContext(consumer: consumer, mediaBox: nil, info as CFDictionary) else {
                 throw PDFWriterError.cannotCreateDocument
@@ -84,7 +91,8 @@ public struct PDFWriter: Sendable {
 
         public func close() -> Data {
             pdf.closePDF()
-            return data as Data
+            guard let created else { return data as Data }
+            return PDFCreationDate.setting(created, in: data as Data)
         }
     }
 
@@ -172,5 +180,98 @@ public struct PDFWriter: Sendable {
             throw PDFWriterError.cannotEncodePage
         }
         return jpeg
+    }
+}
+
+/// Core Graphics dates a PDF when it is written and has no option for another creation date, so the date is changed by an incremental update:
+/// new versions of the document information and of the XMP metadata appended to the file, which PDF/A allows. The file is kept as is when it is not laid out as expected.
+enum PDFCreationDate {
+    static func setting(_ date: Date, in pdf: Data, timeZone: TimeZone = .current) -> Data {
+        guard let trailerStart = pdf.lastRange(of: "trailer"), let startxref = pdf.lastRange(of: "startxref") else { return pdf }
+        let trailer = pdf.text(trailerStart.upperBound..<startxref.lowerBound)
+        guard let size = trailer.firstNumber(after: "/Size "), let root = trailer.firstNumber(after: "/Root "), let info = trailer.firstNumber(after: "/Info "),
+              let previous = pdf.text(startxref.upperBound..<pdf.endIndex).firstNumber(after: ""),
+              let id = trailer.range(of: "/ID").map({ String(trailer[$0.lowerBound...]).prefix(while: { $0 != "]" }) + "]" }),
+              let catalog = pdf.object(root), let metadata = pdf.text(catalog).firstNumber(after: "/Metadata "),
+              let infoObject = pdf.object(info), let xmp = pdf.stream(of: metadata) else { return pdf }
+
+        let xmpText = xmp.replacingOccurrences(of: #"<xmp:CreateDate>[^<]*</xmp:CreateDate>"#, with: "<xmp:CreateDate>\(xmpDate(date, timeZone))</xmp:CreateDate>", options: .regularExpression)
+        guard xmpText.contains("<xmp:CreateDate>"), let creation = pdf.range(of: Data("/CreationDate (".utf8), in: infoObject),
+              let end = pdf.range(of: Data(")".utf8), in: creation.upperBound..<infoObject.upperBound) else { return pdf }
+        // Strings outside ASCII are written as UTF-16, so the information is changed as bytes.
+        var infoData = Data(pdf[infoObject])
+        infoData.replaceSubrange((creation.upperBound - infoObject.lowerBound)..<(end.lowerBound - infoObject.lowerBound), with: Data(infoDate(date, timeZone).utf8))
+
+        var updated = pdf
+        if updated.last != UInt8(ascii: "\n") { updated.append(Data("\n".utf8)) }
+        let xmpData = Data(xmpText.utf8)
+        let metadataOffset = updated.count
+        updated.append(Data("\(metadata) 0 obj\n<< /Type /Metadata /Subtype /XML /Length \(xmpData.count) >>\nstream\n".utf8) + xmpData + Data("\nendstream\nendobj\n".utf8))
+        let infoOffset = updated.count
+        updated.append(Data("\(info) 0 obj".utf8) + infoData + Data("endobj\n".utf8))
+        let xref = updated.count
+        let entries = [(metadata, metadataOffset), (info, infoOffset)].sorted { $0.0 < $1.0 }
+            .map { String(format: "%d 1\n%010d 00000 n \n", $0.0, $0.1) }.joined()
+        updated.append(Data("xref\n\(entries)trailer\n<< /Size \(size) /Root \(root) 0 R /Info \(info) 0 R /Prev \(previous) \(id) >>\nstartxref\n\(xref)\n%%EOF\n".utf8))
+        return updated
+    }
+
+    /// `D:20261012120000+02'00'`
+    static func infoDate(_ date: Date, _ timeZone: TimeZone) -> String {
+        let (c, sign, hours, minutes) = parts(date, timeZone)
+        return String(format: "D:%04d%02d%02d%02d%02d%02d%@%02d'%02d'", c.year!, c.month!, c.day!, c.hour!, c.minute!, c.second!, sign, hours, minutes)
+    }
+
+    /// `2026-10-12T12:00:00+02:00`
+    static func xmpDate(_ date: Date, _ timeZone: TimeZone) -> String {
+        let (c, sign, hours, minutes) = parts(date, timeZone)
+        return String(format: "%04d-%02d-%02dT%02d:%02d:%02d%@%02d:%02d", c.year!, c.month!, c.day!, c.hour!, c.minute!, c.second!, sign, hours, minutes)
+    }
+
+    private static func parts(_ date: Date, _ timeZone: TimeZone) -> (DateComponents, String, Int, Int) {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        let offset = timeZone.secondsFromGMT(for: date)
+        return (calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: date), offset < 0 ? "-" : "+", abs(offset) / 3600, abs(offset) % 3600 / 60)
+    }
+}
+
+private extension Data {
+    func lastRange(of text: String) -> Range<Index>? {
+        range(of: Data(text.utf8), options: .backwards)
+    }
+
+    func text(_ range: Range<Index>) -> String {
+        String(decoding: self[range], as: UTF8.self)
+    }
+
+    /// The bytes between `N 0 obj` and `endobj` of the last version of an object.
+    func object(_ number: Int) -> Range<Index>? {
+        guard let start = lastRange(of: "\n\(number) 0 obj"), let end = range(of: Data("endobj".utf8), in: start.upperBound..<endIndex) else { return nil }
+        return start.upperBound..<end.lowerBound
+    }
+
+    /// The decoded text of a stream object, plain or Flate-compressed.
+    func stream(of number: Int) -> String? {
+        guard let object = object(number), let start = range(of: Data("stream".utf8), in: object) else { return nil }
+        let dictionary = text(object.lowerBound..<start.lowerBound)
+        guard let length = dictionary.firstNumber(after: "/Length ") else { return nil }
+        var bodyStart = start.upperBound
+        if self[bodyStart] == UInt8(ascii: "\r") { bodyStart += 1 }
+        if self[bodyStart] == UInt8(ascii: "\n") { bodyStart += 1 }
+        guard bodyStart + length <= object.upperBound else { return nil }
+        let body = self[bodyStart..<(bodyStart + length)]
+        guard dictionary.contains("/FlateDecode") else { return String(decoding: body, as: UTF8.self) }
+        guard body.count > 6, let inflated = try? (Data(body.dropFirst(2).dropLast(4)) as NSData).decompressed(using: .zlib) else { return nil }
+        return String(decoding: inflated as Data, as: UTF8.self)
+    }
+}
+
+private extension String {
+    /// The integer right after `prefix`.
+    func firstNumber(after prefix: String) -> Int? {
+        let start = prefix.isEmpty ? startIndex : range(of: prefix)?.upperBound
+        guard let start else { return nil }
+        return Int(self[start...].drop(while: \.isWhitespace).prefix(while: \.isNumber))
     }
 }

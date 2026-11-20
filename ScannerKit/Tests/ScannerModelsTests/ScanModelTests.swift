@@ -500,6 +500,21 @@ struct ScanModelTests {
         #expect(fixture.store.all().first?.comment == "Lunch with Ada and Linus")
     }
 
+    @Test func editedDetailsAreWrittenInThePDF() async throws {
+        let fixture = try Fixture()
+        let model = await fixture.scanModel(pages: 1)
+        await model.preparePDF()
+
+        model.setDetail(\.number, to: "2026-114")
+        #expect(!model.hasCurrentPDF)
+        await model.preparePDF()
+        guard case .ready(let url, _) = model.pdf else {
+            Issue.record("PDF not ready: \(model.pdf)")
+            return
+        }
+        #expect((PDFDocument(url: url)?.documentAttributes?[PDFDocumentAttribute.keywordsAttribute] as? [String])?.contains("2026-114") == true)
+    }
+
     @Test func aBlankCommentRemovesIt() async throws {
         let fixture = try Fixture()
         let model = await fixture.scanModel(pages: 1)

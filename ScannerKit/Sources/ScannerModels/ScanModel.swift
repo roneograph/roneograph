@@ -15,6 +15,7 @@ public final class ScanModel: Identifiable {
         var name: String
         var title: String
         var comment: String?
+        var details: DocumentDetails
         var pages: [ScanPage]
     }
 
@@ -73,7 +74,7 @@ public final class ScanModel: Identifiable {
     }
 
     private var store: ScanStore { processor.store }
-    public var pdfInputs: PDFInputs { PDFInputs(name: scan.name, title: scan.title, comment: scan.comment, pages: scan.pages) }
+    public var pdfInputs: PDFInputs { PDFInputs(name: scan.name, title: scan.title, comment: scan.comment, details: scan.details, pages: scan.pages) }
     public var pdfRequest: PDFRequest { PDFRequest(inputs: pdfInputs, attempt: pdfAttempt) }
     public var fallbackTitle: String { FileNamer.fallback(for: scan.created) }
     /// The name a typed name becomes: trimmed, with single spaces, the first suggestion or the date when empty.

@@ -3,7 +3,7 @@ import CoreImage
 import Foundation
 import ImageIO
 import PDFKit
-import ScannerKit
+@testable import ScannerKit
 import ScannerKitTesting
 import Testing
 
@@ -29,6 +29,33 @@ struct PDFWriterTests {
         #expect(document.documentAttributes?[PDFDocumentAttribute.subjectAttribute] as? String == comment)
     }
 
+    @Test func writesTheDetailsAsAuthorKeywordsAndCreationDate() throws {
+        let date = try #require(Calendar(identifier: .gregorian).date(from: DateComponents(timeZone: .current, year: 2026, month: 10, day: 12, hour: 12)))
+        let details = DocumentDetails(documentType: .invoice, issuer: "Énergie Lumen", date: date, number: "2026-114")
+        let data = try PDFWriter(context: context).data(pages: [PDFPageContent(image: SyntheticPage().render(), look: .gray)], title: "Facture", subject: "Café", details: details, defaultPaper: .a4)
+        let attributes = try #require(PDFDocument(data: data)?.documentAttributes)
+        #expect(attributes[PDFDocumentAttribute.authorAttribute] as? String == "Énergie Lumen")
+        #expect(attributes[PDFDocumentAttribute.subjectAttribute] as? String == "Café")
+        #expect(attributes[PDFDocumentAttribute.keywordsAttribute] as? [String] == ["Invoice", "Énergie Lumen", "2026-114"])
+        #expect(attributes[PDFDocumentAttribute.creationDateAttribute] as? Date == date)
+        #expect(try xmp(of: data).contains("<xmp:CreateDate>\(PDFCreationDate.xmpDate(date, .current))</xmp:CreateDate>"))
+        #expect(PDFDocument(data: data)?.pageCount == 1)
+    }
+
+    @Test func writesNoDetailNotFound() throws {
+        let data = try PDFWriter(context: context).data(pages: [PDFPageContent(image: SyntheticPage().render(), look: .gray)], title: "Scan", details: DocumentDetails(documentType: .other), defaultPaper: .a4)
+        let attributes = try #require(PDFDocument(data: data)?.documentAttributes)
+        #expect(attributes[PDFDocumentAttribute.authorAttribute] == nil)
+        #expect(attributes[PDFDocumentAttribute.keywordsAttribute] == nil)
+        let created = try #require(attributes[PDFDocumentAttribute.creationDateAttribute] as? Date)
+        #expect(abs(created.timeIntervalSinceNow) < 60)
+    }
+
+    @Test func keepsAFileItCannotDate() {
+        let pdf = Data("%PDF-1.7 not laid out as expected".utf8)
+        #expect(PDFCreationDate.setting(.now, in: pdf) == pdf)
+    }
+
     @Test func writesEachPageInItsOrderAtItsOwnSize() throws {
         let landscape = CIImage(color: .white).cropped(to: CGRect(x: 0, y: 0, width: 1188, height: 840))
         let portrait = CIImage(color: .black).cropped(to: CGRect(x: 0, y: 0, width: 840, height: 1188))
@@ -50,10 +77,7 @@ struct PDFWriterTests {
         let document = try #require(CGPDFDocument(CGDataProvider(data: data as CFData)!))
         let catalog = try #require(document.catalog)
 
-        var metadata: CGPDFStreamRef?
-        #expect(CGPDFDictionaryGetStream(catalog, "Metadata", &metadata))
-        var format = CGPDFDataFormat.raw
-        let xmp = try #require(metadata.flatMap { CGPDFStreamCopyData($0, &format) }.map { String(decoding: $0 as Data, as: UTF8.self) })
+        let xmp = try xmp(of: data)
         #expect(xmp.contains("<pdfaid:part>2</pdfaid:part>"))
         #expect(xmp.contains("<pdfaid:conformance>B</pdfaid:conformance>"))
 
@@ -153,6 +177,13 @@ struct PDFWriterTests {
     }
 
     /// The image of the first page in 8-bit gray, row 0 at the top.
+    private func xmp(of data: Data) throws -> String {
+        let document = try #require(CGPDFDocument(CGDataProvider(data: data as CFData)!))
+        var metadata: CGPDFStreamRef?, format = CGPDFDataFormat.raw
+        #expect(CGPDFDictionaryGetStream(try #require(document.catalog), "Metadata", &metadata))
+        return try #require(metadata.flatMap { CGPDFStreamCopyData($0, &format) }.map { String(decoding: $0 as Data, as: UTF8.self) })
+    }
+
     private func grayImage(onFirstPageOf data: Data) throws -> (pixels: [UInt8], width: Int, height: Int) {
         let document = try #require(CGPDFDocument(CGDataProvider(data: data as CFData)!))
         defer { withExtendedLifetime(document) {} }
