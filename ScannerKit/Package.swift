@@ -10,7 +10,7 @@ let package = Package(
         .executable(name: "page-cleanup", targets: ["PageCleanupTool"]),
     ],
     targets: [
-        .target(name: "ScannerKit", resources: [.copy("Resources/UVDoc.mlmodelc"), .copy("Resources/UVDoc-LICENSE")]),
+        .target(name: "ScannerKit"),
         .target(name: "ScannerModels", dependencies: ["ScannerKit"]),
         .target(name: "ScannerKitTesting", dependencies: ["ScannerKit"]),
         .executableTarget(name: "PageCleanupTool", dependencies: ["ScannerKit"]),
