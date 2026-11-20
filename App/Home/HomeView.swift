@@ -100,6 +100,7 @@ struct HomeView: View {
             }
         }
         .contentMargins(.top, 0, for: .scrollContent)
+        .refreshingPaperless(if: app.hasConnectedOwner) { [app] in await app.readPaperless() }
     }
 
     /// Archives the scans, or opens the share sheet with their PDFs, once the PDFs are made.

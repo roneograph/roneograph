@@ -25,7 +25,7 @@ struct DocumentTypesView: View {
             } header: {
                 Text("Yours")
             } footer: {
-                Text("Pick your document types in the details of a scan. The next document from the same issuer gets the same document type.")
+                Text("Pick your document types in the details of a scan. The next document from the same issuer gets the same document type. The scans of an owner connected to Paperless offer the document types of its server instead.")
             }
             Section("Built-in") {
                 ForEach(DocumentType.alphabetical(DocumentType.builtIn), id: \.self) { Text($0.rawValue) }

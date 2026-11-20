@@ -18,6 +18,8 @@ public final class AppModel {
     let now: @Sendable () -> Date
     @ObservationIgnored private var models: [UUID: ScanModel] = [:]
     @ObservationIgnored private var toastTask: Task<Void, Never>?
+    /// The last reading of the Paperless correspondents and document types, as the app became active or an owner was connected.
+    @ObservationIgnored public private(set) var readingPaperless: Task<Void, Never>?
     public init(processor: ScanProcessor, settings: SettingsStore, archiver: Archiver? = nil, now: @escaping @Sendable () -> Date = Date.init) {
         self.processor = processor
         self.settings = settings
@@ -29,6 +31,9 @@ public final class AppModel {
         refresh()
         for scan in scans where !scan.pending.isEmpty { _ = model(for: scan.id) }
         settings.didChangeFileNameFormat = { [weak self] in self?.applyFileNameFormat(of: $0) }
+        archiver?.didConnect = { [weak self] id in
+            self?.readingPaperless = Task { [weak self] in await self?.readPaperless(of: [id]) }
+        }
     }
 
     /// A new file name format renames the scans of its owner not sent yet, and the one in Review; a scan on its way to Paperless keeps the name its upload reads the PDF by.
@@ -48,10 +53,32 @@ public final class AppModel {
         if isActive {
             for model in models.values { model.retryFailedPDF() }
             refresh()
+            readingPaperless = Task { [weak self] in await self?.readPaperless(unlessReadWithin: Self.paperlessObjectsLifetime) }
         } else {
             settings.save()
         }
         archiver?.isActive = isActive
+    }
+
+    /// How long the Paperless correspondents and document types read stay current when the app becomes active again.
+    public static let paperlessObjectsLifetime: TimeInterval = 10 * 60
+
+    /// Reads the correspondents and document types of the Paperless servers of the connected owners, or of some of them, unless read within `maximumAge`;
+    /// the scans not sent of the owners read get their issuer and document type named like the server's.
+    public func readPaperless(of ownerIDs: Set<UUID>? = nil, unlessReadWithin maximumAge: TimeInterval? = 0) async {
+        guard let archiver else { return }
+        let owners = settings.value.owners.filter { ownerIDs?.contains($0.id) ?? true }
+        let read = await archiver.readCatalogs(of: owners, unlessReadWithin: maximumAge)
+        guard !read.isEmpty else { return }
+        for scan in scans where scan.sent == nil && scan.archiving?.isInProgress != true && read.contains(settings.value.owner(scan.owner?.id).id) {
+            guard let model = model(for: scan.id), model.nameLikePaperless() else { continue }
+            model.applyFileName()
+        }
+    }
+
+    /// The correspondents or document types of the owner's Paperless server, once read; nil when the owner is not connected.
+    func paperlessObjects(_ kind: PaperlessObjectKind, of owner: Owner) -> PaperlessMatcher? {
+        isConnected(owner) ? archiver?.catalogs.matcher(kind, of: owner) : nil
     }
 
     /// How long a scan stays on this iPhone once it was archived or shared.
@@ -153,6 +180,11 @@ public final class AppModel {
         archiver?.isConnected(owner) == true
     }
 
+    /// Whether an owner's documents go out to its Paperless server.
+    public var hasConnectedOwner: Bool {
+        settings.value.owners.contains(where: isConnected)
+    }
+
     /// The host of the owner's Paperless server once it is connected.
     public func archivesTo(_ owner: Owner) -> String? {
         isConnected(owner) ? owner.paperlessHost : nil
@@ -248,6 +280,7 @@ public final class AppModel {
         model.didDeleteStoredScan = { [weak self] id in self?.scans.removeAll { $0.id == id } }
         model.didStopArchiving = { [weak self] id in self?.archiver?.cancel(id) }
         model.otherScans = { [weak self] in self?.scans ?? [] }
+        model.paperless = { [weak self] owner, kind in self?.paperlessObjects(kind, of: owner) }
         models[scan.id] = model
         return model
     }

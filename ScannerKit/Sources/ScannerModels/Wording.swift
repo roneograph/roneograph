@@ -76,6 +76,22 @@ extension ScanModel {
         let next = "The next documents from \(issuer) will be named the same way\(with)."
         return replaces ? "Replaces the name remembered for \(issuer). \(next)" : next
     }
+
+    /// Under the issuer being typed in Review: the correspondent of the owner's Paperless server it stands for, or that archiving adds it; otherwise who the issuer is.
+    public func issuerFooter(for typed: String) -> String {
+        let name = typed.trimmingCharacters(in: .whitespaces)
+        if !name.isEmpty, let correspondents = paperlessObjects(.correspondent) {
+            guard let match = correspondents.match(name) else { return "New in Paperless: archiving adds this correspondent." }
+            return match.name == name ? "In Paperless." : "In Paperless as \(match.name)."
+        }
+        guard learnsIssuer else { return "Who sent the document." }
+        return "Read on the page. A new issuer is reused for the next documents from the same issuer, along with the document type."
+    }
+
+    /// In the alert adding a document type in Review.
+    public var newDocumentTypeMessage: String? {
+        paperlessObjects(.documentType) == nil ? nil : "Archiving adds it to Paperless."
+    }
 }
 
 extension PageLook {

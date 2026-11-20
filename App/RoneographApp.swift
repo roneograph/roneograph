@@ -15,10 +15,14 @@ struct RoneographApp: App {
         let store = ScanStore(scansDirectory: data.support.appending(path: "Scans", directoryHint: .isDirectory), documentsDirectory: data.documents)
         let processor = ScanProcessor(store: store, background: SystemBackgroundActivity())
         let uploader = BackgroundUploader(identifier: data.paperlessIdentifier)
-        let archiver = Archiver(uploader: uploader, tokens: KeychainTokens(service: data.paperlessIdentifier), directory: data.support.appending(path: "Uploads", directoryHint: .isDirectory), fetch: PaperlessHTTP.fetch)
+        let tokens = KeychainTokens(service: data.paperlessIdentifier)
+        let archiver = Archiver(uploader: uploader, tokens: tokens, directory: data.support.appending(path: "Uploads", directoryHint: .isDirectory), catalogFile: data.support.appending(path: "Paperless.json"), fetch: data.paperlessFetch)
         uploader.archiver = archiver
         let settings = SettingsStore(defaults: data.defaults)
         if let value = data.settings { settings.value = value }
+        if data.connectsOwners {
+            for owner in settings.value.owners where owner.paperless != nil { try? tokens.setToken("ui-testing", for: owner.id) }
+        }
         let app = AppModel(processor: processor, settings: settings, archiver: archiver)
         _app = State(initialValue: app)
         let service = CameraService(extractor: PageExtractor(context: CIContext(options: [.cacheIntermediates: false])))
@@ -91,5 +95,6 @@ struct RootView: View {
         .onChange(of: scenePhase) { _, phase in
             app.setActive(phase == .active)
         }
+        .task { await app.readPaperless(unlessReadWithin: AppModel.paperlessObjectsLifetime) }
     }
 }

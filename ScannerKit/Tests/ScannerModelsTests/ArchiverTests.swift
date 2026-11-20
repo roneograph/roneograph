@@ -250,6 +250,31 @@ struct ArchiverTests {
         #expect(server.requests(to: "/api/correspondents/").map(\.httpMethod) == ["GET"], "The correspondents are read once")
     }
 
+    @Test func reusesTheCorrespondentTheIssuerStandsFor() async throws {
+        try connect()
+        server.answer("GET", "/api/correspondents/", #"{"results": [{"id": 4, "name": "V7"}, {"id": 5, "name": "Lumen"}]}"#)
+        let scan = await readyScan()
+        scan.setDetails(DocumentDetails(issuer: "Taxi V7"))
+        await scan.preparePDF()
+
+        try await app.archive([scan])
+        #expect(server.requests(to: "/api/correspondents/").map(\.httpMethod) == ["GET"])
+        #expect(String(decoding: try #require(uploader.uploads.first).body, as: UTF8.self).contains("name=\"correspondent\"\r\n\r\n4\r\n"))
+    }
+
+    @Test func readsEveryPageOfTheCorrespondents() async throws {
+        try connect()
+        server.answer("GET", "/api/correspondents/", #"{"next": "https://paperless.example.com/api/correspondents/?page=2", "results": [{"id": 1, "name": "Fernwood"}]}"#)
+        server.answer("GET", "/api/correspondents/", #"{"next": null, "results": [{"id": 4, "name": "Lumen Energy"}]}"#)
+        let scan = await readyScan()
+        scan.setDetails(DocumentDetails(issuer: "Lumen Energy"))
+        await scan.preparePDF()
+
+        try await app.archive([scan])
+        #expect(server.requests(to: "/api/correspondents/").map { $0.url?.query() } == ["page_size=1000&ordering=name", "page_size=1000&ordering=name&page=2"])
+        #expect(String(decoding: try #require(uploader.uploads.first).body, as: UTF8.self).contains("name=\"correspondent\"\r\n\r\n4\r\n"))
+    }
+
     @Test func createsTheCorrespondentOfANewIssuer() async throws {
         try connect()
         server.answer("GET", "/api/correspondents/", #"{"results": []}"#)
@@ -275,6 +300,22 @@ struct ArchiverTests {
         try await app.archive([scan])
         #expect(server.requests(to: "/api/correspondents/").isEmpty)
         #expect(!String(decoding: try #require(uploader.uploads.first).body, as: UTF8.self).contains("correspondent"))
+    }
+
+    @Test func reusesTheCorrespondentItCreatedForTheNextScans() async throws {
+        try connect()
+        server.answer("GET", "/api/correspondents/", #"{"results": []}"#)
+        server.answer("POST", "/api/correspondents/", #"{"id": 11, "name": "Lumen Energy"}"#, status: 201)
+        let first = await readyScan()
+        first.setDetails(DocumentDetails(issuer: "Lumen Energy"))
+        let second = await readyScan()
+        second.setDetails(DocumentDetails(issuer: "Lumen Energy SAS"))
+        await first.preparePDF()
+        await second.preparePDF()
+
+        try await app.archive([first, second])
+        #expect(server.requests(to: "/api/correspondents/").map(\.httpMethod) == ["GET", "POST"])
+        #expect(uploader.uploads.allSatisfy { String(decoding: $0.body, as: UTF8.self).contains("name=\"correspondent\"\r\n\r\n11\r\n") })
     }
 
     @Test func sendsWithoutACorrespondentWhenTheServerRefusesToCreateIt() async throws {

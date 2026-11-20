@@ -1,6 +1,6 @@
 # Privacy policy
 
-Last updated: November 18, 2026
+Last updated: November 20, 2026
 
 Roneograph collects no data: nothing you scan or type is ever sent to us or to anyone else. What the app needs to work is kept on your iPhone only, and a PDF goes only where you send it.
 
@@ -8,6 +8,7 @@ Roneograph collects no data: nothing you scan or type is ever sent to us or to a
 
 - **Scans.** The photos you take, the cleaned pages, the text read on them, the details found in that text (document type, issuer, date, reference number, owner) and the comment you add are kept in the app's private storage. The PDFs are kept in the app's folder, which the Files app shows under On My iPhone › Roneograph.
 - **Settings.** Owners with the names and addresses their mail is sent to (kept as text, to recognize the owner of a page and never take these lines for the issuer), file name formats, your own document types, and the address and storage path of the Paperless-ngx server connected for Archive. Its API token is kept in the iPhone's Keychain, for this iPhone only.
+- **Paperless names.** The names of the correspondents and document types of each connected Paperless-ngx server, kept to suggest them and reuse them when archiving, even when the server cannot be reached; they are deleted when the server is disconnected.
 - **Corrections.** The names, issuers, document types and owners you correct are kept to be reused for the next documents from the same issuer, with what identifies the issuer on the page, such as its web or email domain or its company number.
 
 Like any app data, all of this except the Paperless token is part of your iPhone's iCloud or computer backup, if you make one.
@@ -17,7 +18,7 @@ Like any app data, all of this except the Paperless token is part of your iPhone
 - **Camera.** The camera is used only to capture the pages you scan, while the scanner is open.
 - **Local network.** iOS asks for it only when the Paperless-ngx server you connect is on your local network; the app uses it only to reach that server.
 - **Text recognition.** The text of the pages is read on your iPhone, to suggest a file name, to find the details of the document and its owner, and to add an invisible text layer to the PDF so it can be searched. The text is kept with the scan, so a page is read only once, and is deleted with it.
-- **No servers of ours.** Roneograph has no servers, no analytics, no crash reporting, no ads, no tracking and no account. The app connects to the network only to reach the Paperless-ngx server you connected: to check its address and token and list its storage paths when you connect it, and when you archive a PDF, to find the correspondent and the document type named like its issuer and its document type, and the Owner and Comment custom fields, create them when missing, and upload the PDF. It never reads, lists or downloads your documents there.
+- **No servers of ours.** Roneograph has no servers, no analytics, no crash reporting, no ads, no tracking and no account. The app connects to the network only to reach the Paperless-ngx server you connected: to check its address and token and list its storage paths when you connect it; to list its correspondents and document types once connected, when the app opens or comes back after a while, and when you pull down to refresh; and when you archive a PDF, to find the correspondent and the document type its issuer and its document type stand for, and the Owner and Comment custom fields, create them when missing, and upload the PDF. It never reads, lists or downloads your documents there.
 
 ## Sharing
 

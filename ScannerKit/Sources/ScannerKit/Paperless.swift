@@ -34,7 +34,19 @@ public struct PaperlessObject: Identifiable, Hashable, Sendable, Codable {
     }
 }
 
-/// The parts of the Paperless-ngx REST API Roneograph uses: listing storage paths, finding or creating document types, correspondents and custom fields, and uploading a document.
+/// The objects Roneograph reads from a Paperless-ngx server, to reuse them, and creates when missing.
+public enum PaperlessObjectKind: String, CaseIterable, Sendable, Codable {
+    case correspondent, documentType
+
+    var path: String {
+        switch self {
+        case .correspondent: "api/correspondents/"
+        case .documentType: "api/document_types/"
+        }
+    }
+}
+
+/// The parts of the Paperless-ngx REST API Roneograph uses: listing storage paths, listing or creating document types, correspondents and custom fields, and uploading a document.
 public enum Paperless {
     /// Supported by Paperless-ngx 2.x and 3.x.
     static let accept = "application/json; version=9"
@@ -65,28 +77,31 @@ public enum Paperless {
         try JSONDecoder().decode(Page<PaperlessStoragePath>.self, from: data).results
     }
 
-    public static func documentTypesRequest(server: URL, token: String) -> URLRequest {
-        listRequest("api/document_types/", server: server, token: token)
+    /// The document types or correspondents, sorted by name; `nextPageRequest` follows to the next page.
+    public static func listRequest(of kind: PaperlessObjectKind, server: URL, token: String) -> URLRequest {
+        listRequest(kind.path, server: server, token: token)
     }
 
-    public static func correspondentsRequest(server: URL, token: String) -> URLRequest {
-        listRequest("api/correspondents/", server: server, token: token)
+    /// The objects of a page of a list, and the address of the next page, if any.
+    public static func objects(from data: Data) throws -> (objects: [PaperlessObject], next: URL?) {
+        let page = try JSONDecoder().decode(Page<PaperlessObject>.self, from: data)
+        return (page.results, page.next.flatMap(URL.init(string:)))
     }
 
-    /// The IDs of document types or correspondents by their lowercased name, so the ones named by hand are found whatever their case.
-    public static func idsByLowercasedName(from data: Data) throws -> [String: Int] {
-        let objects = try JSONDecoder().decode(Page<Named>.self, from: data).results
-        return Dictionary(objects.map { ($0.name.lowercased(), $0.id) }) { first, _ in first }
+    /// The request for the next page of a list: the query of `next` on the address of the first page, so the token never goes to another address,
+    /// even when a proxy makes Paperless write its own address wrong; nil when `next` names no page.
+    public static func nextPageRequest(after request: URLRequest, next: URL) -> URLRequest? {
+        guard let url = request.url, var components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let page = URLComponents(url: next, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "page" }) else { return nil }
+        components.queryItems = (components.queryItems ?? []).filter { $0.name != "page" } + [page]
+        var next = request
+        next.url = components.url
+        return next
     }
 
-    /// Creates a document type with Auto matching, so Paperless also learns to assign it to the documents that come another way.
-    public static func createDocumentTypeRequest(server: URL, token: String, name: String) -> URLRequest {
-        createRequest("api/document_types/", server: server, token: token, json: ["name": name, "matching_algorithm": autoMatching])
-    }
-
-    /// Creates a correspondent with Auto matching, so Paperless also learns to assign it to the documents that come another way.
-    public static func createCorrespondentRequest(server: URL, token: String, name: String) -> URLRequest {
-        createRequest("api/correspondents/", server: server, token: token, json: ["name": name, "matching_algorithm": autoMatching])
+    /// Creates a document type or a correspondent with Auto matching, so Paperless also learns to assign it to the documents that come another way.
+    public static func createRequest(of kind: PaperlessObjectKind, server: URL, token: String, name: String) -> URLRequest {
+        createRequest(kind.path, server: server, token: token, json: ["name": name, "matching_algorithm": autoMatching])
     }
 
     /// The matching algorithm by which Paperless-ngx learns from the documents it has which ones an object goes to.
@@ -143,17 +158,13 @@ public enum Paperless {
         return (numbers[0], numbers[1]) >= (2, 19)
     }
 
-    public static func createdID(from data: Data) throws -> Int {
-        try JSONDecoder().decode(Named.self, from: data).id
+    public static func createdObject(from data: Data) throws -> PaperlessObject {
+        try JSONDecoder().decode(PaperlessObject.self, from: data)
     }
 
     private struct Page<Result: Decodable>: Decodable {
         let results: [Result]
-    }
-
-    private struct Named: Decodable {
-        let id: Int
-        let name: String
+        var next: String?
     }
 
     fileprivate struct Field: Decodable {

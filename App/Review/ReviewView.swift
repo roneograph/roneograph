@@ -18,6 +18,7 @@ struct ReviewView: View {
             .padding(.horizontal)
             .padding(.bottom, 24)
         }
+        .refreshingPaperless(if: app.isConnected(scan.owner)) { [app, scan] in await app.readPaperless(of: [scan.owner.id]) }
         .safeAreaBar(edge: .bottom) {
             SendBar(app: app, scan: scan)
         }

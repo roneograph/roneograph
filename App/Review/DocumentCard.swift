@@ -25,6 +25,7 @@ struct DocumentCard: View {
 
     private var details: DocumentDetails { scan.scan.details }
     private var remembered: Set<RememberedValue> { scan.scan.remembered }
+    private var newInPaperless: Set<PaperlessObjectKind> { scan.newInPaperless }
 
     var body: some View {
         Group {
@@ -54,10 +55,12 @@ struct DocumentCard: View {
         .alert("New Document Type", isPresented: $addingDocumentType) {
             TextField("Name", text: $newDocumentType)
             Button("Add") {
-                if let documentType = settings.addDocumentType(newDocumentType) { update { $0.documentType = documentType } }
+                scan.addDocumentType(newDocumentType)
                 newDocumentType = ""
             }
             Button("Cancel", role: .cancel) { newDocumentType = "" }
+        } message: {
+            if let message = scan.newDocumentTypeMessage { Text(message) }
         }
         .alert("New Owner", isPresented: $addingOwner) {
             TextField("Name", text: $newOwner)
@@ -125,15 +128,15 @@ struct DocumentCard: View {
     private var documentTypeChip: some View {
         Menu {
             Picker("Document Type", selection: Binding(get: { details.documentType }, set: { documentType in update { $0.documentType = documentType } })) {
-                ForEach(settings.value.documentTypes(keeping: details.documentType), id: \.self) { Text($0.rawValue).tag($0) }
+                ForEach(scan.documentTypes, id: \.self) { Text($0.rawValue).tag($0) }
             }
             Divider()
             Button("New Document Type…", systemImage: "plus") { addingDocumentType = true }
         } label: {
-            Chip(text: details.documentType.rawValue, systemImage: "square.grid.2x2", isRemembered: remembered.contains(.documentType), opensMenu: true)
+            Chip(text: details.documentType.rawValue, systemImage: "square.grid.2x2", isRemembered: remembered.contains(.documentType), isNew: newInPaperless.contains(.documentType), opensMenu: true)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Type, \(details.documentType.rawValue)\(remembered.contains(.documentType) ? ", remembered" : "")")
+        .accessibilityLabel((["Type", details.documentType.rawValue, remembered.contains(.documentType) ? "remembered" : nil, newInPaperless.contains(.documentType) ? "new in Paperless" : nil] as [String?]).compactMap(\.self).joined(separator: ", "))
     }
 
     private var dateChip: some View {
@@ -166,15 +169,16 @@ struct DocumentCard: View {
 
     private func textChip(_ field: DocumentField, title: String, systemImage: String, value: String?) -> some View {
         let isRemembered = field == .issuer && remembered.contains(.issuer)
+        let isNew = field == .issuer && newInPaperless.contains(.correspondent)
         return Button { edit(field) } label: {
             if let value {
-                Chip(text: value, systemImage: systemImage, isRemembered: isRemembered)
+                Chip(text: value, systemImage: systemImage, isRemembered: isRemembered, isNew: isNew)
             } else {
                 AddChip(title: title)
             }
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(value.map { "\(title), \($0)\(isRemembered ? ", remembered" : "")" } ?? "Add \(title)")
+        .accessibilityLabel(value.map { ([title, $0, isRemembered ? "remembered" : nil, isNew ? "new in Paperless" : nil] as [String?]).compactMap(\.self).joined(separator: ", ") } ?? "Add \(title)")
     }
 
     private func commentButton(_ comment: String) -> some View {
@@ -273,11 +277,12 @@ private struct ReadingPlaceholder: View {
     }
 }
 
-/// A detail of the scan: tinted when it opens a menu, with the remembered mark in place of its icon.
+/// A detail of the scan: tinted when it opens a menu, with the remembered mark in place of its icon, and marked New when archiving adds it to Paperless.
 private struct Chip: View {
     let text: String
     let systemImage: String
     var isRemembered = false
+    var isNew = false
     var opensMenu = false
 
     var body: some View {
@@ -288,6 +293,13 @@ private struct Chip: View {
                 Image(systemName: systemImage).foregroundStyle(.tint)
             }
             Text(text).lineLimitUnlessAccessibilitySize(1)
+            if isNew {
+                Text("New")
+                    .font(.caption2.bold())
+                    .foregroundStyle(Color("Warning"))
+                    .padding(.horizontal, 5).padding(.vertical, 1)
+                    .background(Color("Warning").opacity(0.15), in: Capsule())
+            }
             if opensMenu {
                 Image(systemName: "chevron.up.chevron.down").font(.caption2.bold())
             }
@@ -332,11 +344,18 @@ struct DetailTextView: View {
                     TextField(title, text: $value, selection: $selection)
                         .focused($focused)
                         .submitLabel(.done)
-                        .onSubmit(save)
+                        .onSubmit { save(value) }
                         .autocorrectionDisabled(field == .number)
                         .textInputAutocapitalization(field == .number ? .never : .words)
                 } footer: {
                     Text(footer)
+                }
+                if !suggestions.isEmpty {
+                    Section("In Paperless") {
+                        ForEach(suggestions) { correspondent in
+                            Button(correspondent.name) { save(correspondent.name) }
+                        }
+                    }
                 }
             }
             .navigationTitle(title)
@@ -346,7 +365,7 @@ struct DetailTextView: View {
                     Button("Cancel", systemImage: "xmark") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done", systemImage: "checkmark", action: save)
+                    Button("Done", systemImage: "checkmark") { save(value) }
                 }
             }
             .onChange(of: scan.scan.details[keyPath: detail]) { _, read in
@@ -363,8 +382,18 @@ struct DetailTextView: View {
                 focused = true
             }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([correspondents == nil ? .medium : .large])
         .interactiveDismissDisabled(value != shownValue)
+    }
+
+    /// The correspondents of the owner's Paperless server, for the issuer once they are read.
+    private var correspondents: PaperlessMatcher? {
+        field == .issuer ? scan.paperlessObjects(.correspondent) : nil
+    }
+
+    /// The correspondents like the typed issuer, other than the one typed.
+    private var suggestions: [PaperlessObject] {
+        correspondents?.suggestions(for: value).filter { $0.name != value.trimmingCharacters(in: .whitespaces) } ?? []
     }
 
     private var title: String { field == .issuer ? "Issuer" : "Number" }
@@ -372,12 +401,11 @@ struct DetailTextView: View {
 
     private var footer: String {
         guard field == .issuer else { return "The reference printed on the document, such as an invoice, contract or policy number." }
-        guard scan.learnsIssuer else { return "Who sent the document." }
-        return "Read on the page. A new issuer is reused for the next documents from the same issuer, along with the document type."
+        return scan.issuerFooter(for: value)
     }
 
-    private func save() {
-        scan.applyDetail(detail, to: value, shownText: shownValue)
+    private func save(_ text: String) {
+        scan.applyDetail(detail, to: text, shownText: shownValue)
         dismiss()
     }
 }

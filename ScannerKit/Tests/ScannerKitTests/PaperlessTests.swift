@@ -31,39 +31,39 @@ struct PaperlessTests {
         #expect(try Paperless.storagePaths(from: Data(json.utf8)) == [PaperlessStoragePath(id: 3, name: "Holding"), PaperlessStoragePath(id: 1, name: "Personal")])
     }
 
-    @Test func listsDocumentTypesByTheirLowercasedName() throws {
-        let request = Paperless.documentTypesRequest(server: URL(string: "https://example.com/")!, token: "abc")
-        #expect(request.url?.absoluteString == "https://example.com/api/document_types/?page_size=1000&ordering=name")
+    @Test(arguments: [(PaperlessObjectKind.documentType, "document_types"), (.correspondent, "correspondents")])
+    func listsTheObjectsByName(kind: PaperlessObjectKind, path: String) throws {
+        let request = Paperless.listRequest(of: kind, server: URL(string: "https://example.com/paperless/")!, token: "abc")
+        #expect(request.url?.absoluteString == "https://example.com/paperless/api/\(path)/?page_size=1000&ordering=name")
+        #expect(request.httpMethod == "GET")
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Token abc")
-        let json = #"{"results": [{"id": 4, "name": "Bank Statement", "matching_algorithm": 6}, {"id": 2, "name": "Invoice"}]}"#
-        #expect(try Paperless.idsByLowercasedName(from: Data(json.utf8)) == ["bank statement": 4, "invoice": 2])
     }
 
-    @Test func createsADocumentTypeWithAutoMatching() throws {
-        let request = Paperless.createDocumentTypeRequest(server: URL(string: "https://example.com/")!, token: "abc", name: "Payslip")
-        #expect(request.url?.absoluteString == "https://example.com/api/document_types/")
+    @Test func readsTheObjectsOfAPageAndTheNextOne() throws {
+        let json = #"{"count": 3, "next": "https://example.com/api/correspondents/?ordering=name&page=2&page_size=1000", "results": [{"id": 4, "name": "Lumen Energy", "matching_algorithm": 6}, {"id": 2, "name": "ACME"}]}"#
+        let page = try Paperless.objects(from: Data(json.utf8))
+        #expect(page.objects == [PaperlessObject(id: 4, name: "Lumen Energy"), PaperlessObject(id: 2, name: "ACME")])
+        #expect(page.next?.absoluteString == "https://example.com/api/correspondents/?ordering=name&page=2&page_size=1000")
+        #expect(try Paperless.objects(from: Data(#"{"next": null, "results": []}"#.utf8)).next == nil)
+    }
+
+    @Test func asksForTheNextPageAtTheAddressOfTheFirstOne() throws {
+        let first = Paperless.listRequest(of: .correspondent, server: URL(string: "https://example.com/paperless/")!, token: "abc")
+        let next = try #require(Paperless.nextPageRequest(after: first, next: URL(string: "http://internal:8000/api/correspondents/?ordering=name&page=3&page_size=1000")!))
+        #expect(next.url?.absoluteString == "https://example.com/paperless/api/correspondents/?page_size=1000&ordering=name&page=3")
+        #expect(next.value(forHTTPHeaderField: "Authorization") == "Token abc")
+        #expect(Paperless.nextPageRequest(after: first, next: URL(string: "https://example.com/api/correspondents/")!) == nil)
+    }
+
+    @Test(arguments: [(PaperlessObjectKind.documentType, "document_types", "Payslip"), (.correspondent, "correspondents", "Lumen Energy")])
+    func createsAnObjectWithAutoMatching(kind: PaperlessObjectKind, path: String, name: String) throws {
+        let request = Paperless.createRequest(of: kind, server: URL(string: "https://example.com/")!, token: "abc", name: name)
+        #expect(request.url?.absoluteString == "https://example.com/api/\(path)/")
         #expect(request.httpMethod == "POST")
         #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Token abc")
-        #expect(String(decoding: request.httpBody ?? Data(), as: UTF8.self) == #"{"matching_algorithm":6,"name":"Payslip"}"#)
-        #expect(try Paperless.createdID(from: Data(#"{"id": 9, "name": "Payslip", "slug": "payslip"}"#.utf8)) == 9)
-    }
-
-    @Test func listsCorrespondentsByTheirLowercasedName() throws {
-        let request = Paperless.correspondentsRequest(server: URL(string: "https://example.com/")!, token: "abc")
-        #expect(request.url?.absoluteString == "https://example.com/api/correspondents/?page_size=1000&ordering=name")
-        #expect(request.value(forHTTPHeaderField: "Authorization") == "Token abc")
-        let json = #"{"results": [{"id": 4, "name": "Lumen Energy", "matching_algorithm": 6}, {"id": 2, "name": "ACME"}]}"#
-        #expect(try Paperless.idsByLowercasedName(from: Data(json.utf8)) == ["lumen energy": 4, "acme": 2])
-    }
-
-    @Test func createsACorrespondentWithAutoMatching() {
-        let request = Paperless.createCorrespondentRequest(server: URL(string: "https://example.com/")!, token: "abc", name: "Lumen Energy")
-        #expect(request.url?.absoluteString == "https://example.com/api/correspondents/")
-        #expect(request.httpMethod == "POST")
-        #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
-        #expect(request.value(forHTTPHeaderField: "Authorization") == "Token abc")
-        #expect(String(decoding: request.httpBody ?? Data(), as: UTF8.self) == #"{"matching_algorithm":6,"name":"Lumen Energy"}"#)
+        #expect(String(decoding: request.httpBody ?? Data(), as: UTF8.self) == #"{"matching_algorithm":6,"name":"\#(name)"}"#)
+        #expect(try Paperless.createdObject(from: Data(#"{"id": 9, "name": "\#(name)", "slug": "x"}"#.utf8)) == PaperlessObject(id: 9, name: name))
     }
 
     @Test func sendsTheCorrespondent() {
