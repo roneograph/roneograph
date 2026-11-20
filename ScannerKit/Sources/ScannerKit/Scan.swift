@@ -136,6 +136,9 @@ public struct Scan: Identifiable, Equatable, Sendable, Codable {
     public var comment: String?
     /// True once the user changed a detail; detection then stops replacing them.
     public var areDetailsEditedByUser = false
+    /// True when the user typed or picked the issuer, on this scan or on a past one from the same issuer: it then takes the name of a Paperless correspondent
+    /// only when it differs from it cosmetically, as "Lumen Bank" is meant as typed even with a "Lumen" correspondent.
+    public var isIssuerTyped = false
     /// True once the user renamed the scan; suggestions then stop replacing the name.
     public var isNamedByUser = false
     public var suggestions: [String] = []
@@ -157,6 +160,9 @@ public struct Scan: Identifiable, Equatable, Sendable, Codable {
 
     /// Whether the owner's Paperless server took the scan, which it would refuse again.
     public var isArchived: Bool { sent?.method == .paperless }
+
+    /// How far the issuer may be from the Paperless correspondent it takes the name of.
+    public var issuerTolerance: PaperlessMatcher.Tolerance { isIssuerTyped ? .cosmetic : .related }
 
     public init(id: UUID = UUID(), created: Date = .now, name: String, title: String? = nil) {
         self.id = id

@@ -4,6 +4,14 @@ import Foundation
 /// Case, accents, punctuation and legal forms never matter; otherwise, one name must hold the other as a whole sequence of words.
 /// It refuses rather than guesses: a name too short to tell, or several objects that could be meant, matches none.
 public struct PaperlessMatcher: Sendable {
+    /// How far a name may be from the object it stands for.
+    public enum Tolerance: Sendable {
+        /// Only case, accents, punctuation, legal forms and spaces between words: for a name the user typed, which is otherwise meant as typed.
+        case cosmetic
+        /// Also one name holding the other: for a name read on a page.
+        case related
+    }
+
     private struct Entry: Sendable {
         let object: PaperlessObject
         let words: [String]
@@ -17,9 +25,9 @@ public struct PaperlessMatcher: Sendable {
 
     public var objects: [PaperlessObject] { entries.map(\.object) }
 
-    /// The object named like `name` whatever its case, else the only one with the same words, else the only one with the same letters once its words are joined,
-    /// else the only one whose words hold or are held by its words; among names all held by `name` and nested in one another, the one holding the others.
-    public func match(_ name: String) -> PaperlessObject? {
+    /// The object named like `name` whatever its case, else the only one with the same words, else the only one with the same letters once its words are joined;
+    /// with a related tolerance, else the only one whose words hold or are held by its words, and among names all held by `name` and nested in one another, the one holding the others.
+    public func match(_ name: String, tolerance: Tolerance = .related) -> PaperlessObject? {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return nil }
         let lowercased = name.lowercased()
@@ -30,6 +38,7 @@ public struct PaperlessMatcher: Sendable {
         if !equal.isEmpty { return equal.count == 1 ? equal[0].object : nil }
         let joined = entries.filter { $0.words.joined() == words.joined() }
         if !joined.isEmpty { return joined.count == 1 ? joined[0].object : nil }
+        guard tolerance == .related else { return nil }
         let related = entries.filter { entry in
             guard !entry.words.isEmpty else { return false }
             let (part, whole) = entry.words.count < words.count ? (entry.words, words) : (words, entry.words)
@@ -39,12 +48,12 @@ public struct PaperlessMatcher: Sendable {
         return Self.widest(related, heldBy: words)?.object
     }
 
-    /// The objects to offer for a typed name, best first: the one it matches, then the names starting like it, the names with words starting like each of its words,
+    /// The objects to offer for a typed name, best first: the one it would stand for if read on a page, then the names starting like it, the names with words starting like each of its words,
     /// and the names sharing one of its words.
     public func suggestions(for text: String, limit: Int = 5) -> [PaperlessObject] {
         let words = Self.words(text)
         guard !words.isEmpty else { return [] }
-        let matched = match(text)
+        let matched = match(text, tolerance: .related)
         let typed = words.joined(separator: " ")
         let ranked = entries.compactMap { entry -> (rank: Int, object: PaperlessObject)? in
             if entry.object == matched { return (0, entry.object) }

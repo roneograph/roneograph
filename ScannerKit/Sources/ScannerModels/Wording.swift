@@ -78,10 +78,11 @@ extension ScanModel {
     }
 
     /// Under the issuer being typed in Review: the correspondent of the owner's Paperless server it stands for, or that archiving adds it; otherwise who the issuer is.
+    /// A changed issuer is typed, so only a cosmetic difference makes it a correspondent.
     public func issuerFooter(for typed: String) -> String {
         let name = typed.trimmingCharacters(in: .whitespaces)
         if !name.isEmpty, let correspondents = paperlessObjects(.correspondent) {
-            guard let match = correspondents.match(name) else { return "New in Paperless: archiving adds this correspondent." }
+            guard let match = correspondents.match(name, tolerance: name == scan.details.issuer ? scan.issuerTolerance : .cosmetic) else { return "New in Paperless: archiving adds this correspondent." }
             return match.name == name ? "In Paperless." : "In Paperless as \(match.name)."
         }
         guard learnsIssuer else { return "Who sent the document." }

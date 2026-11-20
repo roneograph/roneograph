@@ -250,16 +250,31 @@ struct ArchiverTests {
         #expect(server.requests(to: "/api/correspondents/").map(\.httpMethod) == ["GET"], "The correspondents are read once")
     }
 
-    @Test func reusesTheCorrespondentTheIssuerStandsFor() async throws {
+    @Test func reusesTheCorrespondentTheIssuerReadOnThePageStandsFor() async throws {
         try connect()
         server.answer("GET", "/api/correspondents/", #"{"results": [{"id": 4, "name": "V7"}, {"id": 5, "name": "Lumen"}]}"#)
-        let scan = await readyScan()
-        scan.setDetails(DocumentDetails(issuer: "Taxi V7"))
+        let scan = await fixture.capturedScan(in: app, reading: ["TAXI V7", "Receipt"])
+        #expect(scan.scan.details.issuer == "Taxi V7")
         await scan.preparePDF()
 
         try await app.archive([scan])
         #expect(server.requests(to: "/api/correspondents/").map(\.httpMethod) == ["GET"])
         #expect(String(decoding: try #require(uploader.uploads.first).body, as: UTF8.self).contains("name=\"correspondent\"\r\n\r\n4\r\n"))
+    }
+
+    @Test func createsTheCorrespondentOfATypedIssuerThatOnlyHoldsAnother() async throws {
+        try connect()
+        server.answer("GET", "/api/correspondents/", #"{"results": [{"id": 4, "name": "V7"}, {"id": 5, "name": "Lumen"}]}"#)
+        server.answer("POST", "/api/correspondents/", #"{"id": 11, "name": "Taxi V7"}"#, status: 201)
+        let scan = await readyScan()
+        scan.setDetail(\.issuer, to: "Taxi V7")
+        await scan.preparePDF()
+
+        try await app.archive([scan])
+        let created = try #require(server.requests(to: "/api/correspondents/").last)
+        #expect(created.httpMethod == "POST")
+        #expect(String(decoding: created.httpBody ?? Data(), as: UTF8.self) == #"{"matching_algorithm":6,"name":"Taxi V7"}"#)
+        #expect(String(decoding: try #require(uploader.uploads.first).body, as: UTF8.self).contains("name=\"correspondent\"\r\n\r\n11\r\n"))
     }
 
     @Test func readsEveryPageOfTheCorrespondents() async throws {

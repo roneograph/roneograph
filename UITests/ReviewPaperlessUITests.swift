@@ -30,7 +30,10 @@ final class ReviewPaperlessUITests: XCTestCase {
     func testOffersTheCorrespondentsOfTheServerForTheIssuer() throws {
         let roneograph = try launch()
         let app = roneograph.app
-        let sheet = editIssuer(in: roneograph, typing: "northwind")
+        let sheet = editIssuer(in: roneograph, typing: "Northwind")
+        XCTAssertTrue(app.staticTexts["New in Paperless: archiving adds this correspondent."].waitForExistence(timeout: Roneograph.timeout), "A typed issuer only held by a correspondent is not kept as typed")
+        XCTAssertTrue(app.buttons["Northwind Traders"].exists, "The correspondent holding the typed issuer is not suggested")
+        app.typeText(" traders sa")
         XCTAssertTrue(app.staticTexts["In Paperless as Northwind Traders."].waitForExistence(timeout: Roneograph.timeout))
         roneograph.tap(app.buttons["Northwind Traders"])
         XCTAssertTrue(sheet.waitForNonExistence(timeout: Roneograph.timeout))

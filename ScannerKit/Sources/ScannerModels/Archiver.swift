@@ -204,7 +204,7 @@ public final class Archiver {
         let ownerField: Paperless.TextField?
         let commentField: Paperless.TextField?
         do throws(Unreachable) {
-            correspondent = try await findCorrespondent(of: model.scan.details.issuer, owner: owner, token: token).get()
+            correspondent = try await findCorrespondent(of: model.scan.details.issuer, tolerance: model.scan.issuerTolerance, owner: owner, token: token).get()
             documentType = try await findDocumentType(of: model.scan.details.documentType, owner: owner, token: token).get()
             ownerField = try await find(Paperless.ownerField, in: .ownerField, server: server.url, token: token).get()
             commentField = model.scan.comment == nil ? nil : try await find(Paperless.commentField, in: .commentField, server: server.url, token: token).get()
@@ -243,22 +243,22 @@ public final class Archiver {
         return await findObject(documentType.rawValue, .documentType, owner: owner, token: token)
     }
 
-    /// The ID of the correspondent the issuer stands for; nil when the scan has none.
-    private func findCorrespondent(of issuer: String?, owner: Owner, token: String) async -> Result<Int?, Unreachable> {
+    /// The ID of the correspondent the issuer stands for, as Review showed it; nil when the scan has none.
+    private func findCorrespondent(of issuer: String?, tolerance: PaperlessMatcher.Tolerance, owner: Owner, token: String) async -> Result<Int?, Unreachable> {
         guard let name = issuer?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty else { return .success(nil) }
-        return await findObject(name, .correspondent, owner: owner, token: token)
+        return await findObject(name, .correspondent, tolerance: tolerance, owner: owner, token: token)
     }
 
     /// The object of the owner's server a name stands for, its objects read once per launch, created when the server has none;
     /// nil when the server refuses to list or make it.
-    private func findObject(_ name: String, _ kind: PaperlessObjectKind, owner: Owner, token: String) async -> Result<Int?, Unreachable> {
+    private func findObject(_ name: String, _ kind: PaperlessObjectKind, tolerance: PaperlessMatcher.Tolerance = .related, owner: Owner, token: String) async -> Result<Int?, Unreachable> {
         guard let server = owner.paperless?.url else { return .success(nil) }
         switch await catalogs.read(kind, of: owner, token: token) {
         case .read: break
         case .unreachable(let reason): return .failure(Unreachable(reason: reason))
         case .refused: return .success(nil)
         }
-        if let object = catalogs.matcher(kind, of: owner)?.match(name) { return .success(object.id) }
+        if let object = catalogs.matcher(kind, of: owner)?.match(name, tolerance: tolerance) { return .success(object.id) }
         switch await PaperlessAnswer.to(Paperless.createRequest(of: kind, server: server, token: token, name: name), fetch: fetch) {
         case .answered(let data, _):
             guard let object = try? Paperless.createdObject(from: data) else { return .success(nil) }

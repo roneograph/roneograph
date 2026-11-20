@@ -30,6 +30,18 @@ struct PaperlessMatcherTests {
         #expect(matcher(expected, "Lumen").match(name)?.name == expected)
     }
 
+    @Test(arguments: [("Taxi V7", "V7"), ("V7", "Taxi V7"), ("Fernwood Cloud Services EMEA", "Fernwood Cloud Services")])
+    func aCosmeticToleranceNeverMatchesANameHoldingTheOther(name: String, existing: String) {
+        let matcher = matcher(existing, "Fernwood", "Lumen")
+        #expect(matcher.match(name)?.name == existing)
+        #expect(matcher.match(name, tolerance: .cosmetic) == nil)
+    }
+
+    @Test(arguments: [("lumen energy sas", "Lumen Energy"), ("Lumen-Énergie", "Lumen Énergie"), ("Northwind Labs", "NorthwindLabs")])
+    func aCosmeticToleranceStillIgnoresCaseAccentsPunctuationLegalFormsAndSpaces(name: String, expected: String) {
+        #expect(matcher("Lumen", "Lumen Énergie", "Lumen Energy", "NorthwindLabs").match(name, tolerance: .cosmetic)?.name == expected)
+    }
+
     @Test(arguments: ["Taxis V7x", "Voltariane", "Énergie Voltaria"])
     func refusesWordsThatOnlyStartAlikeOrComeInAnotherOrder(name: String) {
         #expect(matcher("Taxi V7", "Voltaria Énergie").match(name) == nil)

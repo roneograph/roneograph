@@ -44,9 +44,13 @@ final class Fixture {
         return model
     }
 
-    /// A one-page scan captured from Home, the camera closed with Done.
-    func capturedScan(in app: AppModel) async -> ScanModel {
+    /// A one-page scan captured from Home, the camera closed with Done; its page reads as these lines from the top, when given.
+    func capturedScan(in app: AppModel, reading texts: [String]? = nil) async -> ScanModel {
         let scan = app.startScan()
+        if let texts {
+            let lines = texts.enumerated().map { TextLine(text: $1, frame: CGRect(x: 0.08, y: 0.04 + Double($0) * 0.03, width: 0.4, height: 0.012)) }
+            scan.readDocument = { _, _, owners in DocumentDetector().detect(lines: lines, owners: owners) }
+        }
         scan.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
         await scan.waitUntilIdle()
         app.finishCapture(scan)

@@ -253,6 +253,7 @@ public final class ScanModel: Identifiable {
             remembered = []
         } else {
             scan.details = document.details
+            scan.isIssuerTyped = learned?.issuer != nil
         }
         if !scan.isNamedByUser, let first = names.first {
             let learnedName = learned?.name.map { FileNamer.finalName($0.name(details: document.details, date: document.details.date ?? date), fallback: first) }
@@ -383,6 +384,7 @@ public final class ScanModel: Identifiable {
             if restored.contains(.issuer) {
                 details.issuer = read.details.issuer
                 parts.issuer = read.parts.issuer
+                scan.isIssuerTyped = false
             }
             if restored.contains(.documentType) { details.documentType = read.details.documentType }
         }
@@ -422,22 +424,26 @@ public final class ScanModel: Identifiable {
     /// Whether corrections can be reused for the next documents from the same issuer.
     public var learnsIssuer: Bool { !scan.issuerKeys.isEmpty }
 
-    /// Changes the details, the issuer and document type named like the ones of the Paperless server they stand for;
-    /// a new issuer or document type is learned for the next document from the same issuer.
+    /// Changes the details, the issuer and document type named like the ones of the Paperless server they stand for, a changed issuer being typed;
+    /// a typed issuer or a new document type is learned for the next document from the same issuer.
     public func setDetails(_ details: DocumentDetails) {
-        let details = namedLikePaperless(details)
-        guard details != scan.details else { return }
         let old = scan.details
-        if details.issuer != old.issuer || details.documentType != old.documentType {
+        let typesIssuer = details.issuer != old.issuer
+        let isIssuerTyped = typesIssuer ? details.issuer != nil : scan.isIssuerTyped
+        let details = namedLikePaperless(details, issuerTolerance: isIssuerTyped ? .cosmetic : .related)
+        guard details != old || isIssuerTyped != scan.isIssuerTyped else { return }
+        let learnsIssuer = typesIssuer && details.issuer != old.issuer
+        if learnsIssuer || details.documentType != old.documentType {
             settings.learn(keys: scan.issuerKeys, label: details.issuer) { learned in
-                if details.issuer != old.issuer { learned.issuer = details.issuer }
+                if learnsIssuer { learned.issuer = details.issuer }
                 if details.documentType != old.documentType { learned.documentType = details.documentType }
             }
         }
-        if details.issuer != old.issuer { scan.remembered.remove(.issuer) }
+        if learnsIssuer { scan.remembered.remove(.issuer) }
         if details.documentType != old.documentType { scan.remembered.remove(.documentType) }
         resuggestNames(from: old, to: details)
         scan.details = details
+        scan.isIssuerTyped = isIssuerTyped
         scan.areDetailsEditedByUser = true
         applyFileName()
     }
@@ -514,7 +520,7 @@ public final class ScanModel: Identifiable {
     /// What archiving the scan adds to the owner's Paperless server: its issuer as a correspondent, its document type; none until the server's objects are read.
     public var newInPaperless: Set<PaperlessObjectKind> {
         var kinds = Set<PaperlessObjectKind>()
-        if let issuer = scan.details.issuer, let correspondents = paperless(owner, .correspondent), correspondents.match(issuer) == nil { kinds.insert(.correspondent) }
+        if let issuer = scan.details.issuer, let correspondents = paperless(owner, .correspondent), correspondents.match(issuer, tolerance: scan.issuerTolerance) == nil { kinds.insert(.correspondent) }
         if scan.details.documentType != .other, let documentTypes = paperless(owner, .documentType), documentTypes.match(scan.details.documentType.rawValue) == nil {
             kinds.insert(.documentType)
         }
@@ -543,9 +549,9 @@ public final class ScanModel: Identifiable {
     }
 
     /// The details with the issuer and document type named like the correspondent and document type of the owner's Paperless server they stand for, when there is one.
-    private func namedLikePaperless(_ details: DocumentDetails) -> DocumentDetails {
+    private func namedLikePaperless(_ details: DocumentDetails, issuerTolerance: PaperlessMatcher.Tolerance) -> DocumentDetails {
         var details = details
-        if let issuer = details.issuer, let name = paperless(owner, .correspondent)?.match(issuer)?.name { details.issuer = name }
+        if let issuer = details.issuer, let name = paperless(owner, .correspondent)?.match(issuer, tolerance: issuerTolerance)?.name { details.issuer = name }
         if details.documentType != .other, let name = paperless(owner, .documentType)?.match(details.documentType.rawValue)?.name, name != DocumentType.other.rawValue {
             details.documentType = DocumentType(name)
         }
@@ -556,7 +562,7 @@ public final class ScanModel: Identifiable {
     /// Returns whether they changed, for the caller to apply the file name.
     @discardableResult
     func nameLikePaperless() -> Bool {
-        let details = namedLikePaperless(scan.details)
+        let details = namedLikePaperless(scan.details, issuerTolerance: scan.issuerTolerance)
         guard details != scan.details else { return false }
         resuggestNames(from: scan.details, to: details)
         scan.details = details

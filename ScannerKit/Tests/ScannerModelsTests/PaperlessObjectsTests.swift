@@ -38,13 +38,7 @@ struct PaperlessObjectsTests {
 
     /// A scan whose first page reads as these lines from the top.
     private func scan(reading texts: [String]) async -> ScanModel {
-        let model = app.startScan()
-        let lines = texts.enumerated().map { TextLine(text: $1, frame: CGRect(x: 0.08, y: 0.04 + Double($0) * 0.03, width: 0.4, height: 0.012)) }
-        model.readDocument = { _, _, owners in DocumentDetector().detect(lines: lines, owners: owners) }
-        model.addPhoto(SyntheticPhoto.jpeg(), liveQuad: nil)
-        await model.waitUntilIdle()
-        app.finishCapture(model)
-        return model
+        await fixture.capturedScan(in: app, reading: texts)
     }
 
     @Test func readsTheObjectsOfTheConnectedOwnersOnly() async throws {
@@ -128,6 +122,56 @@ struct PaperlessObjectsTests {
         #expect(second.scan.remembered.contains(.issuer))
     }
 
+    @Test func keepsATypedIssuerThatOnlyHoldsACorrespondent() async throws {
+        try connect()
+        answer(correspondents: ["Lumen", "NorthwindLabs"])
+        await app.readPaperless()
+        let scan = await self.scan(reading: ["LUMEN ENERGY SAS", "Invoice"])
+        #expect(scan.scan.details.issuer == "Lumen", "An issuer read on the page takes the name it holds")
+
+        scan.setDetail(\.issuer, to: "Lumen Bank")
+        #expect(scan.scan.details.issuer == "Lumen Bank")
+        #expect(scan.newInPaperless.contains(.correspondent))
+        #expect(scan.issuerFooter(for: "Lumen Bank") == "New in Paperless: archiving adds this correspondent.")
+
+        scan.setDetail(\.issuer, to: "Northwind Labs SA")
+        #expect(scan.scan.details.issuer == "NorthwindLabs")
+        #expect(!scan.newInPaperless.contains(.correspondent))
+    }
+
+    @Test func aTypedIssuerKeepsItsNameWhenTheServerIsReadOrTheDateChanges() async throws {
+        try connect()
+        let scan = await self.scan(reading: ["LUMEN ENERGY SAS", "Invoice"])
+        scan.setDetail(\.issuer, to: "Lumen Bank")
+        answer(correspondents: ["Lumen"])
+        await app.readPaperless()
+        var details = scan.scan.details
+        details.date = Date(timeIntervalSince1970: 0)
+        scan.setDetails(details)
+        #expect(scan.scan.details.issuer == "Lumen Bank")
+        #expect(scan.scan.isIssuerTyped)
+    }
+
+    @Test func remembersATypedIssuerAsTypedForTheNextDocuments() async throws {
+        try connect()
+        answer(correspondents: ["Lumen"])
+        await app.readPaperless()
+        let first = await self.scan(reading: ["LUMEN ENERGY SAS", "Invoice"])
+        first.setDetail(\.issuer, to: "Lumen Bank")
+        #expect(fixture.settings.learnedIssuer(for: first.scan.issuerKeys)?.issuer == "Lumen Bank")
+
+        let second = await self.scan(reading: ["LUMEN ENERGY SAS", "Invoice"])
+        #expect(second.scan.details.issuer == "Lumen Bank")
+        #expect(second.scan.remembered.contains(.issuer))
+        #expect(second.newInPaperless.contains(.correspondent))
+
+        await app.readPaperless()
+        #expect(second.scan.details.issuer == "Lumen Bank", "Reading the server again does not take the name it holds")
+
+        second.forget([.issuer])
+        #expect(second.scan.details.issuer == "Lumen", "The issuer read on the page takes the name it holds again")
+    }
+
     @Test func tellsWhatArchivingAddsToTheServer() async throws {
         let scan = await self.scan(reading: ["LUMEN ENERGY SAS", "Invoice"])
         scan.setDetails(DocumentDetails(documentType: .payslip, issuer: "Northwind"))
@@ -152,7 +196,9 @@ struct PaperlessObjectsTests {
         answer(correspondents: ["Lumen", "Northwind Traders"], documentTypes: ["Invoice"])
         await app.readPaperless()
         #expect(scan.issuerFooter(for: "Lumen") == "In Paperless.")
-        #expect(scan.issuerFooter(for: "northwind") == "In Paperless as Northwind Traders.")
+        #expect(scan.issuerFooter(for: "northwind traders sas") == "In Paperless as Northwind Traders.")
+        #expect(scan.issuerFooter(for: "Northwind") == "New in Paperless: archiving adds this correspondent.")
+        #expect(scan.issuerFooter(for: "Lumen Bank") == "New in Paperless: archiving adds this correspondent.")
         #expect(scan.issuerFooter(for: "Fernwood") == "New in Paperless: archiving adds this correspondent.")
         #expect(scan.issuerFooter(for: " ") == unknown)
         #expect(scan.newDocumentTypeMessage == "Archiving adds it to Paperless.")
