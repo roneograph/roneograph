@@ -72,6 +72,25 @@ struct PageCleanerTests {
         #expect(abs(try await cleaner.analyze(straight).skewDegrees) < 0.3)
     }
 
+    @Test func keepsTheCornersOfATallPageItStraightens() throws {
+        let size = CGSize(width: 300, height: 1200), mark: CGFloat = 30, inset: CGFloat = 12
+        var page = CIImage(color: CIColor(red: 0.95, green: 0.95, blue: 0.93)).cropped(to: CGRect(origin: .zero, size: size))
+        for corner in [CGPoint(x: inset, y: inset), CGPoint(x: size.width - inset - mark, y: inset), CGPoint(x: inset, y: size.height - inset - mark), CGPoint(x: size.width - inset - mark, y: size.height - inset - mark)] {
+            page = CIImage(color: CIColor(red: 0.05, green: 0.05, blue: 0.05)).cropped(to: CGRect(origin: corner, size: CGSize(width: mark, height: mark))).composited(over: page)
+        }
+        var analysis = PageAnalysis.sample
+        analysis.skewDegrees = 3
+
+        let straight = cleaner.render(page, analysis: analysis, look: .gray)
+        let width = Int(straight.extent.width), height = Int(straight.extent.height)
+        var pixels = [UInt8](repeating: 0, count: width * height)
+        context.render(straight, toBitmap: &pixels, rowBytes: width, bounds: straight.extent, format: .L8, colorSpace: CGColorSpaceCreateDeviceGray())
+        let ink = pixels.filter { $0 < 128 }.count
+        #expect(abs(Double(ink) / Double(4 * mark * mark) - 1) < 0.1, "\(ink) dark pixels")
+        let corners = [0, width - 1, (height - 1) * width, height * width - 1].map { pixels[$0] }
+        #expect(corners.allSatisfy { $0 == 255 }, "corners \(corners)")
+    }
+
     @Test func measuresTheSkewOfAPageWithADarkStripAlongASide() async throws {
         let page = SyntheticPage(rotation: 3).render()
         let strip = CIImage(color: CIColor(red: 0.1, green: 0.1, blue: 0.1)).cropped(to: CGRect(x: 0, y: page.extent.height * 0.99, width: page.extent.width, height: page.extent.height * 0.01))

@@ -103,13 +103,12 @@ public struct PageCleaner: Sendable {
 
     public func render(_ page: CIImage, analysis: PageAnalysis, look: PageLook) -> CIImage {
         var image = page.atOrigin.oriented(analysis.orientation.imageOrientation).atOrigin
-        if abs(analysis.skewDegrees) >= minimumSkew {
-            image = rotated(image, degrees: -analysis.skewDegrees)
-        }
-
         let paper = analysis.pictureFraction >= pictureFractionForPaperColor ? paperColor(of: image) : background(of: image)
         image = whitePaper(divide(image, by: paper))
         image = whiteningEdges(of: image)
+        if abs(analysis.skewDegrees) >= minimumSkew {
+            image = rotated(image, degrees: -analysis.skewDegrees)
+        }
         switch look {
         case .color:
             break
@@ -303,12 +302,14 @@ public struct PageCleaner: Sendable {
 
     // MARK: Geometry
 
-    /// Rotates around the center, keeping the size; the corners are filled with the nearest edge.
+    /// Rotates a clean page on white paper large enough to keep all of it.
     private func rotated(_ image: CIImage, degrees: Double) -> CIImage {
-        let extent = image.extent
-        let transform = CGAffineTransform(translationX: extent.midX, y: extent.midY)
-            .rotated(by: degrees * .pi / 180)
-            .translatedBy(x: -extent.midX, y: -extent.midY)
-        return image.clampedToExtent().transformed(by: transform).cropped(to: extent)
+        let rotation = CGAffineTransform(rotationAngle: degrees * .pi / 180)
+        let page = CIImage(color: .white).cropped(to: image.extent).transformed(by: rotation)
+        let extent = page.extent.insetBy(dx: 0.5, dy: 0.5).integral
+        let white = CIImage(color: .white).cropped(to: extent)
+        return image.clampedToExtent().transformed(by: rotation)
+            .applyingFilter("CIBlendWithMask", parameters: [kCIInputBackgroundImageKey: white, kCIInputMaskImageKey: page])
+            .cropped(to: extent).atOrigin
     }
 }
