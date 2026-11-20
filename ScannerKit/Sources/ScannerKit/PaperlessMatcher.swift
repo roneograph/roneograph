@@ -18,7 +18,7 @@ public struct PaperlessMatcher: Sendable {
     public var objects: [PaperlessObject] { entries.map(\.object) }
 
     /// The object named like `name` whatever its case, else the only one with the same words, else the only one with the same letters once its words are joined,
-    /// else the only one whose words hold or are held by its words.
+    /// else the only one whose words hold or are held by its words; among names all held by `name` and nested in one another, the one holding the others.
     public func match(_ name: String) -> PaperlessObject? {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return nil }
@@ -35,7 +35,8 @@ public struct PaperlessMatcher: Sendable {
             let (part, whole) = entry.words.count < words.count ? (entry.words, words) : (words, entry.words)
             return Self.isDistinctive(part) && Self.contains(whole, part)
         }
-        return related.count == 1 ? related[0].object : nil
+        if related.count == 1 { return related[0].object }
+        return Self.widest(related, heldBy: words)?.object
     }
 
     /// The objects to offer for a typed name, best first: the one it matches, then the names starting like it, the names with words starting like each of its words,
@@ -56,6 +57,15 @@ public struct PaperlessMatcher: Sendable {
             .sorted { $0.rank != $1.rank ? $0.rank < $1.rank : $0.object.name.localizedStandardCompare($1.object.name) == .orderedAscending }
             .prefix(limit)
             .map(\.object)
+    }
+
+    /// The name holding every other one, when they are all held by `words`, as "Fernwood Cloud Services" over "Fernwood" for "Fernwood Cloud Services EMEA";
+    /// nil when two of them are not nested, or when one holds `words`.
+    private static func widest(_ entries: [Entry], heldBy words: [String]) -> Entry? {
+        guard entries.allSatisfy({ $0.words.count < words.count }), let widest = entries.max(by: { $0.words.count < $1.words.count }) else { return nil }
+        let others = entries.filter { $0.object != widest.object }
+        guard others.allSatisfy({ $0.words != widest.words && contains(widest.words, $0.words) }) else { return nil }
+        return widest
     }
 
     static let legalForms = OwnerMatcher.legalForms.union(DocumentVocabulary.legalForms)

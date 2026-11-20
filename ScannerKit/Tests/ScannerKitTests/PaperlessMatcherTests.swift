@@ -44,6 +44,9 @@ struct PaperlessMatcherTests {
         #expect(matcher("Taxi", "V7").match("Taxi V7") == nil)
         #expect(matcher("Lumen Store", "Lumen Music").match("Lumen") == nil)
         #expect(matcher("Lumen SA", "Lumen Inc").match("Lumen SARL") == nil)
+        #expect(matcher("Lumen", "Lumen Energy Services").match("Lumen Energy") == nil)
+        #expect(matcher("Fernwood", "Fernwood Cloud", "Cloud Bank").match("Fernwood Cloud Bank") == nil)
+        #expect(matcher("Fernwood Cloud", "Fernwood Cloud SA").match("Fernwood Cloud Services") == nil)
     }
 
     @Test(arguments: [("Northwind Labs", "NorthwindLabs"), ("NorthwindLabs", "Northwind Labs"), ("Open Lumen SAS", "OpenLumen"), ("Volt-Aria", "Voltaria")])
@@ -53,6 +56,12 @@ struct PaperlessMatcherTests {
 
     @Test func refusesSeveralNamesWithTheSameLettersJoined() {
         #expect(matcher("Northwind Labs", "North Wind Labs").match("NorthwindLabs") == nil)
+    }
+
+    @Test func picksTheMostSpecificOfNestedNamesTheIssuerHolds() {
+        let matcher = matcher("Fernwood", "Fernwood Cloud Services", "Fernwood Cloud", "Lumen")
+        #expect(matcher.match("Fernwood Cloud Services EMEA SARL")?.name == "Fernwood Cloud Services")
+        #expect(matcher.match("Fernwood Cloud Paris")?.name == "Fernwood Cloud")
     }
 
     @Test func prefersTheSameWordsToANameHoldingThem() {
