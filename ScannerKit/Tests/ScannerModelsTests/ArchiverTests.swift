@@ -158,7 +158,7 @@ struct ArchiverTests {
 
         try await app.archive([scan])
         let created = try #require(server.requests(to: "/api/document_types/").last)
-        #expect(String(decoding: created.httpBody ?? Data(), as: UTF8.self) == #"{"matching_algorithm":0,"name":"Payslip"}"#)
+        #expect(String(decoding: created.httpBody ?? Data(), as: UTF8.self) == #"{"matching_algorithm":6,"name":"Payslip"}"#)
         #expect(String(decoding: try #require(uploader.uploads.first).body, as: UTF8.self).contains("name=\"document_type\"\r\n\r\n8\r\n"))
     }
 
@@ -261,7 +261,7 @@ struct ArchiverTests {
         try await app.archive([scan])
         let created = try #require(server.requests(to: "/api/correspondents/").last)
         #expect(created.httpMethod == "POST")
-        #expect(String(decoding: created.httpBody ?? Data(), as: UTF8.self) == #"{"matching_algorithm":0,"name":"Lumen Energy"}"#)
+        #expect(String(decoding: created.httpBody ?? Data(), as: UTF8.self) == #"{"matching_algorithm":6,"name":"Lumen Energy"}"#)
         #expect(String(decoding: try #require(uploader.uploads.first).body, as: UTF8.self).contains("name=\"correspondent\"\r\n\r\n11\r\n"))
     }
 

@@ -39,13 +39,13 @@ struct PaperlessTests {
         #expect(try Paperless.idsByLowercasedName(from: Data(json.utf8)) == ["bank statement": 4, "invoice": 2])
     }
 
-    @Test func createsADocumentTypePaperlessNeverAssignsByItself() throws {
+    @Test func createsADocumentTypeWithAutoMatching() throws {
         let request = Paperless.createDocumentTypeRequest(server: URL(string: "https://example.com/")!, token: "abc", name: "Payslip")
         #expect(request.url?.absoluteString == "https://example.com/api/document_types/")
         #expect(request.httpMethod == "POST")
         #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Token abc")
-        #expect(String(decoding: request.httpBody ?? Data(), as: UTF8.self) == #"{"matching_algorithm":0,"name":"Payslip"}"#)
+        #expect(String(decoding: request.httpBody ?? Data(), as: UTF8.self) == #"{"matching_algorithm":6,"name":"Payslip"}"#)
         #expect(try Paperless.createdID(from: Data(#"{"id": 9, "name": "Payslip", "slug": "payslip"}"#.utf8)) == 9)
     }
 
@@ -57,13 +57,13 @@ struct PaperlessTests {
         #expect(try Paperless.idsByLowercasedName(from: Data(json.utf8)) == ["lumen energy": 4, "acme": 2])
     }
 
-    @Test func createsACorrespondentPaperlessNeverAssignsByItself() {
+    @Test func createsACorrespondentWithAutoMatching() {
         let request = Paperless.createCorrespondentRequest(server: URL(string: "https://example.com/")!, token: "abc", name: "Lumen Energy")
         #expect(request.url?.absoluteString == "https://example.com/api/correspondents/")
         #expect(request.httpMethod == "POST")
         #expect(request.value(forHTTPHeaderField: "Content-Type") == "application/json")
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Token abc")
-        #expect(String(decoding: request.httpBody ?? Data(), as: UTF8.self) == #"{"matching_algorithm":0,"name":"Lumen Energy"}"#)
+        #expect(String(decoding: request.httpBody ?? Data(), as: UTF8.self) == #"{"matching_algorithm":6,"name":"Lumen Energy"}"#)
     }
 
     @Test func sendsTheCorrespondent() {

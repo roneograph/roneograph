@@ -68,15 +68,18 @@ public enum Paperless {
         return Dictionary(objects.map { ($0.name.lowercased(), $0.id) }) { first, _ in first }
     }
 
-    /// Creates a document type that Paperless never assigns by itself, so only the documents sent with it get it.
+    /// Creates a document type with Auto matching, so Paperless also learns to assign it to the documents that come another way.
     public static func createDocumentTypeRequest(server: URL, token: String, name: String) -> URLRequest {
-        createRequest("api/document_types/", server: server, token: token, json: ["name": name, "matching_algorithm": 0])
+        createRequest("api/document_types/", server: server, token: token, json: ["name": name, "matching_algorithm": autoMatching])
     }
 
-    /// Creates a correspondent that Paperless never assigns by itself, so only the documents sent with it get it.
+    /// Creates a correspondent with Auto matching, so Paperless also learns to assign it to the documents that come another way.
     public static func createCorrespondentRequest(server: URL, token: String, name: String) -> URLRequest {
-        createRequest("api/correspondents/", server: server, token: token, json: ["name": name, "matching_algorithm": 0])
+        createRequest("api/correspondents/", server: server, token: token, json: ["name": name, "matching_algorithm": autoMatching])
     }
+
+    /// The matching algorithm by which Paperless-ngx learns from the documents it has which ones an object goes to.
+    static let autoMatching = 6
 
     public static func customFieldsRequest(server: URL, token: String) -> URLRequest {
         listRequest("api/custom_fields/", server: server, token: token)
