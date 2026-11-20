@@ -23,6 +23,17 @@ public struct PaperlessStoragePath: Identifiable, Hashable, Sendable, Codable {
     }
 }
 
+/// A document type or a correspondent of a Paperless-ngx server.
+public struct PaperlessObject: Identifiable, Hashable, Sendable, Codable {
+    public let id: Int
+    public var name: String
+
+    public init(id: Int, name: String) {
+        self.id = id
+        self.name = name
+    }
+}
+
 /// The parts of the Paperless-ngx REST API Roneograph uses: listing storage paths, finding or creating document types, correspondents and custom fields, and uploading a document.
 public enum Paperless {
     /// Supported by Paperless-ngx 2.x and 3.x.
