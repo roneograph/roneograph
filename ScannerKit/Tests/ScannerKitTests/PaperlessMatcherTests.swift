@@ -46,6 +46,15 @@ struct PaperlessMatcherTests {
         #expect(matcher("Lumen SA", "Lumen Inc").match("Lumen SARL") == nil)
     }
 
+    @Test(arguments: [("Northwind Labs", "NorthwindLabs"), ("NorthwindLabs", "Northwind Labs"), ("Open Lumen SAS", "OpenLumen"), ("Volt-Aria", "Voltaria")])
+    func matchesTheSameWordsJoinedOrSplit(name: String, expected: String) {
+        #expect(matcher("Northwind", expected, "Lumen").match(name)?.name == expected)
+    }
+
+    @Test func refusesSeveralNamesWithTheSameLettersJoined() {
+        #expect(matcher("Northwind Labs", "North Wind Labs").match("NorthwindLabs") == nil)
+    }
+
     @Test func prefersTheSameWordsToANameHoldingThem() {
         #expect(matcher("Lumen", "Lumen SAS Services").match("Lumen Ltd")?.name == "Lumen")
     }

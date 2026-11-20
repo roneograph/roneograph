@@ -17,7 +17,8 @@ public struct PaperlessMatcher: Sendable {
 
     public var objects: [PaperlessObject] { entries.map(\.object) }
 
-    /// The object named like `name` whatever its case, else the only one with the same words, else the only one whose words hold or are held by its words.
+    /// The object named like `name` whatever its case, else the only one with the same words, else the only one with the same letters once its words are joined,
+    /// else the only one whose words hold or are held by its words.
     public func match(_ name: String) -> PaperlessObject? {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return nil }
@@ -27,6 +28,8 @@ public struct PaperlessMatcher: Sendable {
         guard !words.isEmpty else { return nil }
         let equal = entries.filter { $0.words == words }
         if !equal.isEmpty { return equal.count == 1 ? equal[0].object : nil }
+        let joined = entries.filter { $0.words.joined() == words.joined() }
+        if !joined.isEmpty { return joined.count == 1 ? joined[0].object : nil }
         let related = entries.filter { entry in
             guard !entry.words.isEmpty else { return false }
             let (part, whole) = entry.words.count < words.count ? (entry.words, words) : (words, entry.words)
