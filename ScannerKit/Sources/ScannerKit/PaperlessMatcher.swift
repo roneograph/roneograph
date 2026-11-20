@@ -1,6 +1,6 @@
 import Foundation
 
-/// Finds the correspondent or document type of a Paperless-ngx server a name stands for, so an issuer read as "Taxi G7" reuses the "G7" correspondent instead of adding another one.
+/// Finds the correspondent or document type of a Paperless-ngx server a name stands for, so an issuer read as "Taxi V7" reuses the "V7" correspondent instead of adding another one.
 /// Case, accents, punctuation and legal forms never matter; otherwise, one name must hold the other as a whole sequence of words.
 /// It refuses rather than guesses: a name too short to tell, or several objects that could be meant, matches none.
 public struct PaperlessMatcher: Sendable {
@@ -64,7 +64,7 @@ public struct PaperlessMatcher: Sendable {
         return core.isEmpty ? words : core
     }
 
-    /// Long enough not to be found by chance in another name: three letters or digits, or two mixing a letter and a digit, as "G7";
+    /// Long enough not to be found by chance in another name: three letters or digits, or two mixing a letter and a digit, as "V7";
     /// never only generic words such as "Group" or "and".
     static func isDistinctive(_ words: [String]) -> Bool {
         guard !words.allSatisfy({ OwnerMatcher.genericWords.contains($0) || OwnerMatcher.connectors.contains($0) }) else { return false }
