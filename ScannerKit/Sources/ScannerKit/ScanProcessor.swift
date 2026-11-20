@@ -5,6 +5,7 @@ import Foundation
 public struct ScanProcessor: Sendable {
     public let store: ScanStore
     private let extractor: PageExtractor
+    private let unwarper: PageUnwarper
     private let cleaner: PageCleaner
     private let writer: PDFWriter
     private let readText: @Sendable (CIImage) async throws -> [TextLine]
@@ -23,6 +24,7 @@ public struct ScanProcessor: Sendable {
         self.paper = paper
         gate = ProcessingGate(background: background)
         extractor = PageExtractor(context: context)
+        unwarper = PageUnwarper(context: context)
         cleaner = PageCleaner(context: context)
         writer = PDFWriter(context: context)
         self.readText = readText
@@ -57,12 +59,18 @@ public struct ScanProcessor: Sendable {
 
     /// Cuts the page out of the photo, then saves the flat page and its preview for the page `makePage` builds from the analysis.
     private func flatten(_ photo: CIImage, quad: Quad?, scanID: UUID, makePage: (PageAnalysis) -> ScanPage) async throws -> ScanPage {
-        let flat = quad.map { extractor.correct(photo, quad: $0) } ?? photo
+        let flat = if let quad { await unwarp(photo, quad: quad) } else { photo }
         let page = makePage(try await cleaner.analyze(flat))
         guard let data = extractor.jpegData(of: flat, quality: 0.9) else { throw ProcessingError.cannotEncode }
         try data.write(to: store.flatURL(scanID: scanID, page: page), options: .atomic)
         try writePreview(of: page, scanID: scanID, flat: flat)
         return page
+    }
+
+    /// The page flattened by the network, in the proportions the outline gives, or only straightened from its corners when the network cannot run.
+    private func unwarp(_ photo: CIImage, quad: Quad) async -> CIImage {
+        let corrected = extractor.correct(photo, quad: quad)
+        return await unwarper.unwarp(photo, quad: quad, size: corrected.extent.size) ?? corrected
     }
 
     /// Writes the small cleaned image shown in the app, after any change to the page.
